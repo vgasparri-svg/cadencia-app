@@ -20,6 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg:#14181B;
@@ -507,6 +508,33 @@
   .nav-btn span{font-size:9.5px; font-family:var(--font-mono);}
   .nav-btn.active{color:var(--safety);}
 
+  /* auth bar */
+  .authbar{
+    margin:0 16px 14px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius-md);
+    padding:12px 14px;
+  }
+  .authbar.hidden{display:none;}
+  .authbar-row{display:flex; gap:8px;}
+  .authbar input{
+    flex:1; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:100px; padding:9px 14px; color:var(--text);
+    font-family:var(--font-body); font-size:12.5px;
+  }
+  .authbar button{
+    background:var(--safety); color:#141A0A; font-family:var(--font-display);
+    font-weight:700; font-size:12px; padding:9px 15px; border-radius:100px;
+    white-space:nowrap;
+  }
+  .authbar p{font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.4;}
+  .authbar.logged{
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+  }
+  .authbar.logged span{font-size:12px; flex:1;}
+  .authbar.logged button{background:none; border:1px solid var(--line); color:var(--text-muted); font-weight:600;}
+
   @media (prefers-reduced-motion: reduce){
     *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
   }
@@ -531,6 +559,14 @@
   </div>
 
   <div class="screen">
+
+    <div class="authbar" id="authbar">
+      <div class="authbar-row">
+        <input type="email" id="authEmail" placeholder="seu e-mail para entrar">
+        <button id="btnAuthSend">Entrar</button>
+      </div>
+      <p>Você recebe um link mágico por e-mail — sem senha. Precisa estar logado pra postar e reportar.</p>
+    </div>
 
     <!-- ===================== MAPA ===================== -->
     <section class="view active" id="view-mapa">
@@ -569,7 +605,7 @@
       <div class="section">
         <div class="section-head"><h2>Últimos alertas</h2><span class="count">2 ativos</span></div>
       </div>
-      <div style="padding:0 16px;">
+      <div style="padding:0 16px;" id="alertasList">
         <div class="post">
           <div class="post-head">
             <div class="avatar">RB</div>
@@ -766,6 +802,18 @@
 <script>
 (function(){
 
+  // ============================================================
+  // CONFIGURAÇÃO SUPABASE — troque pelos dados do SEU projeto
+  // (Project Settings → API, no painel do Supabase)
+  // ============================================================
+  const SUPABASE_URL = 'COLE_AQUI_A_URL_DO_SEU_PROJETO';
+  const SUPABASE_ANON_KEY = 'COLE_AQUI_A_CHAVE_ANON_PUBLIC';
+
+  const supabaseReady = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
+  const sb = supabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  let currentUser = null; // { id, email }
+
   // ---------- nav switching ----------
   const views = document.querySelectorAll('.view');
   const navBtns = document.querySelectorAll('.nav-btn');
@@ -787,6 +835,67 @@
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(()=>toast.classList.remove('show'), 2600);
+  }
+
+  // ============================================================
+  // AUTENTICAÇÃO — link mágico por e-mail (sem senha)
+  // ============================================================
+  const authbar = document.getElementById('authbar');
+
+  function renderAuthbar(){
+    if(!supabaseReady){
+      authbar.innerHTML = '<p>⚠️ Configure SUPABASE_URL e SUPABASE_ANON_KEY no código para ativar login, feed e reports em tempo real.</p>';
+      authbar.classList.remove('logged');
+      return;
+    }
+    if(currentUser){
+      authbar.classList.add('logged');
+      authbar.innerHTML = `<span>Logado como <strong>${currentUser.email}</strong></span><button id="btnLogout">Sair</button>`;
+      document.getElementById('btnLogout').addEventListener('click', async ()=>{
+        await sb.auth.signOut();
+        currentUser = null;
+        renderAuthbar();
+        showToast('Você saiu da sua conta');
+      });
+    } else {
+      authbar.classList.remove('logged');
+      authbar.innerHTML = `
+        <div class="authbar-row">
+          <input type="email" id="authEmail" placeholder="seu e-mail para entrar">
+          <button id="btnAuthSend">Entrar</button>
+        </div>
+        <p>Você recebe um link mágico por e-mail — sem senha. Precisa estar logado pra postar e reportar.</p>`;
+      document.getElementById('btnAuthSend').addEventListener('click', enviarLinkMagico);
+    }
+  }
+
+  async function enviarLinkMagico(){
+    const email = document.getElementById('authEmail').value.trim();
+    if(!email || !email.includes('@')){ showToast('Digite um e-mail válido'); return; }
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href }
+    });
+    if(error){ showToast('Erro ao enviar: ' + error.message); return; }
+    showToast('Link enviado — confira seu e-mail');
+  }
+
+  async function initAuth(){
+    if(!supabaseReady){ renderAuthbar(); return; }
+    const { data: { session } } = await sb.auth.getSession();
+    if(session?.user){ currentUser = { id: session.user.id, email: session.user.email }; }
+    renderAuthbar();
+    sb.auth.onAuthStateChange((_event, session) => {
+      currentUser = session?.user ? { id: session.user.id, email: session.user.email } : null;
+      renderAuthbar();
+      if(currentUser) carregarFeed();
+    });
+  }
+
+  function exigirLogin(){
+    if(!supabaseReady){ showToast('Configure o Supabase primeiro (veja o topo do app)'); return false; }
+    if(!currentUser){ showToast('Entre com seu e-mail para continuar'); return false; }
+    return true;
   }
 
   // ---------- report modal ----------
@@ -812,44 +921,169 @@
     opt.classList.add('selected');
     selectedTipo = opt.dataset.tipo;
   });
-  document.getElementById('btnSendReport').addEventListener('click', ()=>{
+  document.getElementById('btnSendReport').addEventListener('click', async ()=>{
     if(!selectedTipo){ showToast('Selecione o tipo de ocorrência'); return; }
-    closeModal();
-    showToast('Report enviado · rascunho de B.O. gerado');
+    if(!exigirLogin()) return;
+
+    const descricao = document.getElementById('incidentDesc').value.trim() || null;
+    showToast('Obtendo sua localização…');
+
+    navigator.geolocation.getCurrentPosition(async (pos)=>{
+      const { latitude, longitude } = pos.coords;
+      await enviarOcorrencia(selectedTipo, descricao, latitude, longitude);
+    }, async ()=>{
+      // sem permissão de localização: usa um ponto padrão no Rio (Aterro do Flamengo)
+      await enviarOcorrencia(selectedTipo, descricao, -22.9245, -43.1729);
+    }, { timeout: 8000 });
   });
 
-  // ---------- comunidade: post & like ----------
-  document.getElementById('btnPost').addEventListener('click', ()=>{
-    const input = document.getElementById('postInput');
-    if(!input.value.trim()) return;
+  async function enviarOcorrencia(tipo, descricao, latitude, longitude){
+    const { error } = await sb.from('ocorrencias').insert({
+      autor_id: currentUser.id, tipo, descricao, latitude, longitude
+    });
+    closeModal();
+    if(error){ showToast('Erro ao enviar: ' + error.message); return; }
+    showToast('Report enviado · rascunho de B.O. gerado');
+  }
+
+  function renderOcorrencia(o){
     const el = document.createElement('div');
     el.className = 'post';
+    const quando = new Date(o.criado_em).toLocaleString('pt-BR', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short'});
     el.innerHTML = `
       <div class="post-head">
-        <div class="avatar">VG</div>
-        <div><div class="who">Você</div><div class="when">agora</div></div>
-        <span class="post-tag">Novo</span>
+        <div class="avatar">${(o.usuarios?.nome || 'CI').slice(0,2).toUpperCase()}</div>
+        <div><div class="who">${o.usuarios?.nome || 'Ciclista'}</div><div class="when">${quando}</div></div>
+        <span class="post-tag alerta">${o.tipo}</span>
       </div>
-      <p>${input.value.replace(/</g,'&lt;')}</p>
-      <div class="post-actions">
-        <button class="like-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg> 0</button>
-        <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 0</button>
-      </div>`;
-    document.getElementById('feedList').prepend(el);
+      <p>${o.descricao ? o.descricao.replace(/</g,'&lt;') : 'Sem descrição adicional.'}</p>`;
+    document.getElementById('alertasList')?.prepend(el);
+  }
+
+  async function carregarOcorrencias(){
+    if(!supabaseReady) return;
+    const { data, error } = await sb
+      .from('ocorrencias')
+      .select('*, usuarios(nome)')
+      .order('criado_em', { ascending: false })
+      .limit(10);
+    if(error || !data) return;
+    const list = document.getElementById('alertasList');
+    if(list) list.innerHTML = '';
+    data.forEach(renderOcorrencia);
+  }
+
+  function assinarOcorrenciasRealtime(){
+    if(!supabaseReady) return;
+    sb.channel('ocorrencias-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ocorrencias' }, async (payload)=>{
+        const { data } = await sb.from('usuarios').select('nome').eq('id', payload.new.autor_id).single();
+        renderOcorrencia({ ...payload.new, usuarios: data });
+        showToast('Novo alerta na sua região');
+      })
+      .subscribe();
+  }
+
+  // ---------- comunidade: post & like (Supabase) ----------
+  const likeIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>`;
+  const commentIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+
+  document.getElementById('btnPost').addEventListener('click', async ()=>{
+    const input = document.getElementById('postInput');
+    if(!input.value.trim()) return;
+    if(!exigirLogin()) return;
+    const { error } = await sb.from('posts').insert({ autor_id: currentUser.id, conteudo: input.value.trim(), tag: 'Novo' });
+    if(error){ showToast('Erro ao postar: ' + error.message); return; }
     input.value = '';
     showToast('Postado no feed da comunidade');
   });
-  document.getElementById('feedList').addEventListener('click', (e)=>{
+
+  document.getElementById('feedList').addEventListener('click', async (e)=>{
     const btn = e.target.closest('.like-btn');
     if(!btn) return;
-    const n = btn.textContent.trim().match(/\d+/);
-    const count = n ? parseInt(n[0]) : 0;
-    btn.classList.toggle('liked');
-    btn.lastChild.textContent = ' ' + (btn.classList.contains('liked') ? count+1 : count-1);
+    if(!exigirLogin()) return;
+    const postId = btn.dataset.postId;
+    const jaCurtiu = btn.classList.contains('liked');
+    if(jaCurtiu){
+      await sb.from('curtidas').delete().eq('post_id', postId).eq('usuario_id', currentUser.id);
+    } else {
+      await sb.from('curtidas').insert({ post_id: postId, usuario_id: currentUser.id });
+    }
   });
 
+  function tempoRelativo(iso){
+    const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if(diffMin < 1) return 'agora';
+    if(diffMin < 60) return `há ${diffMin} min`;
+    const diffH = Math.round(diffMin/60);
+    if(diffH < 24) return `há ${diffH}h`;
+    return `há ${Math.round(diffH/24)}d`;
+  }
+
+  async function renderPostEl(post){
+    const { count } = await sb.from('curtidas').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
+    const jaCurtiu = currentUser ? !!(await sb.from('curtidas').select('*').eq('post_id', post.id).eq('usuario_id', currentUser.id).maybeSingle()).data : false;
+    const el = document.createElement('div');
+    el.className = 'post';
+    el.dataset.postId = post.id;
+    el.innerHTML = `
+      <div class="post-head">
+        <div class="avatar">${(post.usuarios?.nome || 'CI').slice(0,2).toUpperCase()}</div>
+        <div><div class="who">${post.usuarios?.nome || 'Ciclista'}</div><div class="when">${tempoRelativo(post.criado_em)}</div></div>
+        <span class="post-tag">${post.tag || 'Geral'}</span>
+      </div>
+      <p>${post.conteudo.replace(/</g,'&lt;')}</p>
+      <div class="post-actions">
+        <button class="like-btn ${jaCurtiu?'liked':''}" data-post-id="${post.id}">${likeIcon} <span class="like-count">${count || 0}</span></button>
+        <button>${commentIcon} 0</button>
+      </div>`;
+    return el;
+  }
+
+  async function carregarFeed(){
+    if(!supabaseReady) return;
+    const { data, error } = await sb
+      .from('posts')
+      .select('*, usuarios(nome)')
+      .order('criado_em', { ascending: false })
+      .limit(20);
+    if(error || !data) return;
+    const feedList = document.getElementById('feedList');
+    feedList.innerHTML = '';
+    for(const post of data){ feedList.appendChild(await renderPostEl(post)); }
+  }
+
+  function assinarFeedRealtime(){
+    if(!supabaseReady) return;
+    sb.channel('posts-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload)=>{
+        if(payload.new.autor_id === currentUser?.id) return; // já foi renderizado localmente ao postar? -> vamos recarregar simples
+        const { data } = await sb.from('usuarios').select('nome').eq('id', payload.new.autor_id).single();
+        const el = await renderPostEl({ ...payload.new, usuarios: data });
+        document.getElementById('feedList').prepend(el);
+      })
+      .subscribe();
+
+    sb.channel('curtidas-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'curtidas' }, async (payload)=>{
+        const postId = payload.new?.post_id || payload.old?.post_id;
+        const postEl = document.querySelector(`.post[data-post-id="${postId}"]`);
+        if(!postEl) return;
+        const { count } = await sb.from('curtidas').select('*', { count: 'exact', head: true }).eq('post_id', postId);
+        postEl.querySelector('.like-count').textContent = count || 0;
+        if(payload.new?.usuario_id === currentUser?.id) postEl.querySelector('.like-btn').classList.add('liked');
+        if(payload.eventType === 'DELETE' && payload.old?.usuario_id === currentUser?.id) postEl.querySelector('.like-btn').classList.remove('liked');
+      })
+      .subscribe();
+  }
+
+  // meu próprio post/curtida também precisa recarregar a lista pra refletir na hora
+  if(supabaseReady){
+    setInterval(()=>{ if(document.getElementById('view-comunidade').classList.contains('active')) carregarFeed(); }, 15000);
+  }
+
   // ---------- assessorias ----------
-  const assessorias = [
+  let assessorias = [
     {tipo:'assessoria', nome:'Rio Pedal Team', bairro:'Aterro do Flamengo', foco:'Estrada · pelotão', nota:'4.8', desc:'Treinos em grupo de terça a domingo, com apoio de carro-guia nos pedais longos.'},
     {tipo:'assessoria', nome:'Carioca MTB Clube', bairro:'Zona Oeste', foco:'Mountain bike', nota:'4.6', desc:'Trilhas guiadas na Pedra Branca, foco em técnica de descida.'},
     {tipo:'assessoria', nome:'TriRio Endurance', bairro:'Barra da Tijuca', foco:'Triathlon · estrada', nota:'4.9', desc:'Planilhas de potência personalizadas e testes de FTP mensais.'},
@@ -857,6 +1091,14 @@
     {tipo:'oficina', nome:'Oficina do Seu Ari', bairro:'Botafogo', foco:'Manutenção geral', nota:'4.9', desc:'Referência em ajuste de câmbio e revisão completa, atende no mesmo dia.'},
     {tipo:'oficina', nome:'BikeFix Copacabana', bairro:'Copacabana', foco:'Bike fit · manutenção', nota:'4.5', desc:'Estúdio de bike fit com análise de pedalada em vídeo.'}
   ];
+
+  async function carregarAssessorias(){
+    if(!supabaseReady) return;
+    const { data, error } = await sb.from('assessorias').select('*').order('nome');
+    if(error || !data || !data.length) return;
+    assessorias = data.map(a => ({ tipo:a.tipo, nome:a.nome, bairro:a.bairro, foco:a.foco, nota:'—', desc:a.descricao }));
+    renderAssessorias(document.querySelector('#assessoriaChips .chip.active')?.dataset.filter || 'todos');
+  }
 
   const iconAssessoria = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const iconOficina = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 0 1 5 5l-6.6 6.6a2 2 0 0 1-2.8 0L4.3 12a4 4 0 0 1 5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -948,6 +1190,15 @@
     logs.unshift({nome:'Pedal de hoje', data:'agora', km:(Math.random()*30+15).toFixed(1), tempo:'—', pwr: Math.round(Math.random()*40+160)});
     renderLogs();
     showToast('Pedal registrado no histórico');
+  });
+
+  // ---------- inicialização Supabase ----------
+  initAuth().then(()=>{
+    carregarFeed();
+    carregarOcorrencias();
+    carregarAssessorias();
+    assinarFeedRealtime();
+    assinarOcorrenciasRealtime();
   });
 
 })();
