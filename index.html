@@ -446,6 +446,31 @@
   .toggle.on{background:rgba(201,255,61,0.22); border-color:var(--safety);}
   .toggle.on::after{left:20px; background:var(--safety);}
 
+  .intervals-box{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius-md); padding:16px; margin-bottom:18px;
+  }
+  .intervals-head{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .intervals-head h4{font-size:13px; font-weight:600;}
+  .intervals-desc{font-size:12px; color:var(--text-muted); margin-bottom:10px; line-height:1.4;}
+  .intervals-box input{
+    width:100%; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:var(--radius-sm); padding:10px 12px; color:var(--text);
+    font-family:var(--font-body); font-size:13px; margin-bottom:8px;
+  }
+  #btnIntervalsConectar, #btnIntervalsSincronizar{
+    width:100%; background:var(--route); color:#0B2833; font-family:var(--font-display);
+    font-weight:700; font-size:13px; padding:11px; border-radius:100px;
+  }
+  .intervals-actions{display:flex; gap:8px;}
+  .intervals-actions button{flex:1;}
+  .intervals-btn-secondary{
+    background:none !important; border:1px solid var(--line); color:var(--text-muted) !important;
+  }
+  .intervals-status{font-size:11.5px; color:var(--text-muted); margin-top:8px; line-height:1.4;}
+  .intervals-status.success{color:var(--safety);}
+  .intervals-status.error{color:var(--alert);}
+
   .log-list{border-top:1px solid var(--line);}
   .log-item{
     display:flex; justify-content:space-between; align-items:center;
@@ -868,6 +893,27 @@
           <button class="toggle" id="liveToggle"></button>
         </div>
 
+        <div class="intervals-box" id="intervalsBox">
+          <div class="intervals-head">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--route)" stroke-width="2"><path d="M22 12h-4l-3 9-6-18-3 9H2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h4>Intervals.icu</h4>
+          </div>
+          <div id="intervalsDisconnected">
+            <p class="intervals-desc">Conecte sua conta pra importar seus pedais automaticamente.</p>
+            <input type="text" id="intervalsAthleteId" placeholder="Athlete ID (ex: i123456)">
+            <input type="text" id="intervalsApiKey" placeholder="API Key">
+            <button id="btnIntervalsConectar">Conectar</button>
+          </div>
+          <div id="intervalsConnected" class="hidden">
+            <p class="intervals-desc">Conectado como <strong id="intervalsAthleteLabel"></strong></p>
+            <div class="intervals-actions">
+              <button id="btnIntervalsSincronizar">Sincronizar agora</button>
+              <button id="btnIntervalsDesconectar" class="intervals-btn-secondary">Desconectar</button>
+            </div>
+          </div>
+          <p class="intervals-status" id="intervalsStatus"></p>
+        </div>
+
         <div class="section-head" style="margin-bottom:0;"><h2 style="font-size:14px;">Histórico</h2></div>
         <div class="log-list" id="logList"></div>
         <button class="add-log" id="btnAddLog">
@@ -1208,12 +1254,15 @@
     if(session?.user){ currentUser = { id: session.user.id, email: session.user.email, phone: session.user.phone }; }
     renderGateState();
     atualizarPerfilLogout();
+    if(currentUser){ renderEstadoIntervals(); carregarPedaisDoBanco(); }
     sb.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user ? { id: session.user.id, email: session.user.email, phone: session.user.phone } : null;
       renderGateState();
       atualizarPerfilLogout();
       if(currentUser){
         carregarFeed();
+        renderEstadoIntervals();
+        carregarPedaisDoBanco();
         showToast('Login realizado — bem-vindo(a)!');
         if(event === 'SIGNED_IN' && passkeyDisponivelNoClient()){
           setTimeout(async ()=>{
@@ -1875,6 +1924,112 @@
     renderLogs();
     showToast('Pedal registrado no histórico');
   });
+
+  // ---------- treino: integração com Intervals.icu ----------
+  const intervalsDisconnected = document.getElementById('intervalsDisconnected');
+  const intervalsConnected = document.getElementById('intervalsConnected');
+  const intervalsStatus = document.getElementById('intervalsStatus');
+  const btnIntervalsSincronizar = document.getElementById('btnIntervalsSincronizar');
+
+  function setIntervalsStatus(msg, tipo){
+    intervalsStatus.textContent = msg || '';
+    intervalsStatus.classList.remove('success', 'error');
+    if(tipo) intervalsStatus.classList.add(tipo);
+  }
+
+  function intervalsAuthHeader(apiKey){
+    return 'Basic ' + btoa('API_KEY:' + apiKey);
+  }
+
+  async function renderEstadoIntervals(){
+    if(!supabaseReady || !currentUser) return;
+    const { data } = await sb.from('usuarios').select('intervals_athlete_id, intervals_api_key').eq('id', currentUser.id).single();
+    if(data?.intervals_athlete_id && data?.intervals_api_key){
+      intervalsDisconnected.classList.add('hidden');
+      intervalsConnected.classList.remove('hidden');
+      document.getElementById('intervalsAthleteLabel').textContent = data.intervals_athlete_id;
+    } else {
+      intervalsDisconnected.classList.remove('hidden');
+      intervalsConnected.classList.add('hidden');
+    }
+  }
+
+  document.getElementById('btnIntervalsConectar').addEventListener('click', async ()=>{
+    if(!exigirLogin()) return;
+    const athleteId = document.getElementById('intervalsAthleteId').value.trim();
+    const apiKey = document.getElementById('intervalsApiKey').value.trim();
+    if(!athleteId || !apiKey){ setIntervalsStatus('Preencha o Athlete ID e a API Key.', 'error'); return; }
+    setIntervalsStatus('Verificando conexão…');
+    try{
+      const resp = await fetch(`https://intervals.icu/api/v1/athlete/${encodeURIComponent(athleteId)}`, {
+        headers: { 'Authorization': intervalsAuthHeader(apiKey) }
+      });
+      if(!resp.ok){
+        setIntervalsStatus(resp.status === 401 ? 'Athlete ID ou API Key incorretos.' : `Erro ao conectar (${resp.status}).`, 'error');
+        return;
+      }
+      await sb.from('usuarios').update({ intervals_athlete_id: athleteId, intervals_api_key: apiKey }).eq('id', currentUser.id);
+      setIntervalsStatus('Conectado com sucesso!', 'success');
+      renderEstadoIntervals();
+    } catch(e){
+      setIntervalsStatus('Não foi possível conectar — pode ser bloqueio de CORS do navegador. Veja o guia de integração.', 'error');
+    }
+  });
+
+  document.getElementById('btnIntervalsDesconectar').addEventListener('click', async ()=>{
+    await sb.from('usuarios').update({ intervals_athlete_id: null, intervals_api_key: null }).eq('id', currentUser.id);
+    setIntervalsStatus('Desconectado.');
+    renderEstadoIntervals();
+  });
+
+  btnIntervalsSincronizar.addEventListener('click', async ()=>{
+    if(!exigirLogin()) return;
+    const { data: perfil } = await sb.from('usuarios').select('intervals_athlete_id, intervals_api_key').eq('id', currentUser.id).single();
+    if(!perfil?.intervals_athlete_id) return;
+    btnIntervalsSincronizar.disabled = true;
+    setIntervalsStatus('Sincronizando pedais…');
+    try{
+      const oldest = new Date(Date.now() - 90*24*60*60*1000).toISOString().slice(0,10);
+      const url = `https://intervals.icu/api/v1/athlete/${encodeURIComponent(perfil.intervals_athlete_id)}/activities?oldest=${oldest}&limit=30`;
+      const resp = await fetch(url, { headers: { 'Authorization': intervalsAuthHeader(perfil.intervals_api_key) } });
+      if(!resp.ok){ setIntervalsStatus(`Erro ao buscar atividades (${resp.status}).`, 'error'); btnIntervalsSincronizar.disabled = false; return; }
+      const atividades = await resp.json();
+      const pedais = (atividades || [])
+        .filter(a => ['Ride','VirtualRide','MountainBikeRide','GravelRide'].includes(a.type))
+        .map(a => ({
+          usuario_id: currentUser.id,
+          nome_rota: a.name || 'Pedal',
+          distancia_km: a.distance ? +(a.distance/1000).toFixed(1) : null,
+          duracao_min: a.moving_time ? Math.round(a.moving_time/60) : null,
+          potencia_media_w: a.icu_average_watts ? Math.round(a.icu_average_watts) : (a.average_watts ? Math.round(a.average_watts) : null),
+          realizado_em: a.start_date_local || a.start_date,
+          fonte: 'intervals.icu',
+          fonte_externa_id: String(a.id)
+        }));
+      if(pedais.length){
+        await sb.from('pedais').upsert(pedais, { onConflict: 'usuario_id,fonte,fonte_externa_id' });
+      }
+      setIntervalsStatus(`${pedais.length} pedal(is) sincronizado(s) dos últimos 90 dias.`, 'success');
+      carregarPedaisDoBanco();
+    } catch(e){
+      setIntervalsStatus('Não foi possível sincronizar — pode ser bloqueio de CORS do navegador. Veja o guia de integração.', 'error');
+    }
+    btnIntervalsSincronizar.disabled = false;
+  });
+
+  async function carregarPedaisDoBanco(){
+    if(!supabaseReady || !currentUser) return;
+    const { data, error } = await sb.from('pedais').select('*').eq('usuario_id', currentUser.id).order('realizado_em', { ascending: false }).limit(20);
+    if(error || !data) return;
+    logs = data.map(p => ({
+      nome: p.nome_rota,
+      data: p.realizado_em ? new Date(p.realizado_em).toLocaleDateString('pt-BR', {day:'2-digit', month:'short'}) : '',
+      km: p.distancia_km ?? '—',
+      tempo: p.duracao_min ? `${Math.floor(p.duracao_min/60)}h${String(p.duracao_min%60).padStart(2,'0')}` : '—',
+      pwr: p.potencia_media_w ?? '—'
+    }));
+    renderLogs();
+  }
 
   // ---------- inicialização Supabase ----------
   initMap();
