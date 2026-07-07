@@ -1472,12 +1472,22 @@
   document.getElementById('btnPost').addEventListener('click', async ()=>{
     const input = document.getElementById('postInput');
     const tagSelect = document.getElementById('postTagSelect');
-    if(!input.value.trim()) return;
+    const conteudo = input.value.trim();
+    if(!conteudo){ showToast('Escreva algo antes de postar'); return; }
+    if(conteudo.length > 500){ showToast('Post muito longo — máximo de 500 caracteres'); return; }
     if(!exigirLogin()) return;
-    const { error } = await sb.from('posts').insert({ autor_id: currentUser.id, conteudo: input.value.trim(), tag: tagSelect.value });
+    const btnPost = document.getElementById('btnPost');
+    btnPost.disabled = true;
+    const { error } = await sb.from('posts').insert({ autor_id: currentUser.id, conteudo, tag: tagSelect.value });
+    btnPost.disabled = false;
     if(error){ showToast('Erro ao postar: ' + error.message); return; }
     input.value = '';
     showToast('Postado no feed da comunidade');
+    // volta o filtro pra "Todos" pra garantir que o post novo apareça,
+    // mesmo que a categoria escolhida seja diferente do filtro ativo
+    filtroComunidadeAtivo = 'todos';
+    document.querySelectorAll('#comunidadeChips .chip').forEach(c=>c.classList.remove('active'));
+    document.querySelector('#comunidadeChips .chip[data-tag="todos"]')?.classList.add('active');
     carregarFeed();
   });
 
