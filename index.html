@@ -633,7 +633,7 @@
     </div>
 
     <div class="gate-form hidden" id="gateStepCode">
-      <input type="text" id="gateCode" placeholder="Código de 6 dígitos" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+      <input type="text" id="gateCode" placeholder="Código de 6 dígitos" inputmode="numeric" maxlength="6" autocomplete="off" autocorrect="off" spellcheck="false">
       <button id="btnGateVerifyCode">Confirmar</button>
       <button class="gate-link" id="btnGateBack" type="button">← Trocar e-mail / reenviar</button>
     </div>
@@ -1024,6 +1024,9 @@
 
   btnGateSendEmail.addEventListener('click', enviarCodigoEmail);
   gateEmailInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') enviarCodigoEmail(); });
+  gateCodeInput.addEventListener('input', ()=>{
+    gateCodeInput.value = gateCodeInput.value.replace(/\D/g, '').slice(0, 6);
+  });
   btnGateVerifyCode.addEventListener('click', confirmarCodigoEmail);
   gateCodeInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') confirmarCodigoEmail(); });
   btnGateBack.addEventListener('click', irParaEtapaEmail);
