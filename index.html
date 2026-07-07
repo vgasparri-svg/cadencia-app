@@ -319,6 +319,30 @@
     font-family:var(--font-display); font-weight:700; font-size:12px;
     padding:9px 16px; border-radius:100px;
   }
+  .composer select{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted);
+    font-family:var(--font-mono); font-size:11px; border-radius:100px;
+    padding:8px 10px; flex-shrink:0; max-width:88px;
+  }
+
+  /* comentários */
+  .comments-list{ margin-top:10px; padding-top:10px; border-top:1px solid var(--line); display:none; }
+  .comments-list.open{ display:block; }
+  .comment-item{ display:flex; gap:8px; margin-bottom:8px; }
+  .comment-item .avatar{ width:24px; height:24px; font-size:9px; flex-shrink:0; }
+  .comment-item .bubble{
+    background:var(--surface-2); border-radius:12px; padding:7px 11px; font-size:12px; flex:1;
+  }
+  .comment-item .bubble .who{ font-size:11px; font-weight:600; margin-bottom:2px; }
+  .comment-compose{ display:flex; gap:8px; margin-top:8px; }
+  .comment-compose input{
+    flex:1; background:var(--surface-2); border:1px solid var(--line); border-radius:100px;
+    padding:8px 12px; color:var(--text); font-size:12px; font-family:var(--font-body);
+  }
+  .comment-compose button{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--route);
+    font-size:11px; font-weight:700; padding:8px 12px; border-radius:100px;
+  }
 
   /* assessorias */
   .card{
@@ -346,6 +370,21 @@
   }
   .card-body .meta{font-size:11.5px; color:var(--text-muted); margin-top:3px;}
   .card-body .desc{font-size:12px; color:var(--text-muted); margin-top:6px; line-height:1.4;}
+  .card-body .card-actions{ margin-top:9px; }
+  .btn-avaliar{
+    font-family:var(--font-mono); font-size:10.5px; color:var(--route);
+    border:1px solid var(--line); border-radius:100px; padding:5px 11px;
+  }
+  .btn-mini-add{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--safety);
+    font-family:var(--font-mono); font-weight:700; font-size:11px;
+    padding:6px 12px; border-radius:100px; flex-shrink:0;
+  }
+  .star-picker{ display:flex; gap:6px; margin-bottom:14px; }
+  .star-picker button{
+    background:none; border:none; font-size:26px; color:var(--line); line-height:1; padding:0;
+  }
+  .star-picker button.active{ color:var(--gold); }
 
   /* treino */
   .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;}
@@ -732,16 +771,24 @@
       <div class="section" style="padding-top:20px;">
         <div class="section-head"><h2>Comunidade</h2><span class="count">1.240 ciclistas</span></div>
       </div>
-      <div class="chip-row">
-        <button class="chip active">Todos</button>
-        <button class="chip">Estrada</button>
-        <button class="chip">MTB</button>
-        <button class="chip">Pedais em grupo</button>
-        <button class="chip">Iniciantes</button>
+      <div class="chip-row" id="comunidadeChips">
+        <button class="chip active" data-tag="todos">Todos</button>
+        <button class="chip" data-tag="Estrada">Estrada</button>
+        <button class="chip" data-tag="MTB">MTB</button>
+        <button class="chip" data-tag="Grupo">Pedais em grupo</button>
+        <button class="chip" data-tag="Iniciantes">Iniciantes</button>
       </div>
       <div style="padding:0 16px;">
         <div class="composer">
           <input type="text" placeholder="Compartilhe algo com o pelotão…" id="postInput">
+          <select id="postTagSelect">
+            <option value="Geral">Geral</option>
+            <option value="Estrada">Estrada</option>
+            <option value="MTB">MTB</option>
+            <option value="Grupo">Grupo</option>
+            <option value="Iniciantes">Iniciantes</option>
+            <option value="Dica">Dica</option>
+          </select>
           <button id="btnPost">Postar</button>
         </div>
 
@@ -778,13 +825,17 @@
     <!-- ===================== ASSESSORIAS ===================== -->
     <section class="view" id="view-assessorias">
       <div class="section" style="padding-top:20px;">
-        <div class="section-head"><h2>Assessorias & oficinas</h2><span class="count" id="assessoriaCount">6</span></div>
+        <div class="section-head">
+          <h2>Assessorias & oficinas <span class="count" id="assessoriaCount">6</span></h2>
+          <button class="btn-mini-add" id="btnAbrirCadastroAssessoria">+ Cadastrar</button>
+        </div>
       </div>
       <div class="chip-row" id="assessoriaChips">
         <button class="chip active" data-filter="todos">Todos</button>
         <button class="chip" data-filter="assessoria">Assessorias</button>
         <button class="chip" data-filter="oficina">Oficinas</button>
       </div>
+      <div class="chip-row" id="bairroChips"></div>
       <div style="padding:0 16px;" id="assessoriaList"></div>
     </section>
 
@@ -903,6 +954,48 @@
       <div class="modal-actions">
         <button class="btn-secondary" id="btnCancelReport">Cancelar</button>
         <button class="btn-primary" id="btnSendReport">Enviar e gerar B.O.</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal: avaliar assessoria -->
+  <div class="modal-backdrop" id="modalAvaliarBackdrop">
+    <div class="modal">
+      <div class="modal-grab"></div>
+      <h3 id="avaliarNomeAssessoria">Avaliar</h3>
+      <p class="sub">Sua avaliação ajuda outros ciclistas a escolher.</p>
+      <div class="star-picker" id="starPicker">
+        <button type="button" data-star="1">★</button>
+        <button type="button" data-star="2">★</button>
+        <button type="button" data-star="3">★</button>
+        <button type="button" data-star="4">★</button>
+        <button type="button" data-star="5">★</button>
+      </div>
+      <textarea placeholder="Comentário (opcional)" id="avaliarComentario"></textarea>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="btnCancelAvaliar">Cancelar</button>
+        <button class="btn-primary" id="btnSalvarAvaliacao" style="background:var(--safety); color:#141A0A;">Salvar avaliação</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal: cadastrar assessoria/oficina -->
+  <div class="modal-backdrop" id="modalCadastroBackdrop">
+    <div class="modal">
+      <div class="modal-grab"></div>
+      <h3>Cadastrar assessoria/oficina</h3>
+      <p class="sub">Preencha pra outros ciclistas encontrarem.</p>
+      <div class="incident-grid" id="tipoCadastroGrid">
+        <button class="incident-opt" data-tipo="assessoria">Assessoria</button>
+        <button class="incident-opt" data-tipo="oficina">Oficina</button>
+      </div>
+      <textarea placeholder="Nome" id="cadNome" style="min-height:auto; margin-bottom:10px;"></textarea>
+      <textarea placeholder="Bairro / região" id="cadBairro" style="min-height:auto; margin-bottom:10px;"></textarea>
+      <textarea placeholder="Foco (ex: Estrada, MTB, Manutenção geral)" id="cadFoco" style="min-height:auto; margin-bottom:10px;"></textarea>
+      <textarea placeholder="Descrição curta" id="cadDescricao"></textarea>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="btnCancelCadastro">Cancelar</button>
+        <button class="btn-primary" id="btnSalvarCadastro" style="background:var(--safety); color:#141A0A;">Cadastrar</button>
       </div>
     </div>
   </div>
@@ -1370,30 +1463,71 @@
       .subscribe();
   }
 
-  // ---------- comunidade: post & like (Supabase) ----------
+  // ---------- comunidade: post, like, comentário & filtro (Supabase) ----------
   const likeIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>`;
   const commentIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
+  let filtroComunidadeAtivo = 'todos';
+
   document.getElementById('btnPost').addEventListener('click', async ()=>{
     const input = document.getElementById('postInput');
+    const tagSelect = document.getElementById('postTagSelect');
     if(!input.value.trim()) return;
     if(!exigirLogin()) return;
-    const { error } = await sb.from('posts').insert({ autor_id: currentUser.id, conteudo: input.value.trim(), tag: 'Novo' });
+    const { error } = await sb.from('posts').insert({ autor_id: currentUser.id, conteudo: input.value.trim(), tag: tagSelect.value });
     if(error){ showToast('Erro ao postar: ' + error.message); return; }
     input.value = '';
     showToast('Postado no feed da comunidade');
+    carregarFeed();
+  });
+
+  document.getElementById('comunidadeChips').addEventListener('click', (e)=>{
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    document.querySelectorAll('#comunidadeChips .chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    filtroComunidadeAtivo = chip.dataset.tag;
+    carregarFeed();
   });
 
   document.getElementById('feedList').addEventListener('click', async (e)=>{
-    const btn = e.target.closest('.like-btn');
-    if(!btn) return;
-    if(!exigirLogin()) return;
-    const postId = btn.dataset.postId;
-    const jaCurtiu = btn.classList.contains('liked');
-    if(jaCurtiu){
-      await sb.from('curtidas').delete().eq('post_id', postId).eq('usuario_id', currentUser.id);
-    } else {
-      await sb.from('curtidas').insert({ post_id: postId, usuario_id: currentUser.id });
+    const likeBtn = e.target.closest('.like-btn');
+    const commentBtn = e.target.closest('.comment-toggle-btn');
+    const sendCommentBtn = e.target.closest('.comment-send-btn');
+
+    if(likeBtn){
+      if(!exigirLogin()) return;
+      const postId = likeBtn.dataset.postId;
+      const jaCurtiu = likeBtn.classList.contains('liked');
+      if(jaCurtiu){
+        await sb.from('curtidas').delete().eq('post_id', postId).eq('usuario_id', currentUser.id);
+      } else {
+        await sb.from('curtidas').insert({ post_id: postId, usuario_id: currentUser.id });
+      }
+      return;
+    }
+
+    if(commentBtn){
+      const postId = commentBtn.dataset.postId;
+      const postEl = document.querySelector(`.post[data-post-id="${postId}"]`);
+      const list = postEl.querySelector('.comments-list');
+      const jaAberto = list.classList.contains('open');
+      list.classList.toggle('open');
+      if(!jaAberto) await carregarComentarios(postId);
+      return;
+    }
+
+    if(sendCommentBtn){
+      if(!exigirLogin()) return;
+      const postId = sendCommentBtn.dataset.postId;
+      const postEl = document.querySelector(`.post[data-post-id="${postId}"]`);
+      const input = postEl.querySelector('.comment-input');
+      const texto = input.value.trim();
+      if(!texto) return;
+      const { error } = await sb.from('comentarios').insert({ post_id: postId, autor_id: currentUser.id, conteudo: texto });
+      if(error){ showToast('Erro ao comentar: ' + error.message); return; }
+      input.value = '';
+      await carregarComentarios(postId);
     }
   });
 
@@ -1406,8 +1540,23 @@
     return `há ${Math.round(diffH/24)}d`;
   }
 
+  async function carregarComentarios(postId){
+    const postEl = document.querySelector(`.post[data-post-id="${postId}"]`);
+    const list = postEl.querySelector('.comments-list');
+    const { data } = await sb.from('comentarios').select('*, usuarios(nome)').eq('post_id', postId).order('criado_em', { ascending: true });
+    const itens = (data || []).map(c => `
+      <div class="comment-item">
+        <div class="avatar">${(c.usuarios?.nome || 'CI').slice(0,2).toUpperCase()}</div>
+        <div class="bubble"><div class="who">${c.usuarios?.nome || 'Ciclista'}</div>${c.conteudo.replace(/</g,'&lt;')}</div>
+      </div>`).join('');
+    list.querySelector('.comments-items').innerHTML = itens || '<p style="font-size:11.5px; color:var(--text-muted);">Nenhum comentário ainda — seja o primeiro.</p>';
+    const countEl = postEl.querySelector('.comment-count');
+    if(countEl) countEl.textContent = (data || []).length;
+  }
+
   async function renderPostEl(post){
-    const { count } = await sb.from('curtidas').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
+    const { count: likeCount } = await sb.from('curtidas').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
+    const { count: commentCount } = await sb.from('comentarios').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
     const jaCurtiu = currentUser ? !!(await sb.from('curtidas').select('*').eq('post_id', post.id).eq('usuario_id', currentUser.id).maybeSingle()).data : false;
     const el = document.createElement('div');
     el.className = 'post';
@@ -1420,19 +1569,24 @@
       </div>
       <p>${post.conteudo.replace(/</g,'&lt;')}</p>
       <div class="post-actions">
-        <button class="like-btn ${jaCurtiu?'liked':''}" data-post-id="${post.id}">${likeIcon} <span class="like-count">${count || 0}</span></button>
-        <button>${commentIcon} 0</button>
+        <button class="like-btn ${jaCurtiu?'liked':''}" data-post-id="${post.id}">${likeIcon} <span class="like-count">${likeCount || 0}</span></button>
+        <button class="comment-toggle-btn" data-post-id="${post.id}">${commentIcon} <span class="comment-count">${commentCount || 0}</span></button>
+      </div>
+      <div class="comments-list">
+        <div class="comments-items"></div>
+        <div class="comment-compose">
+          <input type="text" class="comment-input" placeholder="Escreva um comentário…">
+          <button class="comment-send-btn" data-post-id="${post.id}">Enviar</button>
+        </div>
       </div>`;
     return el;
   }
 
   async function carregarFeed(){
     if(!supabaseReady) return;
-    const { data, error } = await sb
-      .from('posts')
-      .select('*, usuarios(nome)')
-      .order('criado_em', { ascending: false })
-      .limit(20);
+    let query = sb.from('posts').select('*, usuarios(nome)').order('criado_em', { ascending: false }).limit(30);
+    if(filtroComunidadeAtivo !== 'todos') query = query.eq('tag', filtroComunidadeAtivo);
+    const { data, error } = await query;
     if(error || !data) return;
     const feedList = document.getElementById('feedList');
     feedList.innerHTML = '';
@@ -1443,7 +1597,8 @@
     if(!supabaseReady) return;
     sb.channel('posts-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload)=>{
-        if(payload.new.autor_id === currentUser?.id) return; // já foi renderizado localmente ao postar? -> vamos recarregar simples
+        if(payload.new.autor_id === currentUser?.id) return;
+        if(filtroComunidadeAtivo !== 'todos' && payload.new.tag !== filtroComunidadeAtivo) return;
         const { data } = await sb.from('usuarios').select('nome').eq('id', payload.new.autor_id).single();
         const el = await renderPostEl({ ...payload.new, usuarios: data });
         document.getElementById('feedList').prepend(el);
@@ -1461,6 +1616,16 @@
         if(payload.eventType === 'DELETE' && payload.old?.usuario_id === currentUser?.id) postEl.querySelector('.like-btn').classList.remove('liked');
       })
       .subscribe();
+
+    sb.channel('comentarios-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comentarios' }, async (payload)=>{
+        const postEl = document.querySelector(`.post[data-post-id="${payload.new.post_id}"]`);
+        if(!postEl) return;
+        const countEl = postEl.querySelector('.comment-count');
+        if(countEl) countEl.textContent = (parseInt(countEl.textContent) || 0) + (payload.new.autor_id === currentUser?.id ? 0 : 1);
+        if(postEl.querySelector('.comments-list').classList.contains('open')) carregarComentarios(payload.new.post_id);
+      })
+      .subscribe();
   }
 
   // meu próprio post/curtida também precisa recarregar a lista pra refletir na hora
@@ -1470,50 +1635,166 @@
 
   // ---------- assessorias ----------
   let assessorias = [
-    {tipo:'assessoria', nome:'Rio Pedal Team', bairro:'Aterro do Flamengo', foco:'Estrada · pelotão', nota:'4.8', desc:'Treinos em grupo de terça a domingo, com apoio de carro-guia nos pedais longos.'},
-    {tipo:'assessoria', nome:'Carioca MTB Clube', bairro:'Zona Oeste', foco:'Mountain bike', nota:'4.6', desc:'Trilhas guiadas na Pedra Branca, foco em técnica de descida.'},
-    {tipo:'assessoria', nome:'TriRio Endurance', bairro:'Barra da Tijuca', foco:'Triathlon · estrada', nota:'4.9', desc:'Planilhas de potência personalizadas e testes de FTP mensais.'},
-    {tipo:'assessoria', nome:'Pedal Iniciante RJ', bairro:'Tijuca', foco:'Iniciantes', nota:'4.7', desc:'Turma para quem está começando, ritmo leve e foco em segurança no trânsito.'},
-    {tipo:'oficina', nome:'Oficina do Seu Ari', bairro:'Botafogo', foco:'Manutenção geral', nota:'4.9', desc:'Referência em ajuste de câmbio e revisão completa, atende no mesmo dia.'},
-    {tipo:'oficina', nome:'BikeFix Copacabana', bairro:'Copacabana', foco:'Bike fit · manutenção', nota:'4.5', desc:'Estúdio de bike fit com análise de pedalada em vídeo.'}
+    {id:null, tipo:'assessoria', nome:'Rio Pedal Team', bairro:'Aterro do Flamengo', foco:'Estrada · pelotão', nota:'4.8', totalAvaliacoes:0, desc:'Treinos em grupo de terça a domingo, com apoio de carro-guia nos pedais longos.'},
+    {id:null, tipo:'assessoria', nome:'Carioca MTB Clube', bairro:'Zona Oeste', foco:'Mountain bike', nota:'4.6', totalAvaliacoes:0, desc:'Trilhas guiadas na Pedra Branca, foco em técnica de descida.'},
+    {id:null, tipo:'assessoria', nome:'TriRio Endurance', bairro:'Barra da Tijuca', foco:'Triathlon · estrada', nota:'4.9', totalAvaliacoes:0, desc:'Planilhas de potência personalizadas e testes de FTP mensais.'},
+    {id:null, tipo:'assessoria', nome:'Pedal Iniciante RJ', bairro:'Tijuca', foco:'Iniciantes', nota:'4.7', totalAvaliacoes:0, desc:'Turma para quem está começando, ritmo leve e foco em segurança no trânsito.'},
+    {id:null, tipo:'oficina', nome:'Oficina do Seu Ari', bairro:'Botafogo', foco:'Manutenção geral', nota:'4.9', totalAvaliacoes:0, desc:'Referência em ajuste de câmbio e revisão completa, atende no mesmo dia.'},
+    {id:null, tipo:'oficina', nome:'BikeFix Copacabana', bairro:'Copacabana', foco:'Bike fit · manutenção', nota:'4.5', totalAvaliacoes:0, desc:'Estúdio de bike fit com análise de pedalada em vídeo.'}
   ];
 
   async function carregarAssessorias(){
     if(!supabaseReady) return;
     const { data, error } = await sb.from('assessorias').select('*').order('nome');
     if(error || !data || !data.length) return;
-    assessorias = data.map(a => ({ tipo:a.tipo, nome:a.nome, bairro:a.bairro, foco:a.foco, nota:'—', desc:a.descricao }));
-    renderAssessorias(document.querySelector('#assessoriaChips .chip.active')?.dataset.filter || 'todos');
+    assessorias = await Promise.all(data.map(async a => {
+      const { data: avals } = await sb.from('avaliacoes').select('nota').eq('assessoria_id', a.id);
+      const total = avals ? avals.length : 0;
+      const media = total ? (avals.reduce((s,v)=>s+v.nota,0) / total).toFixed(1) : '—';
+      return { id:a.id, tipo:a.tipo, nome:a.nome, bairro:a.bairro, foco:a.foco, nota:media, totalAvaliacoes:total, desc:a.descricao };
+    }));
+    renderBairroChips();
+    renderAssessorias();
   }
 
   const iconAssessoria = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const iconOficina = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 0 1 5 5l-6.6 6.6a2 2 0 0 1-2.8 0L4.3 12a4 4 0 0 1 5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-  function renderAssessorias(filter){
+  let filtroTipoAtivo = 'todos';
+  let filtroBairroAtivo = 'todos';
+
+  function renderBairroChips(){
+    const bairroChipsEl = document.getElementById('bairroChips');
+    const bairros = [...new Set(assessorias.map(a => a.bairro).filter(Boolean))].sort();
+    if(bairros.length <= 1){ bairroChipsEl.innerHTML = ''; return; }
+    bairroChipsEl.innerHTML = ['<button class="chip active" data-bairro="todos">Todos os bairros</button>']
+      .concat(bairros.map(b => `<button class="chip" data-bairro="${b.replace(/"/g,'&quot;')}">${b}</button>`))
+      .join('');
+  }
+
+  function renderAssessorias(){
     const list = document.getElementById('assessoriaList');
-    const items = filter === 'todos' ? assessorias : assessorias.filter(a=>a.tipo===filter);
+    let items = filtroTipoAtivo === 'todos' ? assessorias : assessorias.filter(a=>a.tipo===filtroTipoAtivo);
+    if(filtroBairroAtivo !== 'todos'){ items = items.filter(a => a.bairro === filtroBairroAtivo); }
     document.getElementById('assessoriaCount').textContent = items.length;
+    if(!items.length){
+      list.innerHTML = '<p style="color:var(--text-muted); font-size:13px; padding:20px 0; text-align:center;">Nenhum resultado com esses filtros.</p>';
+      return;
+    }
     list.innerHTML = items.map(a=>`
       <div class="card">
         <div class="card-icon ${a.tipo==='oficina'?'oficina':''}">${a.tipo==='oficina'?iconOficina:iconAssessoria}</div>
         <div class="card-body">
           <div class="card-top">
             <h3>${a.nome}</h3>
-            <span class="rating">★ ${a.nota}</span>
+            <span class="rating">★ ${a.nota}${a.totalAvaliacoes ? ` <small style="color:var(--text-muted); font-weight:400;">(${a.totalAvaliacoes})</small>` : ''}</span>
           </div>
-          <div class="meta">${a.bairro} · ${a.foco}</div>
-          <div class="desc">${a.desc}</div>
+          <div class="meta">${a.bairro || ''} · ${a.foco || ''}</div>
+          <div class="desc">${a.desc || ''}</div>
+          ${a.id ? `<div class="card-actions"><button class="btn-avaliar" data-id="${a.id}" data-nome="${a.nome.replace(/"/g,'&quot;')}">★ Avaliar</button></div>` : ''}
         </div>
       </div>
     `).join('');
   }
-  renderAssessorias('todos');
+  renderAssessorias();
   document.getElementById('assessoriaChips').addEventListener('click', (e)=>{
     const chip = e.target.closest('.chip');
     if(!chip) return;
     document.querySelectorAll('#assessoriaChips .chip').forEach(c=>c.classList.remove('active'));
     chip.classList.add('active');
-    renderAssessorias(chip.dataset.filter);
+    filtroTipoAtivo = chip.dataset.filter;
+    renderAssessorias();
+  });
+  document.getElementById('bairroChips').addEventListener('click', (e)=>{
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    document.querySelectorAll('#bairroChips .chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    filtroBairroAtivo = chip.dataset.bairro;
+    renderAssessorias();
+  });
+
+  // ---------- modal: avaliar assessoria ----------
+  const modalAvaliarBackdrop = document.getElementById('modalAvaliarBackdrop');
+  const starPicker = document.getElementById('starPicker');
+  let assessoriaSelecionadaId = null;
+  let notaSelecionada = 0;
+
+  document.getElementById('assessoriaList').addEventListener('click', (e)=>{
+    const btn = e.target.closest('.btn-avaliar');
+    if(!btn) return;
+    if(!exigirLogin()) return;
+    assessoriaSelecionadaId = btn.dataset.id;
+    document.getElementById('avaliarNomeAssessoria').textContent = 'Avaliar ' + btn.dataset.nome;
+    notaSelecionada = 0;
+    atualizarEstrelas();
+    document.getElementById('avaliarComentario').value = '';
+    modalAvaliarBackdrop.classList.add('open');
+  });
+
+  function atualizarEstrelas(){
+    starPicker.querySelectorAll('button').forEach(b=>{
+      b.classList.toggle('active', parseInt(b.dataset.star) <= notaSelecionada);
+    });
+  }
+  starPicker.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    notaSelecionada = parseInt(btn.dataset.star);
+    atualizarEstrelas();
+  });
+
+  document.getElementById('btnCancelAvaliar').addEventListener('click', ()=> modalAvaliarBackdrop.classList.remove('open'));
+  modalAvaliarBackdrop.addEventListener('click', (e)=>{ if(e.target === modalAvaliarBackdrop) modalAvaliarBackdrop.classList.remove('open'); });
+
+  document.getElementById('btnSalvarAvaliacao').addEventListener('click', async ()=>{
+    if(notaSelecionada === 0){ showToast('Escolha de 1 a 5 estrelas'); return; }
+    const comentario = document.getElementById('avaliarComentario').value.trim() || null;
+    const { error } = await sb.from('avaliacoes').upsert({
+      assessoria_id: assessoriaSelecionadaId, usuario_id: currentUser.id, nota: notaSelecionada, comentario
+    }, { onConflict: 'assessoria_id,usuario_id' });
+    modalAvaliarBackdrop.classList.remove('open');
+    if(error){ showToast('Erro ao avaliar: ' + error.message); return; }
+    showToast('Avaliação salva — obrigado!');
+    carregarAssessorias();
+  });
+
+  // ---------- modal: cadastrar assessoria/oficina ----------
+  const modalCadastroBackdrop = document.getElementById('modalCadastroBackdrop');
+  let tipoCadastroSelecionado = null;
+
+  document.getElementById('btnAbrirCadastroAssessoria').addEventListener('click', ()=>{
+    if(!exigirLogin()) return;
+    tipoCadastroSelecionado = null;
+    document.querySelectorAll('#tipoCadastroGrid .incident-opt').forEach(o=>o.classList.remove('selected'));
+    ['cadNome','cadBairro','cadFoco','cadDescricao'].forEach(id => document.getElementById(id).value = '');
+    modalCadastroBackdrop.classList.add('open');
+  });
+  document.getElementById('btnCancelCadastro').addEventListener('click', ()=> modalCadastroBackdrop.classList.remove('open'));
+  modalCadastroBackdrop.addEventListener('click', (e)=>{ if(e.target === modalCadastroBackdrop) modalCadastroBackdrop.classList.remove('open'); });
+
+  document.getElementById('tipoCadastroGrid').addEventListener('click', (e)=>{
+    const opt = e.target.closest('.incident-opt');
+    if(!opt) return;
+    document.querySelectorAll('#tipoCadastroGrid .incident-opt').forEach(o=>o.classList.remove('selected'));
+    opt.classList.add('selected');
+    tipoCadastroSelecionado = opt.dataset.tipo;
+  });
+
+  document.getElementById('btnSalvarCadastro').addEventListener('click', async ()=>{
+    const nome = document.getElementById('cadNome').value.trim();
+    if(!tipoCadastroSelecionado){ showToast('Selecione assessoria ou oficina'); return; }
+    if(!nome){ showToast('Digite o nome'); return; }
+    const bairro = document.getElementById('cadBairro').value.trim() || null;
+    const foco = document.getElementById('cadFoco').value.trim() || null;
+    const descricao = document.getElementById('cadDescricao').value.trim() || null;
+    const { error } = await sb.from('assessorias').insert({
+      nome, tipo: tipoCadastroSelecionado, bairro, foco, descricao, criado_por: currentUser.id
+    });
+    modalCadastroBackdrop.classList.remove('open');
+    if(error){ showToast('Erro ao cadastrar: ' + error.message); return; }
+    showToast('Cadastrado com sucesso!');
+    carregarAssessorias();
   });
 
   // ---------- treino: zonas de potência ----------
