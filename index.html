@@ -553,6 +553,23 @@
     font-weight:700; font-size:14px; padding:13px 18px; border-radius:100px;
   }
   #authGate button:disabled{opacity:0.5;}
+  .gate-biometric-btn{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    width:100%; max-width:280px;
+    background:var(--surface) !important; color:var(--safety) !important;
+    border:1px solid var(--safety);
+    font-family:var(--font-display); font-weight:700; font-size:14px;
+    padding:14px 18px; border-radius:100px; margin-bottom:6px;
+  }
+  .gate-biometric-btn svg{ width:20px; height:20px; stroke:var(--safety); }
+  .gate-divider{
+    display:flex; align-items:center; gap:10px;
+    width:100%; max-width:280px; margin:6px 0 14px;
+    color:var(--text-muted); font-size:11px;
+  }
+  .gate-divider::before, .gate-divider::after{
+    content:""; flex:1; height:1px; background:var(--line);
+  }
   #authGate .gate-link{
     background:none; color:var(--text-muted); font-family:var(--font-body);
     font-weight:400; font-size:12px; padding:6px; text-decoration:underline;
@@ -625,7 +642,13 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--safety)" stroke-width="2"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M5.5 17.5 10 8h5l3.5 9.5M10 8 8 12h6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <h1>Pelotão</h1>
-    <p class="sub" id="gateSubtitle">Mapa, comunidade e segurança pra ciclistas do Rio. Digite seu e-mail e a gente manda um código de 6 dígitos — sem senha, sem link pra clicar.</p>
+    <p class="sub" id="gateSubtitle">Mapa, comunidade e segurança pra ciclistas do Rio.</p>
+
+    <button class="gate-biometric-btn hidden" id="btnFaceIdLogin" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 2a5 5 0 0 0-5 5v3a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5ZM7 11c0 3 2 5 5 5M17 11c0 4-2.5 7-5.5 8M4 15c0 3.5 2 6 5 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Entrar com Face ID / Touch ID
+    </button>
+    <p class="gate-divider hidden" id="gateDivider"><span>ou entre com e-mail</span></p>
 
     <div class="gate-form" id="gateStepEmail">
       <input type="email" id="gateEmail" placeholder="seu e-mail" autocomplete="email">
@@ -833,6 +856,7 @@
         <div class="post" style="margin-bottom:24px;">
           <p style="color:var(--text-muted);">Seus dados de localização em tempo real só são compartilhados durante um pedal ativo com contato de confiança — nunca publicados no feed.</p>
         </div>
+        <button class="btn-logout" id="btnAtivarFaceIdPerfil" style="border-color:var(--safety); color:var(--safety); margin-bottom:10px;">Ativar Face ID / Touch ID neste aparelho</button>
         <button class="btn-logout" id="btnLogoutPerfil">Sair da conta</button>
       </div>
     </section>
@@ -899,7 +923,10 @@
   const MAPBOX_TOKEN = 'pk.eyJ1Ijoidmdhc3BhcnJpIiwiYSI6ImNtcjVic3N6dDBsNnQzM29tbHRpNnRqb24ifQ.6Pj2oxCFYwGOokG8UcpXLw';
 
   const supabaseReady = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
-  const sb = supabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+  const sb = supabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { experimental: { passkey: true } }
+  }) : null;
+  const passkeySuportado = typeof window.PublicKeyCredential !== 'undefined';
   const mapboxReady = MAPBOX_TOKEN.startsWith('pk.');
 
   let currentUser = null; // { id, email }
@@ -946,6 +973,8 @@
   const btnGateSendEmail = document.getElementById('btnGateSendEmail');
   const btnGateVerifyCode = document.getElementById('btnGateVerifyCode');
   const btnGateBack = document.getElementById('btnGateBack');
+  const btnFaceIdLogin = document.getElementById('btnFaceIdLogin');
+  const gateDivider = document.getElementById('gateDivider');
 
   let emailPendente = null;
 
@@ -971,6 +1000,39 @@
     gateCodeInput.focus();
   }
 
+  // ---------- Face ID / Touch ID (Passkeys) ----------
+  function passkeyDisponivelNoClient(){
+    return supabaseReady && passkeySuportado && sb.auth && typeof sb.auth.signInWithPasskey === 'function';
+  }
+
+  async function entrarComFaceId(){
+    setGateStatus('Abrindo Face ID / Touch ID…');
+    btnFaceIdLogin.disabled = true;
+    try{
+      const { error } = await sb.auth.signInWithPasskey();
+      btnFaceIdLogin.disabled = false;
+      if(error){
+        setGateStatus('Não foi possível entrar com Face ID — use o e-mail abaixo.');
+        return;
+      }
+      setGateStatus('Entrando…', true);
+    } catch(e){
+      btnFaceIdLogin.disabled = false;
+      setGateStatus('Face ID indisponível neste aparelho — use o e-mail abaixo.');
+    }
+  }
+
+  async function ativarFaceId(){
+    if(!passkeyDisponivelNoClient()){ showToast('Face ID não é suportado neste navegador'); return; }
+    try{
+      const { data, error } = await sb.auth.registerPasskey();
+      if(error){ showToast('Não foi possível ativar: ' + error.message); return; }
+      showToast('Face ID ativado — o próximo login já entra direto!');
+    } catch(e){
+      showToast('Não foi possível ativar o Face ID neste aparelho');
+    }
+  }
+
   function renderGateState(){
     if(!supabaseReady){
       gateStatus.classList.remove('success');
@@ -985,8 +1047,16 @@
     } else {
       showGate();
       irParaEtapaEmail();
+      if(passkeyDisponivelNoClient()){
+        btnFaceIdLogin.classList.remove('hidden');
+        gateDivider.classList.remove('hidden');
+      } else {
+        btnFaceIdLogin.classList.add('hidden');
+        gateDivider.classList.add('hidden');
+      }
     }
   }
+
 
   async function enviarCodigoEmail(){
     const email = gateEmailInput.value.trim();
@@ -1030,6 +1100,7 @@
   btnGateVerifyCode.addEventListener('click', confirmarCodigoEmail);
   gateCodeInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') confirmarCodigoEmail(); });
   btnGateBack.addEventListener('click', irParaEtapaEmail);
+  btnFaceIdLogin.addEventListener('click', entrarComFaceId);
 
   async function fazerLogout(){
     await sb.auth.signOut();
@@ -1044,11 +1115,26 @@
     if(session?.user){ currentUser = { id: session.user.id, email: session.user.email, phone: session.user.phone }; }
     renderGateState();
     atualizarPerfilLogout();
-    sb.auth.onAuthStateChange((_event, session) => {
+    sb.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user ? { id: session.user.id, email: session.user.email, phone: session.user.phone } : null;
       renderGateState();
       atualizarPerfilLogout();
-      if(currentUser){ carregarFeed(); showToast('Login realizado — bem-vindo(a)!'); }
+      if(currentUser){
+        carregarFeed();
+        showToast('Login realizado — bem-vindo(a)!');
+        if(event === 'SIGNED_IN' && passkeyDisponivelNoClient()){
+          setTimeout(async ()=>{
+            try{
+              const { data } = await sb.auth.passkey.list();
+              if(!data || data.length === 0){
+                if(confirm('Ativar Face ID / Touch ID neste aparelho? Assim os próximos logins entram direto, sem e-mail.')){
+                  ativarFaceId();
+                }
+              }
+            } catch(e){ /* silencioso: recurso experimental, ignora falha */ }
+          }, 900);
+        }
+      }
     });
   }
 
@@ -1057,6 +1143,7 @@
     if(p && currentUser) p.textContent = currentUser.phone ? '+' + currentUser.phone : (currentUser.email || 'Ciclista');
   }
   document.getElementById('btnLogoutPerfil').addEventListener('click', fazerLogout);
+  document.getElementById('btnAtivarFaceIdPerfil').addEventListener('click', ativarFaceId);
 
   function exigirLogin(){
     if(!supabaseReady){ showToast('Configure o Supabase primeiro (veja o topo do app)'); return false; }
