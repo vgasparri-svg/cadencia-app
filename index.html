@@ -656,7 +656,7 @@
     </div>
 
     <div class="gate-form hidden" id="gateStepCode">
-      <input type="text" id="gateCode" placeholder="Código de 6 dígitos" inputmode="numeric" maxlength="6" autocomplete="off" autocorrect="off" spellcheck="false">
+      <input type="text" id="gateCode" placeholder="Código de 8 dígitos" inputmode="numeric" maxlength="8" autocomplete="off" autocorrect="off" spellcheck="false">
       <button id="btnGateVerifyCode">Confirmar</button>
       <button class="gate-link" id="btnGateBack" type="button">← Trocar e-mail / reenviar</button>
     </div>
@@ -1079,7 +1079,7 @@
   async function confirmarCodigoEmail(){
     const codigo = gateCodeInput.value.trim();
     if(!emailPendente){ setGateStatus('Sessão expirou — digite o e-mail de novo.'); irParaEtapaEmail(); return; }
-    if(codigo.length !== 6){ setGateStatus('Digite os 6 dígitos do código.'); return; }
+    if(codigo.length !== 8){ setGateStatus('Digite os 8 dígitos do código.'); return; }
     btnGateVerifyCode.disabled = true;
     setGateStatus('Confirmando…');
     const { error } = await sb.auth.verifyOtp({ email: emailPendente, token: codigo, type: 'email' });
@@ -1095,7 +1095,7 @@
   btnGateSendEmail.addEventListener('click', enviarCodigoEmail);
   gateEmailInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') enviarCodigoEmail(); });
   gateCodeInput.addEventListener('input', ()=>{
-    gateCodeInput.value = gateCodeInput.value.replace(/\D/g, '').slice(0, 6);
+    gateCodeInput.value = gateCodeInput.value.replace(/\D/g, '').slice(0, 8);
   });
   btnGateVerifyCode.addEventListener('click', confirmarCodigoEmail);
   gateCodeInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') confirmarCodigoEmail(); });
