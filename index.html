@@ -370,7 +370,42 @@
   }
   .card-body .meta{font-size:11.5px; color:var(--text-muted); margin-top:3px;}
   .card-body .desc{font-size:12px; color:var(--text-muted); margin-top:6px; line-height:1.4;}
-  .card-body .card-actions{ margin-top:9px; }
+  .card-body .card-actions{ margin-top:9px; display:flex; gap:8px; align-items:center; }
+
+  /* eventos / pedais agendados */
+  .eventos-scroll{
+    display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; margin-bottom:16px;
+    scrollbar-width:none;
+  }
+  .eventos-scroll::-webkit-scrollbar{ display:none; }
+  .evento-card{
+    flex-shrink:0; width:200px;
+    background:var(--surface); border:1px solid var(--route);
+    border-radius:var(--radius-md); padding:13px;
+  }
+  .evento-card .evento-data{
+    font-family:var(--font-mono); font-size:11px; color:var(--route);
+    margin-bottom:6px;
+  }
+  .evento-card h4{ font-size:13.5px; font-weight:600; margin-bottom:4px; line-height:1.3; }
+  .evento-card .evento-local{ font-size:11.5px; color:var(--text-muted); margin-bottom:10px; }
+  .evento-card .evento-footer{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .evento-card .evento-confirmados{ font-size:11px; color:var(--text-muted); font-family:var(--font-mono); }
+  .btn-vou{
+    font-family:var(--font-display); font-weight:700; font-size:11.5px;
+    padding:7px 12px; border-radius:100px;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted);
+  }
+  .btn-vou.confirmado{ background:var(--route); border-color:var(--route); color:#0B2833; }
+  .eventos-vazio{ font-size:12px; color:var(--text-muted); padding:8px 0 16px; }
+
+  /* whatsapp nas assessorias */
+  .btn-whatsapp{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:var(--font-display); font-weight:700; font-size:11.5px;
+    padding:8px 14px; border-radius:100px;
+    background:#25D366; color:#06210F;
+  }
   .btn-avaliar{
     font-family:var(--font-mono); font-size:10.5px; color:var(--route);
     border:1px solid var(--line); border-radius:100px; padding:5px 11px;
@@ -804,6 +839,12 @@
         <button class="chip" data-tag="Iniciantes">Iniciantes</button>
       </div>
       <div style="padding:0 16px;">
+        <div class="section-head" style="margin:0 0 10px;">
+          <h2 style="font-size:14px;">Próximos pedais</h2>
+          <button class="btn-mini-add" id="btnAbrirNovoEvento">+ Agendar</button>
+        </div>
+        <div id="eventosList" class="eventos-scroll"></div>
+
         <div class="composer">
           <input type="text" placeholder="Compartilhe algo com o pelotão…" id="postInput">
           <select id="postTagSelect">
@@ -1038,10 +1079,30 @@
       <textarea placeholder="Nome" id="cadNome" style="min-height:auto; margin-bottom:10px;"></textarea>
       <textarea placeholder="Bairro / região" id="cadBairro" style="min-height:auto; margin-bottom:10px;"></textarea>
       <textarea placeholder="Foco (ex: Estrada, MTB, Manutenção geral)" id="cadFoco" style="min-height:auto; margin-bottom:10px;"></textarea>
+      <textarea placeholder="WhatsApp (ex: 5521999999999, só números)" id="cadWhatsapp" style="min-height:auto; margin-bottom:10px;"></textarea>
       <textarea placeholder="Descrição curta" id="cadDescricao"></textarea>
       <div class="modal-actions">
         <button class="btn-secondary" id="btnCancelCadastro">Cancelar</button>
         <button class="btn-primary" id="btnSalvarCadastro" style="background:var(--safety); color:#141A0A;">Cadastrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalEventoBackdrop">
+    <div class="modal">
+      <div class="modal-grab"></div>
+      <h3>Agendar pedal</h3>
+      <p class="sub">Convide o pelotão pra sair com você.</p>
+      <textarea placeholder="Título (ex: Pedal do Aterro)" id="evTitulo" style="min-height:auto; margin-bottom:10px;"></textarea>
+      <textarea placeholder="Ponto de encontro" id="evLocal" style="min-height:auto; margin-bottom:10px;"></textarea>
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <input type="date" id="evData" style="flex:1; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px; color:var(--text); font-family:var(--font-body); font-size:13px;">
+        <input type="time" id="evHora" style="flex:1; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px; color:var(--text); font-family:var(--font-body); font-size:13px;">
+      </div>
+      <textarea placeholder="Detalhes (ritmo, distância, nível...)" id="evDescricao"></textarea>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="btnCancelEvento">Cancelar</button>
+        <button class="btn-primary" id="btnSalvarEvento" style="background:var(--route); color:#0B2833;">Agendar</button>
       </div>
     </div>
   </div>
@@ -1615,6 +1676,89 @@
     carregarFeed();
   });
 
+  // ---------- pedais agendados (eventos) ----------
+  const modalEventoBackdrop = document.getElementById('modalEventoBackdrop');
+  let confirmacoesCache = {}; // evento_id -> Set(usuario_id)
+
+  document.getElementById('btnAbrirNovoEvento').addEventListener('click', ()=>{
+    if(!exigirLogin()) return;
+    ['evTitulo','evLocal','evDescricao'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('evData').value = '';
+    document.getElementById('evHora').value = '';
+    modalEventoBackdrop.classList.add('open');
+  });
+  document.getElementById('btnCancelEvento').addEventListener('click', ()=> modalEventoBackdrop.classList.remove('open'));
+  modalEventoBackdrop.addEventListener('click', (e)=>{ if(e.target === modalEventoBackdrop) modalEventoBackdrop.classList.remove('open'); });
+
+  document.getElementById('btnSalvarEvento').addEventListener('click', async ()=>{
+    if(!exigirLogin()) return;
+    const titulo = document.getElementById('evTitulo').value.trim();
+    const local = document.getElementById('evLocal').value.trim();
+    const data = document.getElementById('evData').value;
+    const hora = document.getElementById('evHora').value || '06:00';
+    const descricao = document.getElementById('evDescricao').value.trim() || null;
+    if(!titulo || !data){ showToast('Preencha pelo menos o título e a data'); return; }
+    const dataHora = new Date(`${data}T${hora}:00`).toISOString();
+    const { error } = await sb.from('eventos').insert({ autor_id: currentUser.id, titulo, local, data_hora: dataHora, descricao });
+    if(error){ showToast('Erro ao agendar: ' + error.message); return; }
+    modalEventoBackdrop.classList.remove('open');
+    showToast('Pedal agendado!');
+    carregarEventos();
+  });
+
+  function formatarDataEvento(iso){
+    const d = new Date(iso);
+    const diaSemana = d.toLocaleDateString('pt-BR', { weekday: 'short' }).toUpperCase().replace('.', '');
+    const dia = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+    const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return `${diaSemana} · ${dia} · ${hora}`;
+  }
+
+  async function carregarEventos(){
+    if(!supabaseReady) return;
+    const eventosList = document.getElementById('eventosList');
+    const agora = new Date().toISOString();
+    const { data: eventos, error } = await sb.from('eventos').select('*').gte('data_hora', agora).order('data_hora', { ascending: true }).limit(10);
+    if(error || !eventos){ eventosList.innerHTML = ''; return; }
+    if(!eventos.length){ eventosList.innerHTML = '<p class="eventos-vazio">Nenhum pedal agendado ainda — que tal marcar um?</p>'; return; }
+
+    const { data: confirmacoes } = await sb.from('confirmacoes_evento').select('evento_id, usuario_id');
+    confirmacoesCache = {};
+    (confirmacoes || []).forEach(c => {
+      if(!confirmacoesCache[c.evento_id]) confirmacoesCache[c.evento_id] = new Set();
+      confirmacoesCache[c.evento_id].add(c.usuario_id);
+    });
+
+    eventosList.innerHTML = eventos.map(ev => {
+      const confirmados = confirmacoesCache[ev.id] ? confirmacoesCache[ev.id].size : 0;
+      const euVou = currentUser && confirmacoesCache[ev.id] && confirmacoesCache[ev.id].has(currentUser.id);
+      return `
+        <div class="evento-card">
+          <div class="evento-data">${formatarDataEvento(ev.data_hora)}</div>
+          <h4>${ev.titulo}</h4>
+          <div class="evento-local">${ev.local || ''}</div>
+          <div class="evento-footer">
+            <span class="evento-confirmados">${confirmados} confirmado${confirmados===1?'':'s'}</span>
+            <button class="btn-vou ${euVou?'confirmado':''}" data-evento-id="${ev.id}">${euVou ? '✓ Vou' : 'Vou'}</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  document.getElementById('eventosList').addEventListener('click', async (e)=>{
+    const btn = e.target.closest('.btn-vou');
+    if(!btn) return;
+    if(!exigirLogin()) return;
+    const eventoId = btn.dataset.eventoId;
+    const jaConfirmado = btn.classList.contains('confirmado');
+    if(jaConfirmado){
+      await sb.from('confirmacoes_evento').delete().eq('evento_id', eventoId).eq('usuario_id', currentUser.id);
+    } else {
+      await sb.from('confirmacoes_evento').insert({ evento_id: eventoId, usuario_id: currentUser.id });
+    }
+    carregarEventos();
+  });
+
   document.getElementById('comunidadeChips').addEventListener('click', (e)=>{
     const chip = e.target.closest('.chip');
     if(!chip) return;
@@ -1812,7 +1956,7 @@
       const { data: avals } = await sb.from('avaliacoes').select('nota').eq('assessoria_id', a.id);
       const total = avals ? avals.length : 0;
       const media = total ? (avals.reduce((s,v)=>s+v.nota,0) / total).toFixed(1) : '—';
-      return { id:a.id, tipo:a.tipo, nome:a.nome, bairro:a.bairro, foco:a.foco, nota:media, totalAvaliacoes:total, desc:a.descricao };
+      return { id:a.id, tipo:a.tipo, nome:a.nome, bairro:a.bairro, foco:a.foco, nota:media, totalAvaliacoes:total, desc:a.descricao, whatsapp:a.whatsapp };
     }));
     renderBairroChips();
     renderAssessorias();
@@ -1852,7 +1996,13 @@
           </div>
           <div class="meta">${a.bairro || ''} · ${a.foco || ''}</div>
           <div class="desc">${a.desc || ''}</div>
-          ${a.id ? `<div class="card-actions"><button class="btn-avaliar" data-id="${a.id}" data-nome="${a.nome.replace(/"/g,'&quot;')}">★ Avaliar</button></div>` : ''}
+          ${a.id ? `<div class="card-actions">
+            <button class="btn-avaliar" data-id="${a.id}" data-nome="${a.nome.replace(/"/g,'&quot;')}">★ Avaliar</button>
+            ${a.whatsapp ? `<a class="btn-whatsapp" href="https://wa.me/${a.whatsapp.replace(/\D/g,'')}" target="_blank" rel="noopener">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.44 1.32 4.94L2.05 22l5.29-1.38a9.87 9.87 0 0 0 4.7 1.2h.01c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2Zm0 18.02h-.01a8.1 8.1 0 0 1-4.14-1.14l-.3-.17-3.14.82.84-3.06-.19-.31a8.13 8.13 0 0 1-1.25-4.34c0-4.49 3.65-8.14 8.14-8.14 2.17 0 4.21.85 5.75 2.39a8.08 8.08 0 0 1 2.38 5.76c0 4.49-3.66 8.19-8.08 8.19Z"/></svg>
+              WhatsApp
+            </a>` : ''}
+          </div>` : ''}
         </div>
       </div>
     `).join('');
@@ -1928,7 +2078,7 @@
     if(!exigirLogin()) return;
     tipoCadastroSelecionado = null;
     document.querySelectorAll('#tipoCadastroGrid .incident-opt').forEach(o=>o.classList.remove('selected'));
-    ['cadNome','cadBairro','cadFoco','cadDescricao'].forEach(id => document.getElementById(id).value = '');
+    ['cadNome','cadBairro','cadFoco','cadWhatsapp','cadDescricao'].forEach(id => document.getElementById(id).value = '');
     modalCadastroBackdrop.classList.add('open');
   });
   document.getElementById('btnCancelCadastro').addEventListener('click', ()=> modalCadastroBackdrop.classList.remove('open'));
@@ -1948,9 +2098,10 @@
     if(!nome){ showToast('Digite o nome'); return; }
     const bairro = document.getElementById('cadBairro').value.trim() || null;
     const foco = document.getElementById('cadFoco').value.trim() || null;
+    const whatsapp = document.getElementById('cadWhatsapp').value.trim().replace(/\D/g,'') || null;
     const descricao = document.getElementById('cadDescricao').value.trim() || null;
     const { error } = await sb.from('assessorias').insert({
-      nome, tipo: tipoCadastroSelecionado, bairro, foco, descricao, criado_por: currentUser.id
+      nome, tipo: tipoCadastroSelecionado, bairro, foco, whatsapp, descricao, criado_por: currentUser.id
     });
     modalCadastroBackdrop.classList.remove('open');
     if(error){ showToast('Erro ao cadastrar: ' + error.message); return; }
@@ -2137,6 +2288,7 @@
   initMap();
   initAuth().then(()=>{
     carregarFeed();
+    carregarEventos();
     carregarOcorrencias();
     carregarAssessorias();
     assinarFeedRealtime();
