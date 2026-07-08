@@ -1365,6 +1365,49 @@
     document.getElementById('pedalandoAgora').textContent = riderMarkers.size;
   }
 
+  // ---------- rastro do trajeto (linha da rota, desenhada ao vivo) ----------
+  const trilhaCoords = new Map(); // usuario_id -> [[lng,lat], ...]
+
+  function garantirCamadaTrilha(usuarioId, cor){
+    if(!map) return;
+    const sourceId = `trilha-${usuarioId}`;
+    if(map.getSource(sourceId)) return;
+    map.addSource(sourceId, { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } } });
+    map.addLayer({
+      id: sourceId, type: 'line', source: sourceId,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': cor, 'line-width': 3, 'line-opacity': 0.85 }
+    });
+  }
+
+  function adicionarPontoTrilha(usuarioId, lat, lng, ehMinhaPropria){
+    if(!map) return;
+    garantirCamadaTrilha(usuarioId, ehMinhaPropria ? '#35C6FF' : '#C9FF3D');
+    const coords = trilhaCoords.get(usuarioId) || [];
+    coords.push([lng, lat]);
+    trilhaCoords.set(usuarioId, coords);
+    const source = map.getSource(`trilha-${usuarioId}`);
+    if(source) source.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords } });
+  }
+
+  function limparTrilha(usuarioId){
+    trilhaCoords.delete(usuarioId);
+    if(!map) return;
+    const sourceId = `trilha-${usuarioId}`;
+    if(map.getLayer(sourceId)) map.removeLayer(sourceId);
+    if(map.getSource(sourceId)) map.removeSource(sourceId);
+  }
+
+  async function carregarTrilhaExistente(usuarioId, sessaoId){
+    if(!supabaseReady || !sessaoId) return;
+    const { data } = await sb.from('pontos_trajeto')
+      .select('latitude, longitude')
+      .eq('usuario_id', usuarioId).eq('sessao_id', sessaoId)
+      .order('criado_em', { ascending: true });
+    if(!data) return;
+    data.forEach(p => adicionarPontoTrilha(usuarioId, p.latitude, p.longitude, usuarioId === currentUser?.id));
+  }
+
   async function carregarCiclistasAoVivo(){
     if(!supabaseReady || !map) return;
     const dezMinAtras = new Date(Date.now() - 10*60000).toISOString();
@@ -1373,7 +1416,10 @@
       .select('*, usuarios(nome)')
       .gte('atualizado_em', dezMinAtras);
     if(error || !data) return;
-    data.forEach(l => upsertRiderMarker(l.usuario_id, l.latitude, l.longitude, l.usuarios?.nome));
+    data.forEach(l => {
+      upsertRiderMarker(l.usuario_id, l.latitude, l.longitude, l.usuarios?.nome);
+      carregarTrilhaExistente(l.usuario_id, l.sessao_id);
+    });
   }
 
   function assinarLocalizacoesRealtime(){
@@ -1382,6 +1428,7 @@
       .on('postgres_changes', { event: '*', schema: 'public', table: 'localizacoes_ao_vivo' }, async (payload)=>{
         if(payload.eventType === 'DELETE'){
           removeRiderMarker(payload.old.usuario_id);
+          limparTrilha(payload.old.usuario_id);
           return;
         }
         const row = payload.new;
@@ -1390,11 +1437,27 @@
         upsertRiderMarker(row.usuario_id, row.latitude, row.longitude, data?.nome);
       })
       .subscribe();
+
+    // pontos novos do trajeto de qualquer ciclista (inclusive o meu,
+    // pra manter a linha sincronizada mesmo se eu abrir o app em
+    // outra aba)
+    sb.channel('trajeto-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pontos_trajeto' }, (payload)=>{
+        const p = payload.new;
+        if(p.usuario_id === currentUser?.id) return; // já desenhado localmente na hora
+        adicionarPontoTrilha(p.usuario_id, p.latitude, p.longitude, false);
+      })
+      .subscribe();
   }
 
   // ---------- modo "compartilhar pedal ao vivo" ----------
+  let sessaoAoVivoId = null;
+  let ultimoPontoTrilhaEm = 0;
+
   async function ligarCompartilhamento(){
     if(!('geolocation' in navigator)){ showToast('Seu navegador não suporta geolocalização'); return false; }
+    sessaoAoVivoId = crypto.randomUUID();
+    limparTrilha(currentUser?.id);
     watchId = navigator.geolocation.watchPosition(async (pos)=>{
       const { latitude, longitude } = pos.coords;
       if(map){
@@ -1406,10 +1469,20 @@
           map.flyTo({ center: [longitude, latitude], zoom: 14 });
         }
       }
+      adicionarPontoTrilha(currentUser?.id, latitude, longitude, true);
       if(supabaseReady && currentUser){
         await sb.from('localizacoes_ao_vivo').upsert({
-          usuario_id: currentUser.id, latitude, longitude, atualizado_em: new Date().toISOString()
+          usuario_id: currentUser.id, latitude, longitude, sessao_id: sessaoAoVivoId, atualizado_em: new Date().toISOString()
         });
+        // grava um ponto do trajeto no máximo a cada ~8 segundos,
+        // pra não sobrecarregar o banco com pontos demais
+        const agora = Date.now();
+        if(agora - ultimoPontoTrilhaEm > 8000){
+          ultimoPontoTrilhaEm = agora;
+          await sb.from('pontos_trajeto').insert({
+            usuario_id: currentUser.id, sessao_id: sessaoAoVivoId, latitude, longitude
+          });
+        }
       }
     }, (err)=>{
       showToast('Não foi possível obter sua localização');
@@ -1420,6 +1493,8 @@
   async function desligarCompartilhamento(){
     if(watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
     if(myMarker){ myMarker.remove(); myMarker = null; }
+    if(currentUser) limparTrilha(currentUser.id);
+    sessaoAoVivoId = null;
     if(supabaseReady && currentUser){
       await sb.from('localizacoes_ao_vivo').delete().eq('usuario_id', currentUser.id);
     }
