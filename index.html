@@ -1413,7 +1413,7 @@
     const dezMinAtras = new Date(Date.now() - 10*60000).toISOString();
     const { data, error } = await sb
       .from('localizacoes_ao_vivo')
-      .select('*, usuarios(nome)')
+      .select('*, usuarios!usuario_id(nome)')
       .gte('atualizado_em', dezMinAtras);
     if(error || !data) return;
     data.forEach(l => {
@@ -1567,7 +1567,7 @@
     if(!supabaseReady) return;
     const { data, error } = await sb
       .from('ocorrencias')
-      .select('*, usuarios(nome)')
+      .select('*, usuarios!autor_id(nome)')
       .order('criado_em', { ascending: false })
       .limit(10);
     if(error || !data) return;
@@ -1677,7 +1677,7 @@
   async function carregarComentarios(postId){
     const postEl = document.querySelector(`.post[data-post-id="${postId}"]`);
     const list = postEl.querySelector('.comments-list');
-    const { data } = await sb.from('comentarios').select('*, usuarios(nome)').eq('post_id', postId).order('criado_em', { ascending: true });
+    const { data } = await sb.from('comentarios').select('*, usuarios!autor_id(nome)').eq('post_id', postId).order('criado_em', { ascending: true });
     const itens = (data || []).map(c => `
       <div class="comment-item">
         <div class="avatar">${(c.usuarios?.nome || 'CI').slice(0,2).toUpperCase()}</div>
@@ -1732,7 +1732,7 @@
   async function carregarFeed(){
     if(!supabaseReady) return;
     const feedList = document.getElementById('feedList');
-    let query = sb.from('posts').select('*, usuarios(nome)').order('criado_em', { ascending: false }).limit(30);
+    let query = sb.from('posts').select('*, usuarios!autor_id(nome)').order('criado_em', { ascending: false }).limit(30);
     if(filtroComunidadeAtivo !== 'todos') query = query.eq('tag', filtroComunidadeAtivo);
     const { data, error } = await query;
     if(error){
