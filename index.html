@@ -1604,7 +1604,7 @@
     btnPost.disabled = true;
     const { error } = await sb.from('posts').insert({ autor_id: currentUser.id, conteudo, tag: tagSelect.value });
     btnPost.disabled = false;
-    if(error){ showToast('Erro ao postar: ' + error.message); return; }
+    if(error){ console.error('Erro ao postar:', error); showToast('Erro ao postar: ' + error.message); return; }
     input.value = '';
     showToast('Postado no feed da comunidade');
     // volta o filtro pra "Todos" pra garantir que o post novo apareça,
@@ -1689,9 +1689,22 @@
   }
 
   async function renderPostEl(post){
-    const { count: likeCount } = await sb.from('curtidas').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
-    const { count: commentCount } = await sb.from('comentarios').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
-    const jaCurtiu = currentUser ? !!(await sb.from('curtidas').select('*').eq('post_id', post.id).eq('usuario_id', currentUser.id).maybeSingle()).data : false;
+    let likeCount = 0, commentCount = 0, jaCurtiu = false;
+    try{
+      const r1 = await sb.from('curtidas').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
+      likeCount = r1.count || 0;
+    } catch(e){ console.warn('curtidas indisponível', e); }
+    try{
+      const r2 = await sb.from('comentarios').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
+      commentCount = r2.count || 0;
+    } catch(e){ console.warn('comentarios indisponível', e); }
+    try{
+      if(currentUser){
+        const r3 = await sb.from('curtidas').select('*').eq('post_id', post.id).eq('usuario_id', currentUser.id).maybeSingle();
+        jaCurtiu = !!r3.data;
+      }
+    } catch(e){ /* segue sem marcar como curtido */ }
+
     const el = document.createElement('div');
     el.className = 'post';
     el.dataset.postId = post.id;
@@ -1703,8 +1716,8 @@
       </div>
       <p>${post.conteudo.replace(/</g,'&lt;')}</p>
       <div class="post-actions">
-        <button class="like-btn ${jaCurtiu?'liked':''}" data-post-id="${post.id}">${likeIcon} <span class="like-count">${likeCount || 0}</span></button>
-        <button class="comment-toggle-btn" data-post-id="${post.id}">${commentIcon} <span class="comment-count">${commentCount || 0}</span></button>
+        <button class="like-btn ${jaCurtiu?'liked':''}" data-post-id="${post.id}">${likeIcon} <span class="like-count">${likeCount}</span></button>
+        <button class="comment-toggle-btn" data-post-id="${post.id}">${commentIcon} <span class="comment-count">${commentCount}</span></button>
       </div>
       <div class="comments-list">
         <div class="comments-items"></div>
@@ -1718,13 +1731,27 @@
 
   async function carregarFeed(){
     if(!supabaseReady) return;
+    const feedList = document.getElementById('feedList');
     let query = sb.from('posts').select('*, usuarios(nome)').order('criado_em', { ascending: false }).limit(30);
     if(filtroComunidadeAtivo !== 'todos') query = query.eq('tag', filtroComunidadeAtivo);
     const { data, error } = await query;
-    if(error || !data) return;
-    const feedList = document.getElementById('feedList');
+    if(error){
+      console.error('Erro ao carregar feed:', error);
+      feedList.innerHTML = `<p style="color:var(--alert); font-size:12.5px; padding:16px 0;">Não foi possível carregar o feed: ${error.message}</p>`;
+      return;
+    }
+    if(!data || !data.length){
+      feedList.innerHTML = '<p style="color:var(--text-muted); font-size:13px; padding:20px 0; text-align:center;">Nenhum post ainda — seja o primeiro a postar!</p>';
+      return;
+    }
     feedList.innerHTML = '';
-    for(const post of data){ feedList.appendChild(await renderPostEl(post)); }
+    for(const post of data){
+      try{
+        feedList.appendChild(await renderPostEl(post));
+      } catch(e){
+        console.error('Erro ao renderizar post', post.id, e);
+      }
+    }
   }
 
   function assinarFeedRealtime(){
