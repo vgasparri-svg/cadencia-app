@@ -536,6 +536,17 @@
   .profile-head p{font-size:12px; color:var(--text-muted); margin-top:2px; font-family:var(--font-mono);}
 
   .badge-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:0 16px 20px;}
+  .resumo-grid{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:8px;
+    padding:0 16px 6px;
+  }
+  .resumo-item{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius-sm); padding:10px 6px; text-align:center;
+  }
+  .resumo-valor{ font-family:var(--font-mono); font-weight:700; font-size:16px; color:var(--safety); }
+  .resumo-label{ font-size:9.5px; color:var(--text-muted); margin-top:3px; line-height:1.3; }
+  .resumo-fonte{ font-size:11px; color:var(--text-muted); padding:8px 16px 16px; }
   .badge{
     background:var(--surface); border:1px solid var(--line);
     border-radius:var(--radius-md); padding:14px 8px;
@@ -955,6 +966,25 @@
           <p class="intervals-status" id="intervalsStatus"></p>
         </div>
 
+        <div class="intervals-box" id="stravaBox">
+          <div class="intervals-head">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--alert)"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066M8.613 6.056L11.68 12.02h3.033L8.613 0 3.463 10.172H6.53"/></svg>
+            <h4>Strava</h4>
+          </div>
+          <div id="stravaDisconnected">
+            <p class="intervals-desc">Conecte sua conta do Strava pra importar seus pedais automaticamente.</p>
+            <button id="btnStravaConectar">Conectar com Strava</button>
+          </div>
+          <div id="stravaConnected" class="hidden">
+            <p class="intervals-desc">Strava conectado ✓</p>
+            <div class="intervals-actions">
+              <button id="btnStravaSincronizar">Sincronizar agora</button>
+              <button id="btnStravaDesconectar" class="intervals-btn-secondary">Desconectar</button>
+            </div>
+          </div>
+          <p class="intervals-status" id="stravaStatus"></p>
+        </div>
+
         <div class="section-head" style="margin-bottom:0;"><h2 style="font-size:14px;">Histórico</h2></div>
         <div class="log-list" id="logList"></div>
         <button class="add-log" id="btnAddLog">
@@ -972,6 +1002,10 @@
           <h2>Vinicius</h2>
           <p id="perfilEmail">Rio de Janeiro · 3.240 km em 2026</p>
         </div>
+      </div>
+      <div class="section" style="padding-top:0;">
+        <div class="section-head"><h2 style="font-size:14px;">Resumo de treino</h2></div>
+        <div id="perfilResumoTreino"></div>
       </div>
       <div class="section" style="padding-top:0;"><div class="section-head"><h2 style="font-size:14px;">Conquistas</h2></div></div>
       <div class="badge-grid">
@@ -1315,7 +1349,7 @@
     if(session?.user){ currentUser = { id: session.user.id, email: session.user.email, phone: session.user.phone }; }
     renderGateState();
     atualizarPerfilLogout();
-    if(currentUser){ renderEstadoIntervals(); carregarPedaisDoBanco(); }
+    if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); }
     sb.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user ? { id: session.user.id, email: session.user.email, phone: session.user.phone } : null;
       renderGateState();
@@ -1323,6 +1357,7 @@
       if(currentUser){
         carregarFeed();
         renderEstadoIntervals();
+        renderEstadoStrava();
         carregarPedaisDoBanco();
         showToast('Login realizado — bem-vindo(a)!');
         if(event === 'SIGNED_IN' && passkeyDisponivelNoClient()){
@@ -2240,9 +2275,9 @@
       <div class="log-item">
         <div>
           <div class="route-name">${l.nome}</div>
-          <div class="route-date">${l.data}</div>
+          <div class="route-date">${l.data}${l.fonte && l.fonte !== 'manual' ? ` · <span style="color:var(--route);">${l.fonte}</span>` : ''}</div>
         </div>
-        <div class="route-nums">${l.km}km <small>${l.tempo} · ${l.pwr}W méd</small></div>
+        <div class="route-nums">${l.km}km <small>${l.tempo}${l.pwr !== '—' ? ` · ${l.pwr}W méd` : ''}${l.elevacao ? ` · ${l.elevacao}m ↑` : ''}${l.fcMedia ? ` · ${l.fcMedia}bpm` : ''}</small></div>
       </div>
     `).join('');
   }
@@ -2310,6 +2345,71 @@
     renderEstadoIntervals();
   });
 
+  // ---------- treino: integração com Strava ----------
+  // Config: troque pelo Client ID do seu app no Strava (não é
+  // segredo, pode ficar aqui). O segredo (client_secret) fica só na
+  // Edge Function, nunca no navegador.
+  const STRAVA_CLIENT_ID = 'COLE_AQUI_SEU_STRAVA_CLIENT_ID';
+  const STRAVA_REDIRECT_URI = `${SUPABASE_URL}/functions/v1/strava-oauth-callback`;
+
+  const stravaDisconnected = document.getElementById('stravaDisconnected');
+  const stravaConnected = document.getElementById('stravaConnected');
+  const stravaStatus = document.getElementById('stravaStatus');
+  const btnStravaSincronizar = document.getElementById('btnStravaSincronizar');
+
+  function setStravaStatus(msg, tipo){
+    stravaStatus.textContent = msg || '';
+    stravaStatus.classList.remove('success', 'error');
+    if(tipo) stravaStatus.classList.add(tipo);
+  }
+
+  async function renderEstadoStrava(){
+    if(!supabaseReady || !currentUser) return;
+    const { data } = await sb.from('usuarios').select('strava_refresh_token').eq('id', currentUser.id).single();
+    if(data?.strava_refresh_token){
+      stravaDisconnected.classList.add('hidden');
+      stravaConnected.classList.remove('hidden');
+    } else {
+      stravaDisconnected.classList.remove('hidden');
+      stravaConnected.classList.add('hidden');
+    }
+  }
+
+  document.getElementById('btnStravaConectar').addEventListener('click', ()=>{
+    if(!exigirLogin()) return;
+    if(STRAVA_CLIENT_ID.startsWith('COLE_AQUI')){ setStravaStatus('Configure o STRAVA_CLIENT_ID no código primeiro.', 'error'); return; }
+    const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(STRAVA_REDIRECT_URI)}&approval_prompt=auto&scope=activity:read_all&state=${currentUser.id}`;
+    window.location.href = authUrl;
+  });
+
+  document.getElementById('btnStravaDesconectar').addEventListener('click', async ()=>{
+    await sb.from('usuarios').update({ strava_access_token: null, strava_refresh_token: null, strava_expires_at: null, strava_athlete_id: null }).eq('id', currentUser.id);
+    setStravaStatus('Desconectado.');
+    renderEstadoStrava();
+  });
+
+  btnStravaSincronizar.addEventListener('click', async ()=>{
+    if(!exigirLogin()) return;
+    btnStravaSincronizar.disabled = true;
+    setStravaStatus('Sincronizando pedais do Strava…');
+    try{
+      const { data, error } = await sb.functions.invoke('strava-sync');
+      if(error){ setStravaStatus('Erro ao sincronizar: ' + error.message, 'error'); btnStravaSincronizar.disabled = false; return; }
+      if(data?.error){ setStravaStatus('Erro: ' + data.error, 'error'); btnStravaSincronizar.disabled = false; return; }
+      setStravaStatus(`${data.importados} pedal(is) sincronizado(s) dos últimos 90 dias.`, 'success');
+      carregarPedaisDoBanco();
+    } catch(e){
+      setStravaStatus('Não foi possível sincronizar. Confira se a Edge Function foi publicada.', 'error');
+    }
+    btnStravaSincronizar.disabled = false;
+  });
+
+  // se acabou de voltar do Strava (?strava=conectado na URL), avisa e limpa a URL
+  if(window.location.search.includes('strava=conectado')){
+    showToast('Strava conectado com sucesso!');
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
   btnIntervalsSincronizar.addEventListener('click', async ()=>{
     if(!exigirLogin()) return;
     const { data: perfil } = await sb.from('usuarios').select('intervals_athlete_id, intervals_api_key').eq('id', currentUser.id).single();
@@ -2330,6 +2430,12 @@
           distancia_km: a.distance ? +(a.distance/1000).toFixed(1) : null,
           duracao_min: a.moving_time ? Math.round(a.moving_time/60) : null,
           potencia_media_w: a.icu_average_watts ? Math.round(a.icu_average_watts) : (a.average_watts ? Math.round(a.average_watts) : null),
+          elevacao_m: a.total_elevation_gain ? Math.round(a.total_elevation_gain) : null,
+          fc_media: a.average_heartrate ? Math.round(a.average_heartrate) : null,
+          fc_maxima: a.max_heartrate ? Math.round(a.max_heartrate) : null,
+          calorias: a.calories ? Math.round(a.calories) : null,
+          carga_treino: a.icu_training_load ?? null,
+          cadencia_media: a.average_cadence ? Math.round(a.average_cadence) : null,
           realizado_em: a.start_date_local || a.start_date,
           fonte: 'intervals.icu',
           fonte_externa_id: String(a.id)
@@ -2354,9 +2460,34 @@
       data: p.realizado_em ? new Date(p.realizado_em).toLocaleDateString('pt-BR', {day:'2-digit', month:'short'}) : '',
       km: p.distancia_km ?? '—',
       tempo: p.duracao_min ? `${Math.floor(p.duracao_min/60)}h${String(p.duracao_min%60).padStart(2,'0')}` : '—',
-      pwr: p.potencia_media_w ?? '—'
+      pwr: p.potencia_media_w ?? '—',
+      elevacao: p.elevacao_m ?? null,
+      fcMedia: p.fc_media ?? null,
+      fonte: p.fonte
     }));
     renderLogs();
+    renderResumoPerfil(data);
+  }
+
+  function renderResumoPerfil(pedaisData){
+    const el = document.getElementById('perfilResumoTreino');
+    if(!el) return;
+    if(!pedaisData || !pedaisData.length){ el.innerHTML = ''; return; }
+    const totalKm = pedaisData.reduce((s,p)=> s + (p.distancia_km||0), 0);
+    const totalElevacao = pedaisData.reduce((s,p)=> s + (p.elevacao_m||0), 0);
+    const totalMin = pedaisData.reduce((s,p)=> s + (p.duracao_min||0), 0);
+    const cargas = pedaisData.filter(p=>p.carga_treino).map(p=>p.carga_treino);
+    const cargaMedia = cargas.length ? (cargas.reduce((s,v)=>s+v,0)/cargas.length).toFixed(0) : null;
+    const ultimoSync = pedaisData.find(p => p.fonte && p.fonte !== 'manual');
+    el.innerHTML = `
+      <div class="resumo-grid">
+        <div class="resumo-item"><div class="resumo-valor">${totalKm.toFixed(0)}</div><div class="resumo-label">km (últimos ${pedaisData.length})</div></div>
+        <div class="resumo-item"><div class="resumo-valor">${totalElevacao.toFixed(0)}</div><div class="resumo-label">m de elevação</div></div>
+        <div class="resumo-item"><div class="resumo-valor">${Math.floor(totalMin/60)}h${String(totalMin%60).padStart(2,'0')}</div><div class="resumo-label">tempo pedalado</div></div>
+        <div class="resumo-item"><div class="resumo-valor">${cargaMedia ?? '—'}</div><div class="resumo-label">carga média</div></div>
+      </div>
+      ${ultimoSync ? `<p class="resumo-fonte">Última sincronização: ${ultimoSync.fonte} — ${new Date(ultimoSync.realizado_em).toLocaleDateString('pt-BR')}</p>` : ''}
+    `;
   }
 
   // ---------- inicialização Supabase ----------
