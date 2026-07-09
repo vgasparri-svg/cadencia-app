@@ -547,6 +547,26 @@
   .resumo-valor{ font-family:var(--font-mono); font-weight:700; font-size:16px; color:var(--safety); }
   .resumo-label{ font-size:9.5px; color:var(--text-muted); margin-top:3px; line-height:1.3; }
   .resumo-fonte{ font-size:11px; color:var(--text-muted); padding:8px 16px 16px; }
+
+  /* gráfico de forma física (PMC) */
+  .pmc-box{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius-md); margin:0 16px; padding:16px;
+  }
+  .pmc-numbers{ display:flex; gap:10px; margin-bottom:14px; }
+  .pmc-num{ flex:1; text-align:center; }
+  .pmc-num .valor{ font-family:var(--font-mono); font-weight:700; font-size:20px; }
+  .pmc-num .rotulo{ font-size:9.5px; color:var(--text-muted); margin-top:2px; letter-spacing:0.3px; }
+  .pmc-status{
+    text-align:center; font-family:var(--font-display); font-weight:700; font-size:13px;
+    padding:8px; border-radius:100px; margin-bottom:14px;
+  }
+  .pmc-status.fresco{ background:rgba(53,198,255,0.15); color:var(--route); }
+  .pmc-status.neutro{ background:rgba(201,255,61,0.15); color:var(--safety); }
+  .pmc-status.fadigado{ background:rgba(255,90,60,0.15); color:var(--alert); }
+  .pmc-legend{ display:flex; gap:14px; justify-content:center; margin-top:8px; }
+  .pmc-legend span{ font-size:10.5px; color:var(--text-muted); display:flex; align-items:center; gap:5px; }
+  .pmc-legend .dot{ width:8px; height:8px; border-radius:50%; display:inline-block; }
   .badge{
     background:var(--surface); border:1px solid var(--line);
     border-radius:var(--radius-md); padding:14px 8px;
@@ -1006,6 +1026,12 @@
       <div class="section" style="padding-top:0;">
         <div class="section-head"><h2 style="font-size:14px;">Resumo de treino</h2></div>
         <div id="perfilResumoTreino"></div>
+      </div>
+      <div class="section" style="padding-top:0;">
+        <div class="section-head"><h2 style="font-size:14px;">Forma física</h2></div>
+        <div class="pmc-box" id="pmcBox">
+          <p class="intervals-desc" style="padding:0 16px;">Sincronize seus pedais (Intervals.icu ou Strava) pra ver seu gráfico de forma.</p>
+        </div>
       </div>
       <div class="section" style="padding-top:0;"><div class="section-head"><h2 style="font-size:14px;">Conquistas</h2></div></div>
       <div class="badge-grid">
@@ -2476,6 +2502,7 @@
     renderLogs();
     renderResumoPerfil(data);
     carregarEstatisticasMes();
+    carregarESeuGraficoDeForma();
   }
 
   async function carregarEstatisticasMes(){
@@ -2514,6 +2541,90 @@
       ${ultimoSync ? `<p class="resumo-fonte">Última sincronização: ${ultimoSync.fonte} — ${new Date(ultimoSync.realizado_em).toLocaleDateString('pt-BR')}</p>` : ''}
     `;
   }
+
+  // ---------- gráfico de forma física (PMC — Fitness/Fadiga/Forma) ----------
+  // Fórmula padrão usada por TrainingPeaks/Intervals.icu:
+  // CTL (fitness, janela de 42 dias) e ATL (fadiga, janela de 7 dias)
+  // são médias móveis exponenciais da carga de treino diária.
+  // TSB/Forma = CTL de ontem − ATL de ontem (o quanto você está
+  // "fresco" hoje, considerando o acumulado até ontem).
+  async function carregarESeuGraficoDeForma(){
+    const box = document.getElementById('pmcBox');
+    if(!supabaseReady || !currentUser || !box) return;
+
+    // pega ~120 dias pra ter um "aquecimento" decente antes de
+    // mostrar os últimos 90 dias de verdade
+    const desde = new Date(Date.now() - 120*24*60*60*1000).toISOString().slice(0,10);
+    const { data, error } = await sb.from('pedais')
+      .select('realizado_em, carga_treino')
+      .eq('usuario_id', currentUser.id)
+      .gte('realizado_em', desde)
+      .order('realizado_em', { ascending: true });
+
+    if(error || !data || !data.filter(p=>p.carga_treino).length){
+      box.innerHTML = '<p class="intervals-desc" style="padding:0 16px;">Ainda não há carga de treino suficiente sincronizada pra calcular sua forma. Sincronize com o Intervals.icu (ele calcula a carga automaticamente).</p>';
+      return;
+    }
+
+    // soma a carga por dia (pode ter mais de um pedal no mesmo dia)
+    const cargaPorDia = {};
+    data.forEach(p => {
+      if(!p.realizado_em) return;
+      const dia = p.realizado_em.slice(0,10);
+      cargaPorDia[dia] = (cargaPorDia[dia] || 0) + (p.carga_treino || 0);
+    });
+
+    const primeiroDia = new Date(desde);
+    const hoje = new Date();
+    const dias = [];
+    for(let d = new Date(primeiroDia); d <= hoje; d.setDate(d.getDate()+1)){
+      dias.push(d.toISOString().slice(0,10));
+    }
+
+    let ctl = 0, atl = 0;
+    const serie = dias.map(dia => {
+      const carga = cargaPorDia[dia] || 0;
+      const tsbHoje = ctl - atl; // forma calculada ANTES de somar a carga de hoje
+      ctl = ctl + (carga - ctl) / 42;
+      atl = atl + (carga - atl) / 7;
+      return { dia, ctl, atl, tsb: tsbHoje };
+    });
+
+    // mostra só os últimos 90 dias no gráfico (o resto foi só aquecimento)
+    const serieVisivel = serie.slice(-90);
+    const atual = serie[serie.length - 1];
+
+    let statusClasse = 'neutro', statusTexto = 'Forma neutra — ritmo sustentável';
+    if(atual.tsb > 5){ statusClasse = 'fresco'; statusTexto = 'Fresco — bom momento pra uma prova ou esforço forte'; }
+    else if(atual.tsb < -10){ statusClasse = 'fadigado'; statusTexto = 'Fadigado — considere um dia mais leve'; }
+
+    const largura = 660, altura = 160, padding = 6;
+    const valores = serieVisivel.flatMap(s => [s.ctl, s.atl]);
+    const maxVal = Math.max(...valores, 10);
+    const escalaY = (v) => altura - padding - (v / maxVal) * (altura - padding*2);
+    const escalaX = (i) => (i / (serieVisivel.length - 1)) * largura;
+
+    const pathCtl = serieVisivel.map((s,i) => `${i===0?'M':'L'} ${escalaX(i).toFixed(1)} ${escalaY(s.ctl).toFixed(1)}`).join(' ');
+    const pathAtl = serieVisivel.map((s,i) => `${i===0?'M':'L'} ${escalaX(i).toFixed(1)} ${escalaY(s.atl).toFixed(1)}`).join(' ');
+
+    box.innerHTML = `
+      <div class="pmc-numbers">
+        <div class="pmc-num"><div class="valor" style="color:var(--route);">${atual.ctl.toFixed(0)}</div><div class="rotulo">FITNESS (CTL)</div></div>
+        <div class="pmc-num"><div class="valor" style="color:var(--alert);">${atual.atl.toFixed(0)}</div><div class="rotulo">FADIGA (ATL)</div></div>
+        <div class="pmc-num"><div class="valor" style="color:var(--safety);">${atual.tsb > 0 ? '+' : ''}${atual.tsb.toFixed(0)}</div><div class="rotulo">FORMA (TSB)</div></div>
+      </div>
+      <div class="pmc-status ${statusClasse}">${statusTexto}</div>
+      <svg viewBox="0 0 ${largura} ${altura}" style="width:100%; display:block;">
+        <path d="${pathCtl}" fill="none" stroke="var(--route)" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="${pathAtl}" fill="none" stroke="var(--alert)" stroke-width="2" stroke-linejoin="round" opacity="0.85"/>
+      </svg>
+      <div class="pmc-legend">
+        <span><span class="dot" style="background:var(--route);"></span>Fitness (CTL)</span>
+        <span><span class="dot" style="background:var(--alert);"></span>Fadiga (ATL)</span>
+      </div>
+    `;
+  }
+
 
   // ---------- inicialização Supabase ----------
   initMap();
