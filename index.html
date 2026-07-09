@@ -919,7 +919,7 @@
     <!-- ===================== TREINO ===================== -->
     <section class="view" id="view-treino">
       <div class="section" style="padding-top:20px;">
-        <div class="section-head"><h2>Treino</h2><span class="count">7 pedais este mês</span></div>
+        <div class="section-head"><h2>Treino</h2><span class="count" id="statPedaisMes">— pedais este mês</span></div>
       </div>
       <div style="padding:0 16px;">
 
@@ -2477,7 +2477,9 @@
     const { data, error } = await sb.from('pedais').select('distancia_km, elevacao_m').eq('usuario_id', currentUser.id).gte('realizado_em', inicioMes);
     const elDist = document.getElementById('statDistanciaMes');
     const elElev = document.getElementById('statElevacaoMes');
+    const elCount = document.getElementById('statPedaisMes');
     if(error || !data){ if(elDist) elDist.innerHTML = '—<small> km</small>'; if(elElev) elElev.innerHTML = '—<small> m</small>'; return; }
+    if(elCount) elCount.textContent = `${data.length} pedal${data.length===1?'':'is'} este mês`;
     const totalKm = data.reduce((s,p)=> s + (p.distancia_km||0), 0);
     const totalElev = data.reduce((s,p)=> s + (p.elevacao_m||0), 0);
     if(elDist) elDist.innerHTML = `${totalKm.toFixed(0)}<small> km</small>`;
