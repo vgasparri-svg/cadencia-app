@@ -924,8 +924,8 @@
       <div style="padding:0 16px;">
 
         <div class="stat-grid">
-          <div class="stat-box"><div class="label">DISTÂNCIA (MÊS)</div><div class="value">312<small> km</small></div></div>
-          <div class="stat-box"><div class="label">ELEVAÇÃO (MÊS)</div><div class="value">3.140<small> m</small></div></div>
+          <div class="stat-box"><div class="label">DISTÂNCIA (MÊS)</div><div class="value" id="statDistanciaMes">—<small> km</small></div></div>
+          <div class="stat-box"><div class="label">ELEVAÇÃO (MÊS)</div><div class="value" id="statElevacaoMes">—<small> m</small></div></div>
         </div>
 
         <div class="ftp-input">
@@ -2467,6 +2467,21 @@
     }));
     renderLogs();
     renderResumoPerfil(data);
+    carregarEstatisticasMes();
+  }
+
+  async function carregarEstatisticasMes(){
+    if(!supabaseReady || !currentUser) return;
+    const agora = new Date();
+    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString();
+    const { data, error } = await sb.from('pedais').select('distancia_km, elevacao_m').eq('usuario_id', currentUser.id).gte('realizado_em', inicioMes);
+    const elDist = document.getElementById('statDistanciaMes');
+    const elElev = document.getElementById('statElevacaoMes');
+    if(error || !data){ if(elDist) elDist.innerHTML = '—<small> km</small>'; if(elElev) elElev.innerHTML = '—<small> m</small>'; return; }
+    const totalKm = data.reduce((s,p)=> s + (p.distancia_km||0), 0);
+    const totalElev = data.reduce((s,p)=> s + (p.elevacao_m||0), 0);
+    if(elDist) elDist.innerHTML = `${totalKm.toFixed(0)}<small> km</small>`;
+    if(elElev) elElev.innerHTML = `${totalElev.toFixed(0)}<small> m</small>`;
   }
 
   function renderResumoPerfil(pedaisData){
