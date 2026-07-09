@@ -1428,12 +1428,14 @@
 
   // ---------- rastro do trajeto (linha da rota, desenhada ao vivo) ----------
   const trilhaCoords = new Map(); // usuario_id -> [[lng,lat], ...]
+  const trilhaUltimoPonto = new Map(); // usuario_id -> timestamp (ms) do último ponto
+  const GAP_MAX_MS = 90000; // acima disso, tratamos como "perdeu sinal" e não liga os pontos
 
   function garantirCamadaTrilha(usuarioId, cor){
     if(!map) return;
     const sourceId = `trilha-${usuarioId}`;
     if(map.getSource(sourceId)) return;
-    map.addSource(sourceId, { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } } });
+    map.addSource(sourceId, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     map.addLayer({
       id: sourceId, type: 'line', source: sourceId,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -1441,32 +1443,75 @@
     });
   }
 
-  function adicionarPontoTrilha(usuarioId, lat, lng, ehMinhaPropria){
-    if(!map) return;
+  // guarda a trilha como VÁRIOS segmentos (MultiLineString), abrindo
+  // um segmento novo sempre que passa muito tempo sem atualização —
+  // assim não desenha uma linha reta falsa atravessando uma área
+  // sem sinal de GPS (comum em mata fechada, tipo a Vista Chinesa)
+  const trilhaSegmentos = new Map(); // usuario_id -> [[[lng,lat],...], [[lng,lat],...]]
+
+  function adicionarPontoTrilha(usuarioId, lat, lng, ehMinhaPropria, timestampMs){
+    if(!map || !usuarioId) return;
     garantirCamadaTrilha(usuarioId, ehMinhaPropria ? '#35C6FF' : '#C9FF3D');
-    const coords = trilhaCoords.get(usuarioId) || [];
-    coords.push([lng, lat]);
-    trilhaCoords.set(usuarioId, coords);
+
+    const agora = timestampMs || Date.now();
+    const ultimoTs = trilhaUltimoPonto.get(usuarioId);
+    let segmentos = trilhaSegmentos.get(usuarioId) || [];
+
+    if(!ultimoTs || (agora - ultimoTs) > GAP_MAX_MS || segmentos.length === 0){
+      segmentos.push([[lng, lat]]); // começa um segmento novo (perdeu sinal ou é o 1º ponto)
+    } else {
+      segmentos[segmentos.length - 1].push([lng, lat]);
+    }
+    trilhaSegmentos.set(usuarioId, segmentos);
+    trilhaUltimoPonto.set(usuarioId, agora);
+
+    const coordsPlanas = trilhaCoords.get(usuarioId) || [];
+    coordsPlanas.push([lng, lat]);
+    trilhaCoords.set(usuarioId, coordsPlanas);
+
     const source = map.getSource(`trilha-${usuarioId}`);
-    if(source) source.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords } });
+    if(source){
+      source.setData({
+        type: 'FeatureCollection',
+        features: segmentos.filter(s => s.length > 1).map(s => ({ type:'Feature', geometry:{ type:'LineString', coordinates:s } }))
+      });
+    }
   }
 
   function limparTrilha(usuarioId){
     trilhaCoords.delete(usuarioId);
+    trilhaSegmentos.delete(usuarioId);
+    trilhaUltimoPonto.delete(usuarioId);
     if(!map) return;
     const sourceId = `trilha-${usuarioId}`;
     if(map.getLayer(sourceId)) map.removeLayer(sourceId);
     if(map.getSource(sourceId)) map.removeSource(sourceId);
   }
 
+  // distância total em km, somando cada trecho (fórmula de haversine)
+  function distanciaTotalKm(coords){
+    if(!coords || coords.length < 2) return 0;
+    const R = 6371;
+    let total = 0;
+    for(let i = 1; i < coords.length; i++){
+      const [lng1, lat1] = coords[i-1];
+      const [lng2, lat2] = coords[i];
+      const dLat = (lat2-lat1) * Math.PI/180;
+      const dLng = (lng2-lng1) * Math.PI/180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+      total += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+    return total;
+  }
+
   async function carregarTrilhaExistente(usuarioId, sessaoId){
     if(!supabaseReady || !sessaoId) return;
     const { data } = await sb.from('pontos_trajeto')
-      .select('latitude, longitude')
+      .select('latitude, longitude, criado_em')
       .eq('usuario_id', usuarioId).eq('sessao_id', sessaoId)
       .order('criado_em', { ascending: true });
     if(!data) return;
-    data.forEach(p => adicionarPontoTrilha(usuarioId, p.latitude, p.longitude, usuarioId === currentUser?.id));
+    data.forEach(p => adicionarPontoTrilha(usuarioId, p.latitude, p.longitude, usuarioId === currentUser?.id, new Date(p.criado_em).getTime()));
   }
 
   async function carregarCiclistasAoVivo(){
@@ -1506,7 +1551,7 @@
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pontos_trajeto' }, (payload)=>{
         const p = payload.new;
         if(p.usuario_id === currentUser?.id) return; // já desenhado localmente na hora
-        adicionarPontoTrilha(p.usuario_id, p.latitude, p.longitude, false);
+        adicionarPontoTrilha(p.usuario_id, p.latitude, p.longitude, false, new Date(p.criado_em || Date.now()).getTime());
       })
       .subscribe();
   }
@@ -1514,10 +1559,12 @@
   // ---------- modo "compartilhar pedal ao vivo" ----------
   let sessaoAoVivoId = null;
   let ultimoPontoTrilhaEm = 0;
+  let inicioSessaoAoVivo = null;
 
   async function ligarCompartilhamento(){
     if(!('geolocation' in navigator)){ showToast('Seu navegador não suporta geolocalização'); return false; }
     sessaoAoVivoId = crypto.randomUUID();
+    inicioSessaoAoVivo = Date.now();
     limparTrilha(currentUser?.id);
     watchId = navigator.geolocation.watchPosition(async (pos)=>{
       const { latitude, longitude } = pos.coords;
@@ -1546,16 +1593,44 @@
         }
       }
     }, (err)=>{
-      showToast('Não foi possível obter sua localização');
-    }, { enableHighAccuracy: true, maximumAge: 5000 });
+      showToast('Não foi possível obter sua localização — sinal fraco ou permissão negada.');
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
     return true;
   }
 
   async function desligarCompartilhamento(){
     if(watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
     if(myMarker){ myMarker.remove(); myMarker = null; }
+
+    // salva o pedal no histórico antes de limpar a trilha da tela
+    if(currentUser && sessaoAoVivoId){
+      const coords = trilhaCoords.get(currentUser.id) || [];
+      const km = distanciaTotalKm(coords);
+      const duracaoMin = inicioSessaoAoVivo ? Math.round((Date.now() - inicioSessaoAoVivo) / 60000) : null;
+      if(coords.length >= 2 && supabaseReady){
+        const dataHoje = new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
+        const { error } = await sb.from('pedais').upsert({
+          usuario_id: currentUser.id,
+          nome_rota: `Pedal ao vivo — ${dataHoje}`,
+          distancia_km: +km.toFixed(2),
+          duracao_min: duracaoMin,
+          realizado_em: new Date(inicioSessaoAoVivo).toISOString(),
+          fonte: 'ao_vivo',
+          fonte_externa_id: sessaoAoVivoId
+        }, { onConflict: 'usuario_id,fonte,fonte_externa_id' });
+        if(!error){
+          showToast(`Pedal salvo — ${km.toFixed(1)} km registrados!`);
+          carregarPedaisDoBanco();
+        } else {
+          console.error('Erro ao salvar pedal ao vivo:', error);
+          showToast('Compartilhamento encerrado, mas houve um erro ao salvar o pedal.');
+        }
+      }
+    }
+
     if(currentUser) limparTrilha(currentUser.id);
     sessaoAoVivoId = null;
+    inicioSessaoAoVivo = null;
     if(supabaseReady && currentUser){
       await sb.from('localizacoes_ao_vivo').delete().eq('usuario_id', currentUser.id);
     }
