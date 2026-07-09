@@ -2440,8 +2440,16 @@
           fonte: 'intervals.icu',
           fonte_externa_id: String(a.id)
         }));
+      let erroGravacao = null;
       if(pedais.length){
-        await sb.from('pedais').upsert(pedais, { onConflict: 'usuario_id,fonte,fonte_externa_id' });
+        const { error: erroUpsert } = await sb.from('pedais').upsert(pedais, { onConflict: 'usuario_id,fonte,fonte_externa_id' });
+        erroGravacao = erroUpsert;
+      }
+      if(erroGravacao){
+        console.error('Erro ao gravar pedais do Intervals.icu:', erroGravacao);
+        setIntervalsStatus(`Erro ao salvar no banco: ${erroGravacao.message}`, 'error');
+        btnIntervalsSincronizar.disabled = false;
+        return;
       }
       setIntervalsStatus(`${pedais.length} pedal(is) sincronizado(s) dos últimos 90 dias.`, 'success');
       carregarPedaisDoBanco();
@@ -2473,7 +2481,7 @@
   async function carregarEstatisticasMes(){
     if(!supabaseReady || !currentUser) return;
     const agora = new Date();
-    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString();
+    const inicioMes = `${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,'0')}-01`;
     const { data, error } = await sb.from('pedais').select('distancia_km, elevacao_m').eq('usuario_id', currentUser.id).gte('realizado_em', inicioMes);
     const elDist = document.getElementById('statDistanciaMes');
     const elElev = document.getElementById('statElevacaoMes');
