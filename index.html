@@ -1549,6 +1549,19 @@
     if(map.getSource(sourceId)) map.removeSource(sourceId);
   }
 
+  // deixa o trajeto no mapa, só com opacidade menor — indica "pedal
+  // finalizado" sem apagar o desenho da rota que a pessoa acabou de
+  // fazer. Fica assim até um novo pedal ao vivo começar (que aí sim
+  // limpa, via limparTrilha em ligarCompartilhamento).
+  function marcarTrilhaComoFinalizada(usuarioId){
+    if(!map) return;
+    const sourceId = `trilha-${usuarioId}`;
+    if(map.getLayer(sourceId)){
+      map.setPaintProperty(sourceId, 'line-opacity', 0.35);
+      map.setPaintProperty(sourceId, 'line-dasharray', [2, 1.5]);
+    }
+  }
+
   // distância total em km, somando cada trecho (fórmula de haversine)
   function distanciaTotalKm(coords){
     if(!coords || coords.length < 2) return 0;
@@ -1689,7 +1702,10 @@
       }
     }
 
-    if(currentUser) limparTrilha(currentUser.id);
+    // deixa o trajeto visível no mapa (num tom mais apagado, indicando
+    // "pedal finalizado") em vez de apagar tudo — some só quando um
+    // novo pedal ao vivo começar
+    if(currentUser) marcarTrilhaComoFinalizada(currentUser.id);
     sessaoAoVivoId = null;
     inicioSessaoAoVivo = null;
     if(supabaseReady && currentUser){
