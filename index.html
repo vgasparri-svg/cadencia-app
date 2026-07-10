@@ -1443,14 +1443,27 @@
     try{
       const registro = await navigator.serviceWorker.ready;
       let inscricao = await registro.pushManager.getSubscription();
-      if(!inscricao){
-        const permissao = await Notification.requestPermission();
-        if(permissao !== 'granted') return;
-        inscricao = await registro.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        });
+
+      // sempre renova a inscrição a cada login, em vez de reaproveitar
+      // uma que pode ter expirado do lado do serviço de push
+      // (o navegador não avisa sozinho quando isso acontece — só
+      // descobrimos na hora de mandar, com erro 410)
+      if(inscricao){
+        try{ await inscricao.unsubscribe(); } catch(e){}
+        inscricao = null;
       }
+
+      const permissaoAtual = Notification.permission;
+      let permissao = permissaoAtual;
+      if(permissaoAtual === 'default'){
+        permissao = await Notification.requestPermission();
+      }
+      if(permissao !== 'granted') return;
+
+      inscricao = await registro.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
       await sb.from('usuarios').update({ push_subscription: inscricao.toJSON() }).eq('id', currentUser.id);
     } catch(e){
       console.warn('Não foi possível ativar notificações push:', e);
