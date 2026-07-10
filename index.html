@@ -1481,7 +1481,14 @@
     try{
       const { data, error } = await sb.functions.invoke('clever-worker', { body: { para: avisarUsuarioIdAlvo, mensagem } });
       if(error || data?.error){
-        showToast('Erro ao enviar: ' + (data?.error || error.message));
+        let motivo = data?.error || error?.message || 'erro desconhecido';
+        // supabase-js às vezes não expõe o corpo da resposta de erro
+        // automaticamente — tenta ler o texto real de dentro dela
+        if(error?.context && typeof error.context.json === 'function'){
+          try{ const corpo = await error.context.json(); if(corpo?.error) motivo = corpo.error; } catch(e2){}
+        }
+        console.error('Erro ao enviar aviso:', motivo);
+        showToast('Erro ao enviar: ' + motivo);
       } else {
         showToast('Aviso enviado!');
         modalAvisarBackdrop.classList.remove('open');
