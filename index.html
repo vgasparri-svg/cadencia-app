@@ -161,6 +161,11 @@
   }
   .mapboxgl-popup-tip{ border-top-color:var(--surface) !important; border-bottom-color:var(--surface) !important; }
   .mapboxgl-popup-close-button{ color:var(--text-muted); font-size:16px; }
+  .popup-rider{ display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
+  .btn-avisar-ciclista{
+    font-family:var(--font-display); font-weight:700; font-size:11.5px;
+    background:var(--safety); color:#141A0A; padding:6px 12px; border-radius:100px;
+  }
   .map-config-msg{
     position:absolute; inset:0; z-index:5;
     display:flex; align-items:center; justify-content:center; text-align:center;
@@ -1167,6 +1172,19 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="modalAvisarBackdrop">
+    <div class="modal">
+      <div class="modal-grab"></div>
+      <h3>Avisar <span id="avisarNomeAlvo">ciclista</span></h3>
+      <p class="sub">A mensagem chega como notificação no celular dele(a) — se o Garmin estiver com notificações inteligentes ativas, aparece no relógio também.</p>
+      <textarea placeholder="Ex: Você está bem? Cadê você?" id="avisarMensagem" maxlength="200"></textarea>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="btnCancelAvisar">Cancelar</button>
+        <button class="btn-primary" id="btnEnviarAvisar" style="background:var(--safety); color:#141A0A;">Enviar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"><span class="led"></span><span id="toastText">Enviado</span></div>
 
 </div>
@@ -1181,6 +1199,7 @@
   const SUPABASE_URL = 'https://lnjpykjrqgsxstpdatwk.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_xVvIljWR6Ytp4nF8RQMVWg_zMZsph6T';
   const MAPBOX_TOKEN = 'pk.eyJ1Ijoidmdhc3BhcnJpIiwiYSI6ImNtcjVic3N6dDBsNnQzM29tbHRpNnRqb24ifQ.6Pj2oxCFYwGOokG8UcpXLw';
+  const VAPID_PUBLIC_KEY = 'BO2jI3kXtZO31ooMISzPfZhOsbHKyM7SqKZDAcPz5VXRI0lBl6cJwL4tCGzL5BAGpDtq7CKF7zUgMGF2fJSHaRU';
 
   const supabaseReady = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
   const sb = supabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -1375,7 +1394,7 @@
     if(session?.user){ currentUser = { id: session.user.id, email: session.user.email, phone: session.user.phone }; }
     renderGateState();
     atualizarPerfilLogout();
-    if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); }
+    if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); garantirInscricaoPush(); }
     sb.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user ? { id: session.user.id, email: session.user.email, phone: session.user.phone } : null;
       renderGateState();
@@ -1385,6 +1404,7 @@
         renderEstadoIntervals();
         renderEstadoStrava();
         carregarPedaisDoBanco();
+        garantirInscricaoPush();
         showToast('Login realizado — bem-vindo(a)!');
         if(event === 'SIGNED_IN' && passkeyDisponivelNoClient()){
           setTimeout(async ()=>{
@@ -1408,6 +1428,69 @@
   }
   document.getElementById('btnLogoutPerfil').addEventListener('click', fazerLogout);
   document.getElementById('btnAtivarFaceIdPerfil').addEventListener('click', ativarFaceId);
+
+  // ---------- notificações push ("avisar ciclista" → aparece no Garmin) ----------
+  function urlBase64ToUint8Array(base64String){
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  }
+
+  async function garantirInscricaoPush(){
+    if(!currentUser || !supabaseReady) return;
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try{
+      const registro = await navigator.serviceWorker.ready;
+      let inscricao = await registro.pushManager.getSubscription();
+      if(!inscricao){
+        const permissao = await Notification.requestPermission();
+        if(permissao !== 'granted') return;
+        inscricao = await registro.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }
+      await sb.from('usuarios').update({ push_subscription: inscricao.toJSON() }).eq('id', currentUser.id);
+    } catch(e){
+      console.warn('Não foi possível ativar notificações push:', e);
+    }
+  }
+
+  const modalAvisarBackdrop = document.getElementById('modalAvisarBackdrop');
+  let avisarUsuarioIdAlvo = null;
+
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.btn-avisar-ciclista');
+    if(!btn) return;
+    if(!exigirLogin()) return;
+    avisarUsuarioIdAlvo = btn.dataset.usuarioId;
+    document.getElementById('avisarNomeAlvo').textContent = btn.dataset.nome || 'ciclista';
+    document.getElementById('avisarMensagem').value = '';
+    modalAvisarBackdrop.classList.add('open');
+  });
+  document.getElementById('btnCancelAvisar').addEventListener('click', ()=> modalAvisarBackdrop.classList.remove('open'));
+  modalAvisarBackdrop.addEventListener('click', (e)=>{ if(e.target === modalAvisarBackdrop) modalAvisarBackdrop.classList.remove('open'); });
+
+  document.getElementById('btnEnviarAvisar').addEventListener('click', async ()=>{
+    const mensagem = document.getElementById('avisarMensagem').value.trim();
+    if(!mensagem){ showToast('Escreva uma mensagem antes de enviar'); return; }
+    if(!avisarUsuarioIdAlvo) return;
+    const btn = document.getElementById('btnEnviarAvisar');
+    btn.disabled = true;
+    try{
+      const { data, error } = await sb.functions.invoke('send-push', { body: { para: avisarUsuarioIdAlvo, mensagem } });
+      if(error || data?.error){
+        showToast('Erro ao enviar: ' + (data?.error || error.message));
+      } else {
+        showToast('Aviso enviado!');
+        modalAvisarBackdrop.classList.remove('open');
+      }
+    } catch(e){
+      showToast('Não foi possível enviar o aviso agora.');
+    }
+    btn.disabled = false;
+  });
 
   function exigirLogin(){
     if(!supabaseReady){ showToast('Configure o Supabase primeiro (veja o topo do app)'); return false; }
@@ -1474,7 +1557,14 @@
     } else {
       const el = document.createElement('div');
       el.className = 'mb-marker-rider';
-      const popup = new mapboxgl.Popup({ offset: 12 }).setText(nome || 'Ciclista ao vivo');
+      const nomeSeguro = (nome || 'Ciclista ao vivo').replace(/</g,'&lt;');
+      const podeAvisar = currentUser && usuarioId !== currentUser.id;
+      const popup = new mapboxgl.Popup({ offset: 12 }).setHTML(`
+        <div class="popup-rider">
+          <strong>${nomeSeguro}</strong>
+          ${podeAvisar ? `<button class="btn-avisar-ciclista" data-usuario-id="${usuarioId}" data-nome="${nomeSeguro}">📩 Avisar</button>` : ''}
+        </div>
+      `);
       marker = new mapboxgl.Marker(el).setLngLat([lng, lat]).setPopup(popup).addTo(map);
       riderMarkers.set(usuarioId, marker);
     }
