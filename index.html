@@ -1060,6 +1060,7 @@
           <p style="color:var(--text-muted);">Seus dados de localização em tempo real só são compartilhados durante um pedal ativo com contato de confiança — nunca publicados no feed.</p>
         </div>
         <button class="btn-logout" id="btnAtivarFaceIdPerfil" style="border-color:var(--safety); color:var(--safety); margin-bottom:10px;">Ativar Face ID / Touch ID neste aparelho</button>
+        <button class="btn-logout" id="btnAtivarPushPerfil" style="border-color:var(--route); color:var(--route); margin-bottom:10px;">Reativar notificações push neste aparelho</button>
         <button class="btn-logout" id="btnLogoutPerfil">Sair da conta</button>
       </div>
     </section>
@@ -1394,7 +1395,7 @@
     if(session?.user){ currentUser = { id: session.user.id, email: session.user.email, phone: session.user.phone }; }
     renderGateState();
     atualizarPerfilLogout();
-    if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); garantirInscricaoPush(); }
+    if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); garantirInscricaoPush(true); }
     sb.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user ? { id: session.user.id, email: session.user.email, phone: session.user.phone } : null;
       renderGateState();
@@ -1404,7 +1405,7 @@
         renderEstadoIntervals();
         renderEstadoStrava();
         carregarPedaisDoBanco();
-        garantirInscricaoPush();
+        garantirInscricaoPush(true);
         showToast('Login realizado — bem-vindo(a)!');
         if(event === 'SIGNED_IN' && passkeyDisponivelNoClient()){
           setTimeout(async ()=>{
@@ -1437,17 +1438,20 @@
     return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
   }
 
-  async function garantirInscricaoPush(){
-    if(!currentUser || !supabaseReady) return;
-    if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  async function garantirInscricaoPush(silencioso){
+    if(!currentUser || !supabaseReady) return false;
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)){
+      if(!silencioso) showToast('Este navegador não suporta notificações push');
+      return false;
+    }
     try{
       const registro = await navigator.serviceWorker.ready;
       let inscricao = await registro.pushManager.getSubscription();
 
-      // sempre renova a inscrição a cada login, em vez de reaproveitar
-      // uma que pode ter expirado do lado do serviço de push
-      // (o navegador não avisa sozinho quando isso acontece — só
-      // descobrimos na hora de mandar, com erro 410)
+      // sempre renova a inscrição, em vez de reaproveitar uma que
+      // pode ter expirado do lado do serviço de push (o navegador
+      // não avisa sozinho quando isso acontece — só descobrimos na
+      // hora de mandar, com erro 410)
       if(inscricao){
         try{ await inscricao.unsubscribe(); } catch(e){}
         inscricao = null;
@@ -1458,17 +1462,33 @@
       if(permissaoAtual === 'default'){
         permissao = await Notification.requestPermission();
       }
-      if(permissao !== 'granted') return;
+      if(permissao !== 'granted'){
+        if(!silencioso) showToast('Permissão de notificações negada — ative nas configurações do site');
+        return false;
+      }
 
       inscricao = await registro.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
       });
-      await sb.from('usuarios').update({ push_subscription: inscricao.toJSON() }).eq('id', currentUser.id);
+      const { error } = await sb.from('usuarios').update({ push_subscription: inscricao.toJSON() }).eq('id', currentUser.id);
+      if(error){
+        if(!silencioso) showToast('Erro ao salvar inscrição: ' + error.message);
+        return false;
+      }
+      if(!silencioso) showToast('Notificações reativadas neste aparelho!');
+      return true;
     } catch(e){
       console.warn('Não foi possível ativar notificações push:', e);
+      if(!silencioso) showToast('Não foi possível ativar notificações — confira a permissão do site');
+      return false;
     }
   }
+
+  document.getElementById('btnAtivarPushPerfil').addEventListener('click', async ()=>{
+    if(!exigirLogin()) return;
+    await garantirInscricaoPush(false);
+  });
 
   const modalAvisarBackdrop = document.getElementById('modalAvisarBackdrop');
   let avisarUsuarioIdAlvo = null;
