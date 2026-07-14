@@ -1008,6 +1008,12 @@
           <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-muted);">W</span>
         </div>
 
+        <div class="ftp-input">
+          <label>Seu peso (pra calcular W/kg)</label>
+          <input type="number" id="pesoValue" placeholder="ex: 72" step="0.1">
+          <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-muted);">kg</span>
+        </div>
+
         <div class="zones" id="zonesList"></div>
 
         <div class="music-box" id="musicBox">
@@ -1147,6 +1153,10 @@
       <div class="section" style="padding-top:0;">
         <div class="section-head"><h2 style="font-size:14px;">Resumo de treino</h2></div>
         <div id="perfilResumoTreino"></div>
+      </div>
+      <div class="section" style="padding-top:0;">
+        <div class="section-head"><h2 style="font-size:14px;">Potência</h2></div>
+        <div id="perfilPotencia" class="resumo-grid" style="padding:0 16px;"></div>
       </div>
       <div class="section" style="padding-top:0;">
         <div class="section-head"><h2 style="font-size:14px;">Forma física</h2></div>
@@ -1522,7 +1532,7 @@
     if(session?.user){ currentUser = { id: session.user.id, email: session.user.email, phone: session.user.phone }; }
     renderGateState();
     atualizarPerfilLogout();
-    if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); garantirInscricaoPush(true); }
+    if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); garantirInscricaoPush(true); carregarFtpPeso(); }
     sb.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user ? { id: session.user.id, email: session.user.email, phone: session.user.phone } : null;
       renderGateState();
@@ -1533,6 +1543,7 @@
         renderEstadoStrava();
         carregarPedaisDoBanco();
         garantirInscricaoPush(true);
+        carregarFtpPeso();
         showToast('Login realizado — bem-vindo(a)!');
         if(event === 'SIGNED_IN' && passkeyDisponivelNoClient()){
           setTimeout(async ()=>{
@@ -2543,6 +2554,41 @@
     }).join('');
   }
   document.getElementById('ftpValue').addEventListener('input', renderZones);
+  document.getElementById('ftpValue').addEventListener('change', async ()=>{
+    if(!currentUser || !supabaseReady) return;
+    const ftp = parseInt(document.getElementById('ftpValue').value) || null;
+    await sb.from('usuarios').update({ ftp }).eq('id', currentUser.id);
+    renderPerfilPotencia();
+  });
+  document.getElementById('pesoValue').addEventListener('change', async ()=>{
+    if(!currentUser || !supabaseReady) return;
+    const peso = parseFloat(document.getElementById('pesoValue').value) || null;
+    await sb.from('usuarios').update({ peso_kg: peso }).eq('id', currentUser.id);
+    renderPerfilPotencia();
+  });
+
+  async function carregarFtpPeso(){
+    if(!supabaseReady || !currentUser) return;
+    const { data } = await sb.from('usuarios').select('ftp, peso_kg').eq('id', currentUser.id).single();
+    if(data?.ftp){ document.getElementById('ftpValue').value = data.ftp; renderZones(); }
+    if(data?.peso_kg){ document.getElementById('pesoValue').value = data.peso_kg; }
+    renderPerfilPotencia();
+  }
+
+  function renderPerfilPotencia(){
+    const el = document.getElementById('perfilPotencia');
+    if(!el) return;
+    const ftp = parseInt(document.getElementById('ftpValue').value) || 0;
+    const peso = parseFloat(document.getElementById('pesoValue').value) || 0;
+    const wkg = peso ? (ftp / peso).toFixed(2) : '—';
+    const melhorMedia = logs.length ? Math.max(...logs.map(l => typeof l.pwr === 'number' ? l.pwr : 0)) : 0;
+    el.innerHTML = `
+      <div class="resumo-item"><div class="resumo-valor">${ftp || '—'}</div><div class="resumo-label">FTP (W)</div></div>
+      <div class="resumo-item"><div class="resumo-valor">${wkg}</div><div class="resumo-label">W/kg</div></div>
+      <div class="resumo-item"><div class="resumo-valor">${melhorMedia || '—'}</div><div class="resumo-label">Melhor méd. (W)</div></div>
+      <div class="resumo-item"><div class="resumo-valor">${peso || '—'}</div><div class="resumo-label">Peso (kg)</div></div>
+    `;
+  }
   renderZones();
 
   // ============================================================
@@ -2897,12 +2943,15 @@
         const token = await obterTokenSpotify();
         const resp = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', { headers: { Authorization: `Bearer ${token}` } });
         if(!resp.ok){
+          const textoBruto = await resp.text();
           let motivo = `status ${resp.status}`;
           try{
-            const corpo = await resp.json();
-            if(corpo?.error?.message) motivo = corpo.error.message;
-          } catch(e2){}
-          console.error('Erro ao buscar playlists do Spotify:', motivo);
+            const corpo = JSON.parse(textoBruto);
+            if(corpo?.error?.message) motivo = `${resp.status} — ${corpo.error.message}`;
+          } catch(e2){
+            if(textoBruto) motivo = `${resp.status} — ${textoBruto}`;
+          }
+          console.error('Erro ao buscar playlists do Spotify:', motivo, '| texto bruto:', textoBruto);
           setSpotifyStatus('Erro ao buscar playlists: ' + motivo, 'error');
           return;
         }
