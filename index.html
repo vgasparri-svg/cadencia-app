@@ -2842,7 +2842,7 @@
     }
 
     async function obterTokenSpotify(){
-      const { data, error } = await sb.functions.invoke('spotify-get-token');
+      const { data, error } = await sb.functions.invoke('smart-processor');
       if(error || data?.error) throw new Error(data?.error || error.message);
       return data.access_token;
     }
