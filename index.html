@@ -2901,7 +2901,14 @@
 
     async function obterTokenSpotify(){
       const { data, error } = await sb.functions.invoke('smart-processor');
-      if(error || data?.error) throw new Error(data?.error || error.message);
+      if(error || data?.error){
+        let motivo = data?.error || error?.message || 'erro desconhecido';
+        if(error?.context && typeof error.context.json === 'function'){
+          try{ const corpo = await error.context.json(); if(corpo?.error) motivo = corpo.error; } catch(e2){}
+        }
+        console.error('Erro ao obter token do Spotify:', motivo);
+        throw new Error(motivo);
+      }
       return data.access_token;
     }
 
