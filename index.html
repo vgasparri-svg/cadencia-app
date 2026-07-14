@@ -511,6 +511,46 @@
   .intervals-status.success{color:var(--safety);}
   .intervals-status.error{color:var(--alert);}
 
+  /* player de música */
+  .music-box{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius-md); padding:16px; margin-bottom:18px;
+  }
+  .music-player{
+    background:var(--surface-2); border:1px solid var(--line);
+    border-radius:var(--radius-sm); padding:14px; margin:10px 0 4px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .music-now{ flex:1; min-width:0; }
+  .music-now-title{
+    font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .music-now-zona{ font-size:10.5px; color:var(--text-muted); font-family:var(--font-mono); margin-top:2px; }
+  .music-controls{ display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .music-controls button{ color:var(--text-muted); padding:6px; }
+  .music-controls button.on{ color:var(--gold); }
+  .music-play-btn{
+    width:38px; height:38px; border-radius:50%;
+    background:var(--gold); color:#2A1D00 !important;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .music-track{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 0; border-bottom:1px solid var(--line);
+  }
+  .music-track.playing .music-track-nome{ color:var(--gold); }
+  .music-track-nome{
+    flex:1; min-width:0; font-size:12.5px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .music-track select{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted);
+    font-family:var(--font-mono); font-size:10.5px; border-radius:100px;
+    padding:5px 8px; flex-shrink:0;
+  }
+  .music-track button{ color:var(--text-muted); flex-shrink:0; padding:4px; }
+  .music-empty{ font-size:12px; color:var(--text-muted); padding:10px 0; text-align:center; }
+
   .log-list{border-top:1px solid var(--line);}
   .log-item{
     display:flex; justify-content:space-between; align-items:center;
@@ -960,6 +1000,53 @@
         </div>
 
         <div class="zones" id="zonesList"></div>
+
+        <div class="music-box" id="musicBox">
+          <div class="intervals-head">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M9 18V5l12-2v13" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <h4>Música do pedal</h4>
+          </div>
+          <p class="intervals-desc">Suas próprias músicas, organizadas por zona de treino. Fica salvo neste aparelho.</p>
+
+          <div class="music-player">
+            <div class="music-now">
+              <div class="music-now-title" id="musicNowTitle">Nenhuma música tocando</div>
+              <div class="music-now-zona" id="musicNowZona">—</div>
+            </div>
+            <div class="music-controls">
+              <button id="btnMusicPrev" aria-label="Anterior">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+              </button>
+              <button id="btnMusicPlayPause" class="music-play-btn" aria-label="Tocar/Pausar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="iconPlayPause"><path d="M8 5v14l11-7z"/></svg>
+              </button>
+              <button id="btnMusicNext" aria-label="Próxima">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 18h2V6h-2zM4.5 18 13 12 4.5 6z"/></svg>
+              </button>
+              <button id="btnMusicShuffle" aria-label="Aleatório">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3h4v4M21 3l-7 7M3 21l7-7M3 7h4l10 10M3 3h4l10 10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="chip-row" id="musicZoneChips" style="padding:2px 0 12px;">
+            <button class="chip active" data-zona="todas">Todas</button>
+            <button class="chip" data-zona="Z1">Z1</button>
+            <button class="chip" data-zona="Z2">Z2</button>
+            <button class="chip" data-zona="Z3">Z3</button>
+            <button class="chip" data-zona="Z4">Z4</button>
+            <button class="chip" data-zona="Z5">Z5</button>
+            <button class="chip" data-zona="Z6">Z6</button>
+          </div>
+
+          <div id="musicList"></div>
+
+          <label class="add-log" style="cursor:pointer;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+            Adicionar músicas do aparelho
+            <input type="file" id="musicFileInput" accept="audio/*" multiple style="display:none;">
+          </label>
+        </div>
 
         <div class="live-share">
           <div class="mini-radar"><div class="sweep"></div></div>
@@ -2417,6 +2504,243 @@
   }
   document.getElementById('ftpValue').addEventListener('input', renderZones);
   renderZones();
+
+  // ============================================================
+  // PLAYER DE MÚSICA — arquivos do próprio aparelho, guardados no
+  // navegador (IndexedDB) e organizados por zona de treino
+  // ============================================================
+  (function musicaModule(){
+    const DB_NAME = 'pelotao-musica';
+    const STORE = 'faixas';
+    let db = null;
+    let faixas = [];           // [{id, nome, zona, blob}]
+    let filaAtual = [];        // ids na ordem de reprodução atual
+    let indiceAtual = -1;
+    let embaralharAtivo = false;
+    let urlObjetoAtual = null;
+    const audio = new Audio();
+
+    function abrirDB(){
+      return new Promise((resolve, reject)=>{
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = ()=>{
+          req.result.createObjectStore(STORE, { keyPath: 'id' });
+        };
+        req.onsuccess = ()=> resolve(req.result);
+        req.onerror = ()=> reject(req.error);
+      });
+    }
+
+    async function carregarFaixasDoDB(){
+      if(!db) return;
+      return new Promise((resolve)=>{
+        const tx = db.transaction(STORE, 'readonly');
+        const req = tx.objectStore(STORE).getAll();
+        req.onsuccess = ()=>{ faixas = req.result || []; resolve(); };
+        req.onerror = ()=> resolve();
+      });
+    }
+
+    function salvarFaixaNoDB(faixa){
+      if(!db) return;
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put(faixa);
+    }
+
+    function removerFaixaDoDB(id){
+      if(!db) return;
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).delete(id);
+    }
+
+    let zonaFiltroAtiva = 'todas';
+
+    function faixasFiltradas(){
+      return zonaFiltroAtiva === 'todas' ? faixas : faixas.filter(f => f.zona === zonaFiltroAtiva);
+    }
+
+    function embaralharArray(arr){
+      const copia = [...arr];
+      for(let i = copia.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i+1));
+        [copia[i], copia[j]] = [copia[j], copia[i]];
+      }
+      return copia;
+    }
+
+    function renderMusicList(){
+      const list = document.getElementById('musicList');
+      if(!list) return;
+      const itens = faixasFiltradas();
+      if(!itens.length){
+        list.innerHTML = '<p class="music-empty">Nenhuma música nessa zona ainda — adicione abaixo.</p>';
+        return;
+      }
+      list.innerHTML = itens.map(f => `
+        <div class="music-track ${f.id === faixaAtualId() ? 'playing' : ''}" data-id="${f.id}">
+          <span class="music-track-nome">${f.nome.replace(/</g,'&lt;')}</span>
+          <select data-id="${f.id}" class="music-zona-select">
+            ${['Z1','Z2','Z3','Z4','Z5','Z6'].map(z => `<option value="${z}" ${f.zona===z?'selected':''}>${z}</option>`).join('')}
+          </select>
+          <button data-remover="${f.id}" aria-label="Remover">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function faixaAtualId(){
+      return indiceAtual >= 0 && filaAtual[indiceAtual] ? filaAtual[indiceAtual] : null;
+    }
+
+    function montarFila(idParaComecar){
+      const base = faixasFiltradas().map(f => f.id);
+      filaAtual = embaralharAtivo ? embaralharArray(base) : base;
+      indiceAtual = idParaComecar ? filaAtual.indexOf(idParaComecar) : 0;
+      if(indiceAtual < 0) indiceAtual = 0;
+    }
+
+    function tocarIndiceAtual(){
+      const id = faixaAtualId();
+      const faixa = faixas.find(f => f.id === id);
+      const titulo = document.getElementById('musicNowTitle');
+      const zonaEl = document.getElementById('musicNowZona');
+      if(!faixa){
+        if(titulo) titulo.textContent = 'Nenhuma música tocando';
+        if(zonaEl) zonaEl.textContent = '—';
+        return;
+      }
+      if(urlObjetoAtual) URL.revokeObjectURL(urlObjetoAtual);
+      urlObjetoAtual = URL.createObjectURL(faixa.blob);
+      audio.src = urlObjetoAtual;
+      audio.play().catch(()=>{ /* precisa de interação do usuário — normal na 1ª vez */ });
+      if(titulo) titulo.textContent = faixa.nome;
+      if(zonaEl) zonaEl.textContent = 'Zona ' + faixa.zona;
+      atualizarIconePlayPause();
+      renderMusicList();
+      atualizarMediaSession(faixa);
+    }
+
+    function atualizarIconePlayPause(){
+      const icon = document.getElementById('iconPlayPause');
+      if(!icon) return;
+      icon.innerHTML = audio.paused
+        ? '<path d="M8 5v14l11-7z"/>'
+        : '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>';
+    }
+
+    function atualizarMediaSession(faixa){
+      if(!('mediaSession' in navigator)) return;
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: faixa.nome, artist: 'Pelotão', album: 'Zona ' + faixa.zona
+      });
+      navigator.mediaSession.setActionHandler('play', ()=> togglePlayPause());
+      navigator.mediaSession.setActionHandler('pause', ()=> togglePlayPause());
+      navigator.mediaSession.setActionHandler('previoustrack', ()=> tocarAnterior());
+      navigator.mediaSession.setActionHandler('nexttrack', ()=> tocarProxima());
+    }
+
+    function togglePlayPause(){
+      if(!faixaAtualId()){
+        if(!faixasFiltradas().length) return;
+        montarFila();
+        tocarIndiceAtual();
+        return;
+      }
+      if(audio.paused) audio.play().catch(()=>{});
+      else audio.pause();
+      atualizarIconePlayPause();
+    }
+
+    function tocarProxima(){
+      if(!filaAtual.length) montarFila();
+      if(!filaAtual.length) return;
+      indiceAtual = (indiceAtual + 1) % filaAtual.length;
+      tocarIndiceAtual();
+    }
+
+    function tocarAnterior(){
+      if(!filaAtual.length) montarFila();
+      if(!filaAtual.length) return;
+      indiceAtual = (indiceAtual - 1 + filaAtual.length) % filaAtual.length;
+      tocarIndiceAtual();
+    }
+
+    audio.addEventListener('ended', tocarProxima);
+    audio.addEventListener('pause', atualizarIconePlayPause);
+    audio.addEventListener('play', atualizarIconePlayPause);
+
+    document.getElementById('btnMusicPlayPause')?.addEventListener('click', togglePlayPause);
+    document.getElementById('btnMusicNext')?.addEventListener('click', tocarProxima);
+    document.getElementById('btnMusicPrev')?.addEventListener('click', tocarAnterior);
+    document.getElementById('btnMusicShuffle')?.addEventListener('click', (e)=>{
+      embaralharAtivo = !embaralharAtivo;
+      e.currentTarget.classList.toggle('on', embaralharAtivo);
+      montarFila(faixaAtualId());
+      showToast(embaralharAtivo ? 'Modo aleatório ativado' : 'Modo aleatório desativado');
+    });
+
+    document.getElementById('musicZoneChips')?.addEventListener('click', (e)=>{
+      const chip = e.target.closest('.chip');
+      if(!chip) return;
+      document.querySelectorAll('#musicZoneChips .chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      zonaFiltroAtiva = chip.dataset.zona;
+      renderMusicList();
+    });
+
+    document.getElementById('musicList')?.addEventListener('click', (e)=>{
+      const track = e.target.closest('.music-track');
+      const remover = e.target.closest('[data-remover]');
+      if(remover){
+        const id = remover.dataset.remover;
+        faixas = faixas.filter(f => f.id !== id);
+        removerFaixaDoDB(id);
+        if(faixaAtualId() === id){ audio.pause(); audio.src=''; indiceAtual = -1; }
+        renderMusicList();
+        return;
+      }
+      if(track && !e.target.closest('select')){
+        montarFila(track.dataset.id);
+        tocarIndiceAtual();
+      }
+    });
+
+    document.getElementById('musicList')?.addEventListener('change', (e)=>{
+      const select = e.target.closest('.music-zona-select');
+      if(!select) return;
+      const faixa = faixas.find(f => f.id === select.dataset.id);
+      if(faixa){ faixa.zona = select.value; salvarFaixaNoDB(faixa); }
+    });
+
+    document.getElementById('musicFileInput')?.addEventListener('change', async (e)=>{
+      const arquivos = Array.from(e.target.files || []);
+      for(const arquivo of arquivos){
+        const faixa = {
+          id: crypto.randomUUID(),
+          nome: arquivo.name.replace(/\.[^/.]+$/, ''),
+          zona: 'Z2',
+          blob: arquivo
+        };
+        faixas.push(faixa);
+        salvarFaixaNoDB(faixa);
+      }
+      e.target.value = '';
+      renderMusicList();
+      if(arquivos.length) showToast(`${arquivos.length} música(s) adicionada(s)`);
+    });
+
+    (async function initMusica(){
+      try{
+        db = await abrirDB();
+        await carregarFaixasDoDB();
+        renderMusicList();
+      } catch(e){
+        console.warn('Não foi possível abrir o armazenamento de músicas:', e);
+      }
+    })();
+  })();
+
 
   // ---------- treino: live share ----------
   const liveToggle = document.getElementById('liveToggle');
