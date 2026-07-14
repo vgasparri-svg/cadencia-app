@@ -2896,7 +2896,16 @@
       try{
         const token = await obterTokenSpotify();
         const resp = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', { headers: { Authorization: `Bearer ${token}` } });
-        if(!resp.ok){ setSpotifyStatus('Erro ao buscar playlists.', 'error'); return; }
+        if(!resp.ok){
+          let motivo = `status ${resp.status}`;
+          try{
+            const corpo = await resp.json();
+            if(corpo?.error?.message) motivo = corpo.error.message;
+          } catch(e2){}
+          console.error('Erro ao buscar playlists do Spotify:', motivo);
+          setSpotifyStatus('Erro ao buscar playlists: ' + motivo, 'error');
+          return;
+        }
         const dados = await resp.json();
         playlistsCache = dados.items || [];
         renderZonasSpotify();
