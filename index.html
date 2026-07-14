@@ -1326,6 +1326,17 @@
   const mapboxReady = MAPBOX_TOKEN.startsWith('pk.');
 
   let currentUser = null; // { id, email }
+
+  // O script do SDK do Spotify carrega em toda página (não só
+  // quando conectado) e chama essa função assim que estiver pronto
+  // — por isso ela precisa existir sempre, mesmo antes de qualquer
+  // conexão, senão dá erro "onSpotifyWebPlaybackSDKReady is not
+  // defined" no console.
+  window.__spotifySDKReady = false;
+  window.onSpotifyWebPlaybackSDKReady = function(){
+    window.__spotifySDKReady = true;
+    document.dispatchEvent(new Event('spotify-sdk-ready'));
+  };
   let map = null;
   const alertMarkers = new Map();   // ocorrencia.id -> mapboxgl.Marker
   const riderMarkers = new Map();   // usuario_id -> mapboxgl.Marker
@@ -2850,8 +2861,8 @@
     async function garantirPlayerSpotify(){
       if(player) return;
       await new Promise((resolve)=>{
-        if(window.Spotify){ resolve(); return; }
-        window.onSpotifyWebPlaybackSDKReady = resolve;
+        if(window.Spotify || window.__spotifySDKReady){ resolve(); return; }
+        document.addEventListener('spotify-sdk-ready', resolve, { once: true });
       });
       player = new Spotify.Player({
         name: 'Pelotão',
