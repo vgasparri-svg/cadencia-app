@@ -23,6 +23,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
+<script src="https://sdk.scdn.co/spotify-player.js"></script>
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
 <style>
   :root{
@@ -550,6 +551,14 @@
   }
   .music-track button{ color:var(--text-muted); flex-shrink:0; padding:4px; }
   .music-empty{ font-size:12px; color:var(--text-muted); padding:10px 0; text-align:center; }
+  .spotify-zona-row{
+    display:flex; align-items:center; gap:8px; margin-bottom:7px;
+  }
+  .spotify-zona-row .z-label{ width:30px; font-size:11px; font-family:var(--font-mono); color:var(--text-muted); flex-shrink:0; }
+  .spotify-zona-row select{
+    flex:1; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-family:var(--font-body); font-size:12px; border-radius:var(--radius-sm); padding:8px;
+  }
 
   .log-list{border-top:1px solid var(--line);}
   .log-item{
@@ -1007,6 +1016,26 @@
             <h4>Música do pedal</h4>
           </div>
           <p class="intervals-desc">Suas próprias músicas, organizadas por zona de treino. Fica salvo neste aparelho.</p>
+
+          <div class="intervals-box" id="spotifyBox" style="margin:10px 0; padding:14px;">
+            <div class="intervals-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#1DB954"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2Zm4.6 14.4c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.3-1-.4.1-.7-.1-.8-.5-.1-.4.1-.7.5-.8 4-.9 7.5-.5 10.3 1.2.3.2.4.6.2.9Zm1.2-2.7c-.2.4-.7.5-1.1.3-2.8-1.7-7.1-2.2-10.4-1.2-.4.1-.9-.1-1-.5-.1-.4.1-.9.5-1 3.8-1.1 8.5-.6 11.7 1.3.4.2.5.7.3 1.1Zm.1-2.8C14.2 8.9 9 8.7 6 9.6c-.5.2-1-.2-1.2-.6-.2-.5.2-1 .6-1.2 3.5-1 9.2-.8 12.9 1.4.4.3.6.9.3 1.3-.3.4-.9.5-1.3.3Z"/></svg>
+              <h4>Spotify</h4>
+            </div>
+            <div id="spotifyDisconnected">
+              <p class="intervals-desc">Conecte o Spotify pra controlar a reprodução real das suas playlists, direto no app.</p>
+              <button id="btnSpotifyConectar">Conectar com Spotify</button>
+            </div>
+            <div id="spotifyConnected" class="hidden">
+              <p class="intervals-desc">Spotify conectado ✓ — escolha qual playlist toca em cada zona:</p>
+              <div id="spotifyZonasList"></div>
+              <div class="intervals-actions" style="margin-top:8px;">
+                <button id="btnSpotifyAtualizarPlaylists" class="intervals-btn-secondary">Atualizar playlists</button>
+                <button id="btnSpotifyDesconectar" class="intervals-btn-secondary">Desconectar</button>
+              </div>
+            </div>
+            <p class="intervals-status" id="spotifyStatus"></p>
+          </div>
 
           <div class="music-player">
             <div class="music-now">
@@ -2641,6 +2670,7 @@
     }
 
     function togglePlayPause(){
+      if(window.__pelotaoSpotify?.ativo){ window.__pelotaoSpotify.togglePlayPause(); return; }
       if(!faixaAtualId()){
         if(!faixasFiltradas().length) return;
         montarFila();
@@ -2653,6 +2683,7 @@
     }
 
     function tocarProxima(){
+      if(window.__pelotaoSpotify?.ativo){ window.__pelotaoSpotify.proxima(); return; }
       if(!filaAtual.length) montarFila();
       if(!filaAtual.length) return;
       indiceAtual = (indiceAtual + 1) % filaAtual.length;
@@ -2660,6 +2691,7 @@
     }
 
     function tocarAnterior(){
+      if(window.__pelotaoSpotify?.ativo){ window.__pelotaoSpotify.anterior(); return; }
       if(!filaAtual.length) montarFila();
       if(!filaAtual.length) return;
       indiceAtual = (indiceAtual - 1 + filaAtual.length) % filaAtual.length;
@@ -2739,6 +2771,182 @@
         console.warn('Não foi possível abrir o armazenamento de músicas:', e);
       }
     })();
+  })();
+
+  // ============================================================
+  // SPOTIFY — controla a reprodução real das playlists do usuário
+  // ============================================================
+  (function spotifyModule(){
+    const spotifyDisconnected = document.getElementById('spotifyDisconnected');
+    const spotifyConnected = document.getElementById('spotifyConnected');
+    const spotifyStatus = document.getElementById('spotifyStatus');
+    let player = null;
+    let deviceId = null;
+    let zonasMapa = {}; // { Z1: 'playlist_uri', ... }
+    let playlistsCache = [];
+
+    window.__pelotaoSpotify = {
+      ativo: false,
+      togglePlayPause(){ player?.togglePlay(); },
+      proxima(){ player?.nextTrack(); },
+      anterior(){ player?.previousTrack(); },
+    };
+
+    function setSpotifyStatus(msg, tipo){
+      if(!spotifyStatus) return;
+      spotifyStatus.textContent = msg || '';
+      spotifyStatus.classList.remove('success', 'error');
+      if(tipo) spotifyStatus.classList.add(tipo);
+    }
+
+    async function renderEstadoSpotify(){
+      if(!supabaseReady || !currentUser) return;
+      const { data } = await sb.from('usuarios').select('spotify_refresh_token, spotify_zonas').eq('id', currentUser.id).single();
+      if(data?.spotify_refresh_token){
+        spotifyDisconnected?.classList.add('hidden');
+        spotifyConnected?.classList.remove('hidden');
+        zonasMapa = data.spotify_zonas || {};
+        await garantirPlayerSpotify();
+        if(playlistsCache.length) renderZonasSpotify();
+        else await carregarPlaylists();
+      } else {
+        spotifyDisconnected?.classList.remove('hidden');
+        spotifyConnected?.classList.add('hidden');
+      }
+    }
+
+    document.getElementById('btnSpotifyConectar')?.addEventListener('click', ()=>{
+      if(!exigirLogin()) return;
+      if(SPOTIFY_CLIENT_ID.startsWith('COLE_AQUI')){ setSpotifyStatus('Configure o SPOTIFY_CLIENT_ID no código primeiro.', 'error'); return; }
+      const scopes = ['streaming','user-read-email','user-read-private','user-read-playback-state','user-modify-playback-state','playlist-read-private'].join(' ');
+      const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&state=${currentUser.id}`;
+      window.location.href = authUrl;
+    });
+
+    document.getElementById('btnSpotifyDesconectar')?.addEventListener('click', async ()=>{
+      await sb.from('usuarios').update({ spotify_access_token: null, spotify_refresh_token: null, spotify_expires_at: null, spotify_zonas: {} }).eq('id', currentUser.id);
+      window.__pelotaoSpotify.ativo = false;
+      setSpotifyStatus('Desconectado.');
+      renderEstadoSpotify();
+    });
+
+    document.getElementById('btnSpotifyAtualizarPlaylists')?.addEventListener('click', carregarPlaylists);
+
+    if(window.location.search.includes('spotify=conectado')){
+      showToast('Spotify conectado com sucesso!');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if(window.location.search.includes('spotify=erro')){
+      showToast('Erro ao conectar com o Spotify.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    async function obterTokenSpotify(){
+      const { data, error } = await sb.functions.invoke('spotify-get-token');
+      if(error || data?.error) throw new Error(data?.error || error.message);
+      return data.access_token;
+    }
+
+    async function garantirPlayerSpotify(){
+      if(player) return;
+      await new Promise((resolve)=>{
+        if(window.Spotify){ resolve(); return; }
+        window.onSpotifyWebPlaybackSDKReady = resolve;
+      });
+      player = new Spotify.Player({
+        name: 'Pelotão',
+        getOAuthToken: async (cb)=>{ try{ cb(await obterTokenSpotify()); } catch(e){ console.warn(e); } },
+        volume: 0.8
+      });
+      player.addListener('ready', ({ device_id })=>{
+        deviceId = device_id;
+        window.__pelotaoSpotify.ativo = true;
+      });
+      player.addListener('not_ready', ()=>{ window.__pelotaoSpotify.ativo = false; });
+      player.addListener('player_state_changed', (state)=>{
+        if(!state) return;
+        const track = state.track_window.current_track;
+        const titulo = document.getElementById('musicNowTitle');
+        const zonaEl = document.getElementById('musicNowZona');
+        if(titulo) titulo.textContent = track ? `${track.name} — ${track.artists.map(a=>a.name).join(', ')}` : 'Nenhuma música tocando';
+        if(zonaEl) zonaEl.textContent = 'Spotify';
+        const icon = document.getElementById('iconPlayPause');
+        if(icon) icon.innerHTML = state.paused
+          ? '<path d="M8 5v14l11-7z"/>'
+          : '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>';
+      });
+      player.addListener('initialization_error', ({message})=> setSpotifyStatus('Erro de inicialização: ' + message, 'error'));
+      player.addListener('authentication_error', ({message})=> setSpotifyStatus('Erro de autenticação: ' + message, 'error'));
+      player.addListener('account_error', ({message})=> setSpotifyStatus('Essa função exige Spotify Premium.', 'error'));
+      await player.connect();
+    }
+
+    async function carregarPlaylists(){
+      try{
+        const token = await obterTokenSpotify();
+        const resp = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', { headers: { Authorization: `Bearer ${token}` } });
+        if(!resp.ok){ setSpotifyStatus('Erro ao buscar playlists.', 'error'); return; }
+        const dados = await resp.json();
+        playlistsCache = dados.items || [];
+        renderZonasSpotify();
+      } catch(e){
+        setSpotifyStatus('Não foi possível buscar suas playlists: ' + e.message, 'error');
+      }
+    }
+
+    function renderZonasSpotify(){
+      const box = document.getElementById('spotifyZonasList');
+      if(!box) return;
+      const zonas = ['Z1','Z2','Z3','Z4','Z5','Z6'];
+      box.innerHTML = zonas.map(z => `
+        <div class="spotify-zona-row">
+          <span class="z-label">${z}</span>
+          <select data-zona="${z}">
+            <option value="">— nenhuma —</option>
+            ${playlistsCache.map(p => `<option value="${p.uri}" ${zonasMapa[z]===p.uri?'selected':''}>${p.name.replace(/</g,'&lt;')}</option>`).join('')}
+          </select>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('spotifyZonasList')?.addEventListener('change', async (e)=>{
+      const select = e.target.closest('select[data-zona]');
+      if(!select) return;
+      zonasMapa[select.dataset.zona] = select.value || null;
+      await sb.from('usuarios').update({ spotify_zonas: zonasMapa }).eq('id', currentUser.id);
+      showToast(`Playlist da ${select.dataset.zona} atualizada`);
+    });
+
+    async function tocarPlaylistDaZona(zona){
+      const uri = zonasMapa[zona];
+      if(!uri || !deviceId) return false;
+      try{
+        const token = await obterTokenSpotify();
+        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ context_uri: uri })
+        });
+        return true;
+      } catch(e){
+        setSpotifyStatus('Erro ao tocar playlist: ' + e.message, 'error');
+        return false;
+      }
+    }
+    window.__pelotaoSpotify.tocarZona = tocarPlaylistDaZona;
+
+    // liga aos mesmos chips de zona já usados pela música local —
+    // se tiver playlist do Spotify mapeada pra essa zona, toca ela
+    document.getElementById('musicZoneChips')?.addEventListener('click', async (e)=>{
+      const chip = e.target.closest('.chip');
+      if(!chip || chip.dataset.zona === 'todas') return;
+      if(window.__pelotaoSpotify.ativo && zonasMapa[chip.dataset.zona]){
+        await tocarPlaylistDaZona(chip.dataset.zona);
+      }
+    });
+
+    if(currentUser) renderEstadoSpotify();
+    sb?.auth.onAuthStateChange(()=>{ if(currentUser) renderEstadoSpotify(); });
   })();
 
 
@@ -2846,6 +3054,8 @@
   // segredo, pode ficar aqui). O segredo (client_secret) fica só na
   // Edge Function, nunca no navegador.
   const STRAVA_CLIENT_ID = '264034';
+  const SPOTIFY_CLIENT_ID = 'COLE_AQUI_SEU_SPOTIFY_CLIENT_ID';
+  const SPOTIFY_REDIRECT_URI = `${SUPABASE_URL}/functions/v1/spotify-oauth-callback`;
   const STRAVA_REDIRECT_URI = `${SUPABASE_URL}/functions/v1/strava-oauth-callback`;
 
   const stravaDisconnected = document.getElementById('stravaDisconnected');
