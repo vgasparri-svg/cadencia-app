@@ -2996,14 +2996,22 @@
 
     async function tocarPlaylistDaZona(zona){
       const uri = zonasMapa[zona];
-      if(!uri || !deviceId) return false;
+      if(!uri){ showToast(`Nenhuma playlist mapeada pra ${zona} ainda`); return false; }
+      if(!deviceId){ showToast('Player do Spotify ainda não está pronto — espera alguns segundos e tenta de novo'); return false; }
       try{
         const token = await obterTokenSpotify();
-        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        const resp = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ context_uri: uri })
         });
+        if(!resp.ok){
+          const textoBruto = await resp.text();
+          console.error('Erro ao tocar playlist:', resp.status, textoBruto);
+          setSpotifyStatus(`Erro ao tocar (${resp.status}): ${textoBruto || 'sem detalhes'}`, 'error');
+          return false;
+        }
+        showToast(`Tocando playlist da ${zona}`);
         return true;
       } catch(e){
         setSpotifyStatus('Erro ao tocar playlist: ' + e.message, 'error');
@@ -3017,7 +3025,11 @@
     document.getElementById('musicZoneChips')?.addEventListener('click', async (e)=>{
       const chip = e.target.closest('.chip');
       if(!chip || chip.dataset.zona === 'todas') return;
-      if(window.__pelotaoSpotify.ativo && zonasMapa[chip.dataset.zona]){
+      if(!window.__pelotaoSpotify.ativo){
+        if(zonasMapa[chip.dataset.zona]) showToast('Player do Spotify ainda carregando — espera alguns segundos');
+        return;
+      }
+      if(zonasMapa[chip.dataset.zona]){
         await tocarPlaylistDaZona(chip.dataset.zona);
       }
     });
