@@ -3069,15 +3069,18 @@
     {nome:'Serra da Estrela', data:'22 jun', km:68.2, tempo:'2h41', pwr:178}
   ];
   function renderLogs(){
-    document.getElementById('logList').innerHTML = logs.map(l=>`
+    const ftpAtual = parseInt(document.getElementById('ftpValue')?.value) || 0;
+    document.getElementById('logList').innerHTML = logs.map(l=>{
+      const pctFtp = (ftpAtual && l.np) ? Math.round((l.np / ftpAtual) * 100) : null;
+      return `
       <div class="log-item">
         <div>
           <div class="route-name">${l.nome}</div>
           <div class="route-date">${l.data}${l.fonte && l.fonte !== 'manual' ? ` · <span style="color:var(--route);">${l.fonte}</span>` : ''}</div>
         </div>
-        <div class="route-nums">${l.km}km <small>${l.tempo}${l.pwr !== '—' ? ` · ${l.pwr}W méd` : ''}${l.elevacao ? ` · ${l.elevacao}m ↑` : ''}${l.fcMedia ? ` · ${l.fcMedia}bpm` : ''}</small></div>
-      </div>
-    `).join('');
+        <div class="route-nums">${l.km}km <small>${l.tempo}${l.pwr !== '—' ? ` · ${l.pwr}W méd` : ''}${l.np ? ` · ${l.np}W NP` : ''}${pctFtp ? ` · ${pctFtp}% FTP` : ''}${l.elevacao ? ` · ${l.elevacao}m ↑` : ''}${l.fcMedia ? ` · ${l.fcMedia}bpm` : ''}</small></div>
+      </div>`;
+    }).join('');
   }
   renderLogs();
   document.getElementById('btnAddLog').addEventListener('click', ()=>{
@@ -3230,6 +3233,7 @@
           distancia_km: a.distance ? +(a.distance/1000).toFixed(1) : null,
           duracao_min: a.moving_time ? Math.round(a.moving_time/60) : null,
           potencia_media_w: a.icu_average_watts ? Math.round(a.icu_average_watts) : (a.average_watts ? Math.round(a.average_watts) : null),
+          potencia_normalizada_w: a.icu_weighted_avg_watts ? Math.round(a.icu_weighted_avg_watts) : null,
           elevacao_m: a.total_elevation_gain ? Math.round(a.total_elevation_gain) : null,
           fc_media: a.average_heartrate ? Math.round(a.average_heartrate) : null,
           fc_maxima: a.max_heartrate ? Math.round(a.max_heartrate) : null,
@@ -3269,6 +3273,7 @@
       km: p.distancia_km ?? '—',
       tempo: p.duracao_min ? `${Math.floor(p.duracao_min/60)}h${String(p.duracao_min%60).padStart(2,'0')}` : '—',
       pwr: p.potencia_media_w ?? '—',
+      np: p.potencia_normalizada_w ?? null,
       elevacao: p.elevacao_m ?? null,
       fcMedia: p.fc_media ?? null,
       fonte: p.fonte
