@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2845,7 +2844,13 @@
 
     window.__pelotaoSpotify = {
       ativo: false,
-      togglePlayPause(){ player?.togglePlay(); },
+      togglePlayPause(){
+        if(!player) return;
+        player.togglePlay().catch((e)=>{
+          console.error('Erro ao dar play/pause no Spotify:', e);
+          showToast('Nada tocando ainda — clica num chip de zona primeiro (Z1, Z2...)');
+        });
+      },
       proxima(){ player?.nextTrack(); },
       anterior(){ player?.previousTrack(); },
     };
