@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2904,7 +2905,18 @@
       window.history.replaceState({}, '', window.location.pathname);
     }
 
-    async function obterTokenSpotify(){
+    async function obterTokenSpotify(jaTentouDeNovo){
+      // renova a sessão do Pelotão (Supabase) antes de chamar a
+      // função, se ela estiver perto de expirar — evita o erro
+      // "Sessão inválida" que acontecia com a sessão vencida
+      try{
+        const { data: sessaoAtual } = await sb.auth.getSession();
+        const expiraEm = sessaoAtual?.session?.expires_at;
+        if(expiraEm && (expiraEm - Math.floor(Date.now()/1000)) < 120){
+          await sb.auth.refreshSession();
+        }
+      } catch(e){ /* segue mesmo se a renovação falhar — a chamada abaixo revela o erro real */ }
+
       const { data, error } = await sb.functions.invoke('smart-processor');
       if(error || data?.error){
         let motivo = data?.error || error?.message || 'erro desconhecido';
@@ -2912,6 +2924,13 @@
           try{ const corpo = await error.context.json(); if(corpo?.error) motivo = corpo.error; } catch(e2){}
         }
         console.error('Erro ao obter token do Spotify:', motivo);
+        // se a sessão ainda estiver inválida mesmo após tentar
+        // renovar, tenta mais uma vez — cobre o caso de token
+        // renovado em paralelo por outra aba/aparelho
+        if(!jaTentouDeNovo && motivo.includes('Sessão inválida')){
+          await sb.auth.refreshSession();
+          return await obterTokenSpotify(true);
+        }
         throw new Error(motivo);
       }
       return data.access_token;
@@ -2932,7 +2951,15 @@
         deviceId = device_id;
         window.__pelotaoSpotify.ativo = true;
       });
-      player.addListener('not_ready', ()=>{ window.__pelotaoSpotify.ativo = false; });
+      player.addListener('not_ready', ()=>{
+        window.__pelotaoSpotify.ativo = false;
+        deviceId = null;
+        // o dispositivo "caiu" (ex: ficou muito tempo parado, ou
+        // perda de conexão) — tenta reconectar sozinho depois de
+        // alguns segundos, em vez de deixar quebrado até a pessoa
+        // recarregar a página
+        setTimeout(()=>{ player?.connect(); }, 3000);
+      });
       player.addListener('player_state_changed', (state)=>{
         if(!state) return;
         const track = state.track_window.current_track;
@@ -2999,7 +3026,7 @@
       showToast(`Playlist da ${select.dataset.zona} atualizada`);
     });
 
-    async function tocarPlaylistDaZona(zona){
+    async function tocarPlaylistDaZona(zona, jaTentouDeNovo){
       const uri = zonasMapa[zona];
       if(!uri){ showToast(`Nenhuma playlist mapeada pra ${zona} ainda`); return false; }
       if(!deviceId){ showToast('Player do Spotify ainda não está pronto — espera alguns segundos e tenta de novo'); return false; }
@@ -3013,6 +3040,13 @@
         if(!resp.ok){
           const textoBruto = await resp.text();
           console.error('Erro ao tocar playlist:', resp.status, textoBruto);
+          // token expirado (401) ou dispositivo não encontrado (404)
+          // são falhas comuns e temporárias — tenta reconectar e
+          // repetir uma vez antes de mostrar erro pra pessoa
+          if(!jaTentouDeNovo && (resp.status === 401 || resp.status === 404)){
+            if(resp.status === 404){ deviceId = null; window.__pelotaoSpotify.ativo = false; await player?.connect(); await new Promise(r=>setTimeout(r, 1500)); }
+            return await tocarPlaylistDaZona(zona, true);
+          }
           setSpotifyStatus(`Erro ao tocar (${resp.status}): ${textoBruto || 'sem detalhes'}`, 'error');
           return false;
         }
@@ -3041,6 +3075,15 @@
 
     if(currentUser) renderEstadoSpotify();
     sb?.auth.onAuthStateChange(()=>{ if(currentUser) renderEstadoSpotify(); });
+
+    // a cada 20 minutos, se o player estiver ativo, renova a sessão
+    // e confirma que o token do Spotify continua bom — evita o
+    // "fica bom, fica ruim" em pedais longos, sem esperar o erro
+    // acontecer pra só então corrigir
+    setInterval(async ()=>{
+      if(!window.__pelotaoSpotify.ativo || !currentUser) return;
+      try{ await obterTokenSpotify(); } catch(e){ console.warn('Renovação periódica do Spotify falhou:', e.message); }
+    }, 20*60*1000);
   })();
 
 
