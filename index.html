@@ -931,6 +931,19 @@
         </div>
         <div id="eventosList" class="eventos-scroll"></div>
 
+        <div class="section-head" style="margin:0 0 10px;">
+          <h2 style="font-size:14px;">Calendário de provas — Estrada/MTB</h2>
+          <span class="count" style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted);">FECIERJ 2026</span>
+        </div>
+        <div class="chip-row" id="provasChips" style="padding:2px 0 12px;">
+          <button class="chip active" data-modalidade="todas">Todas</button>
+          <button class="chip" data-modalidade="ESTRADA">Estrada</button>
+          <button class="chip" data-modalidade="XCM">XCM</button>
+          <button class="chip" data-modalidade="XCO">XCO</button>
+          <button class="chip" data-modalidade="CRI">CRI</button>
+        </div>
+        <div id="provasList" class="eventos-scroll"></div>
+
         <div class="composer">
           <input type="text" placeholder="Compartilhe algo com o pelotão…" id="postInput">
           <select id="postTagSelect">
@@ -2165,6 +2178,53 @@
         </div>`;
     }).join('');
   }
+
+  // ---------- calendário de provas (Estrada/MTB, dados da FECIERJ) ----------
+  let provasCache = [];
+  let filtroModalidadeProvas = 'todas';
+
+  function formatarDataProva(prova){
+    const opts = { day: '2-digit', month: 'short' };
+    const inicio = new Date(prova.data_prova + 'T00:00:00').toLocaleDateString('pt-BR', opts).toUpperCase();
+    if(!prova.data_fim || prova.data_fim === prova.data_prova) return inicio;
+    const fim = new Date(prova.data_fim + 'T00:00:00').toLocaleDateString('pt-BR', opts).toUpperCase();
+    return `${inicio} A ${fim}`;
+  }
+
+  async function carregarProvas(){
+    if(!supabaseReady) return;
+    const hoje = new Date().toISOString().slice(0,10);
+    const { data, error } = await sb.from('provas').select('*').gte('data_prova', hoje).order('data_prova', { ascending: true }).limit(60);
+    if(error || !data){ provasCache = []; renderProvas(); return; }
+    provasCache = data;
+    renderProvas();
+  }
+
+  function renderProvas(){
+    const list = document.getElementById('provasList');
+    if(!list) return;
+    const itens = filtroModalidadeProvas === 'todas' ? provasCache : provasCache.filter(p => p.modalidade === filtroModalidadeProvas);
+    if(!itens.length){
+      list.innerHTML = '<p class="eventos-vazio">Nenhuma prova encontrada com esse filtro.</p>';
+      return;
+    }
+    list.innerHTML = itens.slice(0, 20).map(p => `
+      <div class="evento-card" style="border-color:var(--gold);">
+        <div class="evento-data">${formatarDataProva(p)} · <span style="color:var(--text-muted);">${p.ranking || ''}</span></div>
+        <h4>${p.nome}</h4>
+        <div class="evento-local">${p.local || ''} · <span style="color:var(--gold);">${p.modalidade}</span></div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('provasChips')?.addEventListener('click', (e)=>{
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    document.querySelectorAll('#provasChips .chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    filtroModalidadeProvas = chip.dataset.modalidade;
+    renderProvas();
+  });
 
   document.getElementById('eventosList').addEventListener('click', async (e)=>{
     const btn = e.target.closest('.btn-vou');
@@ -3453,6 +3513,7 @@
   initAuth().then(()=>{
     carregarFeed();
     carregarEventos();
+    carregarProvas();
     carregarOcorrencias();
     carregarAssessorias();
     assinarFeedRealtime();
