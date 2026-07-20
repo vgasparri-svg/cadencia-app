@@ -1377,12 +1377,29 @@
   // ---------- nav switching ----------
   const views = document.querySelectorAll('.view');
   const navBtns = document.querySelectorAll('.nav-btn');
+  let ultimoAutoSyncTreino = 0;
   navBtns.forEach(btn=>{
     btn.addEventListener('click', ()=>{
       navBtns.forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       views.forEach(v=>v.classList.remove('active'));
       document.getElementById('view-'+btn.dataset.view).classList.add('active');
+
+      // ao abrir a aba Treino, sincroniza sozinho com o Strava/
+      // Intervals.icu (se conectados) — no máximo uma vez a cada
+      // 15 minutos, pra não precisar clicar manualmente toda vez
+      if(btn.dataset.view === 'treino' && currentUser){
+        const agora = Date.now();
+        if(agora - ultimoAutoSyncTreino > 15*60*1000){
+          ultimoAutoSyncTreino = agora;
+          if(!document.getElementById('intervalsConnected')?.classList.contains('hidden')){
+            document.getElementById('btnIntervalsSincronizar')?.click();
+          }
+          if(!document.getElementById('stravaConnected')?.classList.contains('hidden')){
+            document.getElementById('btnStravaSincronizar')?.click();
+          }
+        }
+      }
     });
   });
 
@@ -3225,19 +3242,108 @@
   ];
   function renderLogs(){
     const ftpAtual = parseInt(document.getElementById('ftpValue')?.value) || 0;
-    document.getElementById('logList').innerHTML = logs.map(l=>{
+    document.getElementById('logList').innerHTML = logs.map((l,i)=>{
       const pctFtp = (ftpAtual && l.np) ? Math.round((l.np / ftpAtual) * 100) : null;
+      const temRota = (l.fonte === 'ao_vivo' && l.fonteExternaId) || (l.fonte === 'strava' && l.polyline);
       return `
       <div class="log-item">
         <div>
           <div class="route-name">${l.nome}</div>
           <div class="route-date">${l.data}${l.fonte && l.fonte !== 'manual' ? ` · <span style="color:var(--route);">${l.fonte}</span>` : ''}</div>
         </div>
-        <div class="route-nums">${l.km}km <small>${l.tempo}${l.pwr !== '—' ? ` · ${l.pwr}W méd` : ''}${l.np ? ` · ${l.np}W NP` : ''}${pctFtp ? ` · ${pctFtp}% FTP` : ''}${l.elevacao ? ` · ${l.elevacao}m ↑` : ''}${l.fcMedia ? ` · ${l.fcMedia}bpm` : ''}</small></div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${temRota ? `<button class="btn-ver-rota" data-indice="${i}" style="color:var(--route); font-family:var(--font-mono); font-size:10.5px; border:1px solid var(--line); border-radius:100px; padding:5px 10px;">Ver rota</button>` : ''}
+          <div class="route-nums">${l.km}km <small>${l.tempo}${l.pwr !== '—' ? ` · ${l.pwr}W méd` : ''}${l.np ? ` · ${l.np}W NP` : ''}${pctFtp ? ` · ${pctFtp}% FTP` : ''}${l.elevacao ? ` · ${l.elevacao}m ↑` : ''}${l.fcMedia ? ` · ${l.fcMedia}bpm` : ''}</small></div>
+        </div>
       </div>`;
     }).join('');
   }
   renderLogs();
+
+  // ---------- modal: ver rota de um pedal ao vivo (mapa com o trajeto salvo) ----------
+  let mapaRotaModal = null;
+  document.getElementById('logList').addEventListener('click', async (e)=>{
+    const btn = e.target.closest('.btn-ver-rota');
+    if(!btn) return;
+    const l = logs[parseInt(btn.dataset.indice)];
+    if(!l?.fonteExternaId && !l?.polyline) return;
+    abrirModalRota(l);
+  });
+
+  // decodifica o formato de polyline codificado que o Strava (e o
+  // Google) usam — algoritmo padrão, sem precisar de biblioteca externa
+  function decodificarPolyline(str){
+    let index = 0, lat = 0, lng = 0;
+    const coordenadas = [];
+    while(index < str.length){
+      let shift = 0, result = 0, byte;
+      do{ byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while(byte >= 0x20);
+      lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+      shift = 0; result = 0;
+      do{ byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while(byte >= 0x20);
+      lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+      coordenadas.push([lng / 1e5, lat / 1e5]); // [lng, lat], igual o Mapbox espera
+    }
+    return coordenadas;
+  }
+
+  async function abrirModalRota(pedal){
+    let backdrop = document.getElementById('modalRotaBackdrop');
+    if(!backdrop){
+      backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop';
+      backdrop.id = 'modalRotaBackdrop';
+      backdrop.innerHTML = `
+        <div class="modal">
+          <div class="modal-grab"></div>
+          <h3 id="modalRotaTitulo">Rota do pedal</h3>
+          <p class="sub" id="modalRotaSub"></p>
+          <div id="mapaRota" style="width:100%; height:280px; border-radius:var(--radius-md); overflow:hidden; margin-bottom:14px; background:#171C1F;"></div>
+          <div class="modal-actions">
+            <button class="btn-secondary" id="btnFecharModalRota">Fechar</button>
+          </div>
+        </div>`;
+      document.querySelector('.phone').appendChild(backdrop);
+      backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) backdrop.classList.remove('open'); });
+      document.getElementById('btnFecharModalRota').addEventListener('click', ()=> backdrop.classList.remove('open'));
+    }
+    document.getElementById('modalRotaTitulo').textContent = pedal.nome;
+    document.getElementById('modalRotaSub').textContent = `${pedal.km} km · ${pedal.tempo}`;
+    backdrop.classList.add('open');
+
+    let coords = [];
+    if(pedal.fonte === 'strava' && pedal.polyline){
+      coords = decodificarPolyline(pedal.polyline);
+    } else {
+      const { data } = await sb.from('pontos_trajeto')
+        .select('latitude, longitude')
+        .eq('usuario_id', currentUser.id).eq('sessao_id', pedal.fonteExternaId)
+        .order('criado_em', { ascending: true });
+      coords = (data || []).map(p => [p.longitude, p.latitude]);
+    }
+    if(!coords.length || !mapboxReady){
+      document.getElementById('mapaRota').innerHTML = '<p style="padding:20px; font-size:12px; color:var(--text-muted); text-align:center;">Trajeto não disponível pra esse pedal.</p>';
+      return;
+    }
+
+    setTimeout(()=>{
+      if(mapaRotaModal){ mapaRotaModal.remove(); mapaRotaModal = null; }
+      mapaRotaModal = new mapboxgl.Map({
+        container: 'mapaRota',
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: coords[Math.floor(coords.length/2)],
+        zoom: 12,
+        attributionControl: false
+      });
+      mapaRotaModal.on('load', ()=>{
+        mapaRotaModal.addSource('rota-pedal', { type: 'geojson', data: { type:'Feature', geometry:{ type:'LineString', coordinates: coords } } });
+        mapaRotaModal.addLayer({ id:'rota-pedal', type:'line', source:'rota-pedal', layout:{ 'line-cap':'round', 'line-join':'round' }, paint:{ 'line-color':'#35C6FF', 'line-width':4 } });
+        const bounds = coords.reduce((b,c)=> b.extend(c), new mapboxgl.LngLatBounds(coords[0], coords[0]));
+        mapaRotaModal.fitBounds(bounds, { padding: 30 });
+      });
+    }, 50);
+  }
+
   document.getElementById('btnAddLog').addEventListener('click', ()=>{
     logs.unshift({nome:'Pedal de hoje', data:'agora', km:(Math.random()*30+15).toFixed(1), tempo:'—', pwr: Math.round(Math.random()*40+160)});
     renderLogs();
@@ -3368,6 +3474,31 @@
     window.history.replaceState({}, '', window.location.pathname);
   }
 
+  // evita contar o mesmo pedal duas vezes quando ele existe em duas
+  // fontes diferentes (ex: sincronizado tanto do Strava quanto do
+  // Intervals.icu) — compara mesmo dia + distância bem próxima
+  async function filtrarDuplicatasDeOutraFonte(candidatos, fonteAtual){
+    if(!candidatos.length) return candidatos;
+    const desde = new Date(Date.now() - 95*24*60*60*1000).toISOString();
+    const { data: existentes } = await sb.from('pedais')
+      .select('realizado_em, distancia_km, fonte')
+      .eq('usuario_id', currentUser.id)
+      .neq('fonte', fonteAtual)
+      .gte('realizado_em', desde);
+    if(!existentes || !existentes.length) return candidatos;
+    return candidatos.filter(c => {
+      if(!c.realizado_em || !c.distancia_km) return true;
+      const diaCandidato = c.realizado_em.slice(0,10);
+      const jaExiste = existentes.some(e => {
+        if(!e.realizado_em || !e.distancia_km) return false;
+        const mesmoDia = e.realizado_em.slice(0,10) === diaCandidato;
+        const distanciaParecida = Math.abs(e.distancia_km - c.distancia_km) / c.distancia_km < 0.05;
+        return mesmoDia && distanciaParecida;
+      });
+      return !jaExiste;
+    });
+  }
+
   btnIntervalsSincronizar.addEventListener('click', async ()=>{
     if(!exigirLogin()) return;
     const { data: perfil } = await sb.from('usuarios').select('intervals_athlete_id, intervals_api_key').eq('id', currentUser.id).single();
@@ -3401,8 +3532,14 @@
         }));
       let erroGravacao = null;
       if(pedais.length){
-        const { error: erroUpsert } = await sb.from('pedais').upsert(pedais, { onConflict: 'usuario_id,fonte,fonte_externa_id' });
-        erroGravacao = erroUpsert;
+        const semDuplicata = await filtrarDuplicatasDeOutraFonte(pedais, 'intervals.icu');
+        if(semDuplicata.length){
+          const { error: erroUpsert } = await sb.from('pedais').upsert(semDuplicata, { onConflict: 'usuario_id,fonte,fonte_externa_id' });
+          erroGravacao = erroUpsert;
+        }
+        if(semDuplicata.length < pedais.length){
+          console.log(`${pedais.length - semDuplicata.length} pedal(is) ignorado(s) por já existir(em) vindo(s) de outra fonte (mesmo dia/distância).`);
+        }
       }
       if(erroGravacao){
         console.error('Erro ao gravar pedais do Intervals.icu:', erroGravacao);
@@ -3431,7 +3568,9 @@
       np: p.potencia_normalizada_w ?? null,
       elevacao: p.elevacao_m ?? null,
       fcMedia: p.fc_media ?? null,
-      fonte: p.fonte
+      fonte: p.fonte,
+      fonteExternaId: p.fonte_externa_id,
+      polyline: p.polyline
     }));
     renderLogs();
     renderResumoPerfil(data);
