@@ -945,6 +945,12 @@
         </div>
         <div id="provasList" class="eventos-scroll"></div>
 
+        <div class="section-head" style="margin:0 0 10px;">
+          <h2 style="font-size:14px;">Atividade do pelotão</h2>
+          <span class="count" style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted);">pedais recentes</span>
+        </div>
+        <div id="atividadeGrupoList" style="margin-bottom:18px;"></div>
+
         <div class="composer">
           <input type="text" placeholder="Compartilhe algo com o pelotão…" id="postInput">
           <select id="postTagSelect">
@@ -2228,6 +2234,50 @@
     renderProvas();
   });
 
+  // ---------- atividade do pelotão (feed leve de pedais de todos os ciclistas) ----------
+  function iconeFonteAtividade(fonte){
+    if(fonte === 'strava') return '🟠';
+    if(fonte === 'intervals.icu') return '🔵';
+    if(fonte === 'ao_vivo') return '🟢';
+    return '⚪';
+  }
+
+  async function carregarAtividadeGrupo(){
+    if(!supabaseReady) return;
+    const list = document.getElementById('atividadeGrupoList');
+    if(!list) return;
+    const { data, error } = await sb
+      .from('pedais')
+      .select('id, nome_rota, distancia_km, duracao_min, elevacao_m, realizado_em, fonte, usuario_id, usuarios!usuario_id(nome)')
+      .not('distancia_km', 'is', null)
+      .order('realizado_em', { ascending: false })
+      .limit(15);
+    if(error || !data){
+      console.warn('Não foi possível carregar a atividade do pelotão:', error?.message);
+      list.innerHTML = '';
+      return;
+    }
+    if(!data.length){
+      list.innerHTML = '<p class="eventos-vazio">Nenhum pedal registrado no pelotão ainda.</p>';
+      return;
+    }
+    list.innerHTML = data.map(p => {
+      const nome = p.usuarios?.nome || 'Ciclista';
+      const iniciais = nome.slice(0,2).toUpperCase();
+      const tempo = p.duracao_min ? `${Math.floor(p.duracao_min/60)}h${String(p.duracao_min%60).padStart(2,'0')}` : '—';
+      return `
+      <div class="post" style="padding:12px 14px;">
+        <div class="post-head" style="margin-bottom:6px;">
+          <div class="avatar">${iniciais}</div>
+          <div><div class="who">${nome}</div><div class="when">${tempoRelativo(p.realizado_em)} · ${iconeFonteAtividade(p.fonte)} ${p.fonte || 'manual'}</div></div>
+        </div>
+        <p style="font-size:12.5px;">
+          <strong>${p.nome_rota || 'Pedal'}</strong> — ${p.distancia_km ?? '—'} km · ${tempo}${p.elevacao_m ? ` · ${p.elevacao_m}m ↑` : ''}
+        </p>
+      </div>`;
+    }).join('');
+  }
+
   document.getElementById('eventosList').addEventListener('click', async (e)=>{
     const btn = e.target.closest('.btn-vou');
     if(!btn) return;
@@ -3387,6 +3437,7 @@
     renderResumoPerfil(data);
     carregarEstatisticasMes();
     carregarESeuGraficoDeForma();
+    carregarAtividadeGrupo();
   }
 
   async function carregarEstatisticasMes(){
@@ -3516,6 +3567,7 @@
     carregarFeed();
     carregarEventos();
     carregarProvas();
+    carregarAtividadeGrupo();
     carregarOcorrencias();
     carregarAssessorias();
     assinarFeedRealtime();
