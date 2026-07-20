@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -933,13 +932,15 @@
 
         <div class="section-head" style="margin:0 0 10px;">
           <h2 style="font-size:14px;">Calendário de provas — Estrada/MTB</h2>
-          <span class="count" style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted);">FECIERJ 2026</span>
+          <span class="count" style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted);">FECIERJ + CBC 2026</span>
         </div>
         <div class="chip-row" id="provasChips" style="padding:2px 0 12px;">
           <button class="chip active" data-modalidade="todas">Todas</button>
           <button class="chip" data-modalidade="ESTRADA">Estrada</button>
           <button class="chip" data-modalidade="XCM">XCM</button>
           <button class="chip" data-modalidade="XCO">XCO</button>
+          <button class="chip" data-modalidade="DH">Downhill</button>
+          <button class="chip" data-modalidade="XCC">XCC</button>
           <button class="chip" data-modalidade="CRI">CRI</button>
         </div>
         <div id="provasList" class="eventos-scroll"></div>
@@ -2208,11 +2209,12 @@
       list.innerHTML = '<p class="eventos-vazio">Nenhuma prova encontrada com esse filtro.</p>';
       return;
     }
-    list.innerHTML = itens.slice(0, 20).map(p => `
+    list.innerHTML = itens.slice(0, 30).map(p => `
       <div class="evento-card" style="border-color:var(--gold);">
         <div class="evento-data">${formatarDataProva(p)} · <span style="color:var(--text-muted);">${p.ranking || ''}</span></div>
         <h4>${p.nome}</h4>
         <div class="evento-local">${p.local || ''} · <span style="color:var(--gold);">${p.modalidade}</span></div>
+        <div style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); margin-top:4px;">${p.fonte === 'CBC' ? 'Nacional · CBC' : 'Estadual · FECIERJ'}</div>
       </div>
     `).join('');
   }
