@@ -849,7 +849,7 @@
   </div>
 
   <div class="statusbar">
-    <span>9:41</span>
+    <span id="relogioAtual">--:--</span>
     <span>Zona Sul · Rio de Janeiro</span>
   </div>
 
@@ -859,7 +859,7 @@
     <span class="brand-name">Pelotão</span>
     <span class="brand-tag" id="weatherChip">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--route)" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-linecap="round"/></svg>
-      27°C · vento leve
+      <span id="weatherTexto">carregando…</span>
     </span>
   </div>
 
@@ -887,6 +887,8 @@
         <h2>Rio de Janeiro</h2>
         <span>Aterro · Orla · Lagoa</span>
       </div>
+
+      <div class="chip-row" id="previsaoSemanaList" style="padding:2px 16px 16px;"></div>
 
       <div class="section">
         <div class="section-head"><h2>Últimos alertas</h2><span class="count">2 ativos</span></div>
@@ -1419,6 +1421,73 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(()=>toast.classList.remove('show'), 2600);
   }
+
+  // ============================================================
+  // RELÓGIO EM TEMPO REAL + PREVISÃO DO TEMPO (Open-Meteo, sem chave)
+  // ============================================================
+  function atualizarRelogio(){
+    const el = document.getElementById('relogioAtual');
+    if(!el) return;
+    el.textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+  atualizarRelogio();
+  setInterval(atualizarRelogio, 15000);
+
+  // mapeia os códigos de tempo padrão (WMO) usados pela Open-Meteo
+  // pra um emoji simples, o suficiente pra dar uma ideia rápida
+  function emojiClima(codigo){
+    if(codigo === 0) return '☀️';
+    if([1,2].includes(codigo)) return '🌤️';
+    if(codigo === 3) return '☁️';
+    if([45,48].includes(codigo)) return '🌫️';
+    if([51,53,55,56,57].includes(codigo)) return '🌦️';
+    if([61,63,65,66,67,80,81,82].includes(codigo)) return '🌧️';
+    if([71,73,75,77,85,86].includes(codigo)) return '❄️';
+    if([95,96,99].includes(codigo)) return '⛈️';
+    return '🌡️';
+  }
+
+  const RIO_LAT = -22.9068, RIO_LNG = -43.1729;
+
+  async function carregarClima(){
+    const chipTexto = document.getElementById('weatherTexto');
+    const previsaoList = document.getElementById('previsaoSemanaList');
+    try{
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${RIO_LAT}&longitude=${RIO_LNG}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=America%2FSao_Paulo&forecast_days=7`;
+      const resp = await fetch(url);
+      if(!resp.ok) throw new Error('status ' + resp.status);
+      const dados = await resp.json();
+
+      if(chipTexto && dados.current){
+        const temp = Math.round(dados.current.temperature_2m);
+        const vento = Math.round(dados.current.wind_speed_10m);
+        const descVento = vento < 12 ? 'vento leve' : vento < 25 ? 'vento moderado' : 'vento forte';
+        chipTexto.textContent = `${temp}°C · ${descVento}`;
+      }
+
+      if(previsaoList && dados.daily){
+        const dias = dados.daily.time;
+        previsaoList.innerHTML = dias.map((dia, i) => {
+          const data = new Date(dia + 'T12:00:00');
+          const rotulo = i === 0 ? 'Hoje' : data.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+          const max = Math.round(dados.daily.temperature_2m_max[i]);
+          const min = Math.round(dados.daily.temperature_2m_min[i]);
+          const emoji = emojiClima(dados.daily.weather_code[i]);
+          return `<div class="chip" style="display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 12px;">
+            <span style="font-size:9.5px; text-transform:capitalize;">${rotulo}</span>
+            <span style="font-size:15px;">${emoji}</span>
+            <span style="font-size:10px;">${max}° <span style="color:var(--text-muted);">${min}°</span></span>
+          </div>`;
+        }).join('');
+      }
+    } catch(e){
+      console.warn('Não foi possível carregar a previsão do tempo:', e.message);
+      if(chipTexto) chipTexto.textContent = 'indisponível';
+      if(previsaoList) previsaoList.innerHTML = '';
+    }
+  }
+  carregarClima();
+  setInterval(carregarClima, 30*60*1000); // atualiza a cada 30 minutos
 
   // ============================================================
   // AUTENTICAÇÃO — gate em tela cheia, código de 6 dígitos por e-mail
