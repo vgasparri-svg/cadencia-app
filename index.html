@@ -2480,11 +2480,21 @@
 
     sb.channel('comentarios-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comentarios' }, async (payload)=>{
+        // atualiza a tela, se o post já estiver visível
         const postEl = document.querySelector(`.post[data-post-id="${payload.new.post_id}"]`);
-        if(!postEl) return;
-        const countEl = postEl.querySelector('.comment-count');
-        if(countEl) countEl.textContent = (parseInt(countEl.textContent) || 0) + (payload.new.autor_id === currentUser?.id ? 0 : 1);
-        if(postEl.querySelector('.comments-list').classList.contains('open')) carregarComentarios(payload.new.post_id);
+        if(postEl){
+          const countEl = postEl.querySelector('.comment-count');
+          if(countEl) countEl.textContent = (parseInt(countEl.textContent) || 0) + (payload.new.autor_id === currentUser?.id ? 0 : 1);
+          if(postEl.querySelector('.comments-list').classList.contains('open')) carregarComentarios(payload.new.post_id);
+        }
+
+        // avisa quando é um comentário de OUTRA pessoa no SEU post
+        // (independe de estar vendo a tela de Comunidade ou não)
+        if(!currentUser || payload.new.autor_id === currentUser.id) return;
+        const { data: post } = await sb.from('posts').select('autor_id').eq('id', payload.new.post_id).single();
+        if(post?.autor_id !== currentUser.id) return;
+        const { data: comentarista } = await sb.from('usuarios').select('nome').eq('id', payload.new.autor_id).single();
+        showToast(`${comentarista?.nome || 'Alguém'} comentou no seu post`);
       })
       .subscribe();
   }
