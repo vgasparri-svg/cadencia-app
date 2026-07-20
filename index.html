@@ -1185,6 +1185,12 @@
           <p class="intervals-desc" style="padding:0 16px;">Sincronize seus pedais (Intervals.icu ou Strava) pra ver seu gráfico de forma.</p>
         </div>
       </div>
+      <div class="section" style="padding-top:0;">
+        <div class="section-head"><h2 style="font-size:14px;">Volume semanal</h2></div>
+        <div class="pmc-box" id="volumeSemanalBox" style="margin-bottom:6px;">
+          <p class="intervals-desc" style="padding:0 16px;">Sincronize seus pedais pra ver seu volume semanal.</p>
+        </div>
+      </div>
       <div class="section" style="padding-top:0;"><div class="section-head"><h2 style="font-size:14px;">Conquistas</h2></div></div>
       <div class="badge-grid">
         <div class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM8.2 13.5 6 22l6-3 6 3-2.2-8.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>1.000km rodados</span></div>
@@ -3576,6 +3582,7 @@
     renderResumoPerfil(data);
     carregarEstatisticasMes();
     carregarESeuGraficoDeForma();
+    carregarVolumeSemanal();
     carregarAtividadeGrupo();
   }
 
@@ -3696,6 +3703,72 @@
         <span><span class="dot" style="background:var(--route);"></span>Fitness (CTL)</span>
         <span><span class="dot" style="background:var(--alert);"></span>Fadiga (ATL)</span>
       </div>
+    `;
+  }
+
+  // ---------- gráfico de volume semanal (km por semana) ----------
+  async function carregarVolumeSemanal(){
+    const box = document.getElementById('volumeSemanalBox');
+    if(!supabaseReady || !currentUser || !box) return;
+
+    const desde = new Date(Date.now() - 12*7*24*60*60*1000).toISOString().slice(0,10);
+    const { data, error } = await sb.from('pedais')
+      .select('realizado_em, distancia_km')
+      .eq('usuario_id', currentUser.id)
+      .gte('realizado_em', desde)
+      .order('realizado_em', { ascending: true });
+
+    if(error || !data || !data.filter(p=>p.distancia_km).length){
+      box.innerHTML = '<p class="intervals-desc" style="padding:0 16px;">Ainda não há pedais suficientes pra montar o volume semanal.</p>';
+      return;
+    }
+
+    // agrupa por semana (segunda-feira como início da semana)
+    function inicioDaSemana(dataStr){
+      const d = new Date(dataStr + 'T00:00:00');
+      const diaSemana = (d.getDay() + 6) % 7; // 0 = segunda
+      d.setDate(d.getDate() - diaSemana);
+      return d.toISOString().slice(0,10);
+    }
+
+    const porSemana = {};
+    data.forEach(p => {
+      if(!p.realizado_em || !p.distancia_km) return;
+      const semana = inicioDaSemana(p.realizado_em.slice(0,10));
+      porSemana[semana] = (porSemana[semana] || 0) + p.distancia_km;
+    });
+
+    // monta as últimas 12 semanas em ordem, preenchendo com 0 as que não tiveram pedal
+    const semanas = [];
+    const hoje = new Date();
+    const inicioAtual = new Date(inicioDaSemana(hoje.toISOString().slice(0,10)) + 'T00:00:00');
+    for(let i = 11; i >= 0; i--){
+      const d = new Date(inicioAtual);
+      d.setDate(d.getDate() - i*7);
+      const chave = d.toISOString().slice(0,10);
+      semanas.push({ semana: chave, km: porSemana[chave] || 0 });
+    }
+
+    const mediaUltimas4 = semanas.slice(-4).reduce((s,w)=>s+w.km,0) / 4;
+    const larguraTotal = 660, altura = 140, padding = 6, gap = 6;
+    const larguraBarra = (larguraTotal - gap*(semanas.length-1)) / semanas.length;
+    const maxKm = Math.max(...semanas.map(w=>w.km), 10);
+
+    const barras = semanas.map((w,i) => {
+      const alturaBarra = Math.max((w.km / maxKm) * (altura - padding*2), w.km > 0 ? 3 : 0);
+      const x = i * (larguraBarra + gap);
+      const y = altura - padding - alturaBarra;
+      const rotulo = new Date(w.semana + 'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${larguraBarra.toFixed(1)}" height="${alturaBarra.toFixed(1)}" rx="2" fill="${i===semanas.length-1?'var(--safety)':'var(--route)'}" opacity="${i===semanas.length-1?'1':'0.75'}"><title>${rotulo}: ${w.km.toFixed(0)}km</title></rect>`;
+    }).join('');
+
+    box.innerHTML = `
+      <div class="pmc-numbers">
+        <div class="pmc-num"><div class="valor" style="color:var(--safety);">${semanas[semanas.length-1].km.toFixed(0)}</div><div class="rotulo">KM ESSA SEMANA</div></div>
+        <div class="pmc-num"><div class="valor" style="color:var(--route);">${mediaUltimas4.toFixed(0)}</div><div class="rotulo">MÉDIA (4 SEM.)</div></div>
+      </div>
+      <svg viewBox="0 0 ${larguraTotal} ${altura}" style="width:100%; display:block;">${barras}</svg>
+      <p class="intervals-desc" style="padding:8px 16px 0; font-size:10.5px;">Últimas 12 semanas — a mais recente em destaque.</p>
     `;
   }
 
