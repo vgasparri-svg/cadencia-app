@@ -1215,6 +1215,10 @@
         <div class="post" style="margin-bottom:24px;">
           <p style="color:var(--text-muted);">Seus dados de localização em tempo real só são compartilhados durante um pedal ativo com contato de confiança — nunca publicados no feed.</p>
         </div>
+        <div class="section" style="padding:0 0 12px;">
+          <div class="section-head" style="margin-bottom:8px;"><h2 style="font-size:13px;">Usuários bloqueados</h2></div>
+          <div id="listaBloqueados"></div>
+        </div>
         <button class="btn-logout" id="btnAtivarFaceIdPerfil" style="border-color:var(--safety); color:var(--safety); margin-bottom:10px;">Ativar Face ID / Touch ID neste aparelho</button>
         <button class="btn-logout" id="btnAtivarPushPerfil" style="border-color:var(--route); color:var(--route); margin-bottom:10px;">Reativar notificações push neste aparelho</button>
         <button class="btn-logout" id="btnLogoutPerfil">Sair da conta</button>
@@ -1408,6 +1412,9 @@
             document.getElementById('btnStravaSincronizar')?.click();
           }
         }
+      }
+      if(btn.dataset.view === 'perfil' && currentUser){
+        renderListaBloqueados();
       }
     });
   });
@@ -1652,7 +1659,7 @@
       renderGateState();
       atualizarPerfilLogout();
       if(currentUser){
-        carregarFeed();
+        carregarUsuariosBloqueados().then(carregarFeed);
         renderEstadoIntervals();
         renderEstadoStrava();
         carregarPedaisDoBanco();
@@ -1803,6 +1810,50 @@
     if(!usuarioId || !supabaseReady) return;
     abrirPerfilPublico(usuarioId, nome);
   });
+
+  // ============================================================
+  // MODERAÇÃO — denunciar post ou bloquear usuário
+  // ============================================================
+  function abrirModalOpcoesPost(postId, autorId, autorNome){
+    let backdrop = document.getElementById('modalOpcoesPostBackdrop');
+    if(backdrop) backdrop.remove();
+    backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.id = 'modalOpcoesPostBackdrop';
+    backdrop.innerHTML = `
+      <div class="modal">
+        <div class="modal-grab"></div>
+        <h3>Opções</h3>
+        <p class="sub">Post de ${autorNome}</p>
+        <button class="btn-logout" id="btnDenunciarPost" style="margin-bottom:10px; border-color:var(--alert); color:var(--alert);">🚩 Denunciar post</button>
+        <button class="btn-logout" id="btnBloquearUsuario" style="margin-bottom:10px;">🚫 Bloquear ${autorNome}</button>
+        <button class="btn-secondary" id="btnCancelarOpcoesPost">Cancelar</button>
+      </div>`;
+    document.querySelector('.phone').appendChild(backdrop);
+    requestAnimationFrame(()=> backdrop.classList.add('open'));
+
+    function fechar(){ backdrop.classList.remove('open'); setTimeout(()=> backdrop.remove(), 300); }
+    backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) fechar(); });
+    backdrop.querySelector('#btnCancelarOpcoesPost').addEventListener('click', fechar);
+
+    backdrop.querySelector('#btnDenunciarPost').addEventListener('click', async ()=>{
+      const motivo = prompt('Por que está denunciando esse post? (ex: spam, ofensivo, conteúdo falso)');
+      if(!motivo) return;
+      const { error } = await sb.from('denuncias').insert({ denunciante_id: currentUser.id, post_id: postId, usuario_denunciado_id: autorId, motivo });
+      fechar();
+      showToast(error ? 'Erro ao denunciar: ' + error.message : 'Post denunciado — obrigado por avisar');
+    });
+
+    backdrop.querySelector('#btnBloquearUsuario').addEventListener('click', async ()=>{
+      if(!confirm(`Bloquear ${autorNome}? Você não verá mais os posts dessa pessoa.`)) return;
+      const { error } = await sb.from('bloqueios').insert({ usuario_id: currentUser.id, bloqueado_id: autorId });
+      fechar();
+      if(error){ showToast('Erro ao bloquear: ' + error.message); return; }
+      showToast(`${autorNome} foi bloqueado(a)`);
+      await carregarUsuariosBloqueados();
+      carregarFeed();
+    });
+  }
 
   async function abrirPerfilPublico(usuarioId, nome){
     let backdrop = document.getElementById('modalPerfilPublicoBackdrop');
@@ -2519,6 +2570,13 @@
     const likeBtn = e.target.closest('.like-btn');
     const commentBtn = e.target.closest('.comment-toggle-btn');
     const sendCommentBtn = e.target.closest('.comment-send-btn');
+    const opcoesBtn = e.target.closest('.btn-opcoes-post');
+
+    if(opcoesBtn){
+      if(!exigirLogin()) return;
+      abrirModalOpcoesPost(opcoesBtn.dataset.postId, opcoesBtn.dataset.autorId, opcoesBtn.dataset.autorNome);
+      return;
+    }
 
     if(likeBtn){
       if(!exigirLogin()) return;
@@ -2604,6 +2662,7 @@
         <div class="avatar avatar-clicavel" data-usuario-id="${post.autor_id}" data-nome="${(post.usuarios?.nome || 'Ciclista').replace(/"/g,'&quot;')}" style="cursor:pointer;">${(post.usuarios?.nome || 'CI').slice(0,2).toUpperCase()}</div>
         <div><div class="who avatar-clicavel" data-usuario-id="${post.autor_id}" data-nome="${(post.usuarios?.nome || 'Ciclista').replace(/"/g,'&quot;')}" style="cursor:pointer;">${post.usuarios?.nome || 'Ciclista'}</div><div class="when">${tempoRelativo(post.criado_em)}</div></div>
         <span class="post-tag">${post.tag || 'Geral'}</span>
+        ${post.autor_id !== currentUser?.id ? `<button class="btn-opcoes-post" data-post-id="${post.id}" data-autor-id="${post.autor_id}" data-autor-nome="${(post.usuarios?.nome || 'Ciclista').replace(/"/g,'&quot;')}" style="color:var(--text-muted); padding:2px 6px; margin-left:4px;">⋯</button>` : ''}
       </div>
       <p>${post.conteudo.replace(/</g,'&lt;')}</p>
       <div class="post-actions">
@@ -2620,17 +2679,52 @@
     return el;
   }
 
+  let usuariosBloqueadosCache = [];
+
+  async function carregarUsuariosBloqueados(){
+    if(!supabaseReady || !currentUser) return;
+    const { data } = await sb.from('bloqueios').select('bloqueado_id').eq('usuario_id', currentUser.id);
+    usuariosBloqueadosCache = (data || []).map(b => b.bloqueado_id);
+  }
+
+  async function renderListaBloqueados(){
+    const el = document.getElementById('listaBloqueados');
+    if(!el || !supabaseReady || !currentUser) return;
+    const { data } = await sb.from('bloqueios').select('bloqueado_id, usuarios!bloqueado_id(nome)').eq('usuario_id', currentUser.id);
+    if(!data || !data.length){
+      el.innerHTML = '<p style="font-size:11.5px; color:var(--text-muted); padding-bottom:8px;">Nenhum usuário bloqueado.</p>';
+      return;
+    }
+    el.innerHTML = data.map(b => `
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line);">
+        <span style="font-size:12.5px;">${b.usuarios?.nome || 'Ciclista'}</span>
+        <button class="btn-desbloquear" data-id="${b.bloqueado_id}" style="font-family:var(--font-mono); font-size:10.5px; color:var(--route); border:1px solid var(--line); border-radius:100px; padding:5px 10px;">Desbloquear</button>
+      </div>
+    `).join('');
+  }
+  document.getElementById('listaBloqueados')?.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('.btn-desbloquear');
+    if(!btn) return;
+    await sb.from('bloqueios').delete().eq('usuario_id', currentUser.id).eq('bloqueado_id', btn.dataset.id);
+    showToast('Usuário desbloqueado');
+    await carregarUsuariosBloqueados();
+    renderListaBloqueados();
+    carregarFeed();
+  });
+
   async function carregarFeed(){
     if(!supabaseReady) return;
     const feedList = document.getElementById('feedList');
     let query = sb.from('posts').select('*, usuarios!autor_id(nome)').order('criado_em', { ascending: false }).limit(30);
     if(filtroComunidadeAtivo !== 'todos') query = query.eq('tag', filtroComunidadeAtivo);
-    const { data, error } = await query;
+    const { data: dadosBrutos, error } = await query;
     if(error){
       console.error('Erro ao carregar feed:', error);
       feedList.innerHTML = `<p style="color:var(--alert); font-size:12.5px; padding:16px 0;">Não foi possível carregar o feed: ${error.message}</p>`;
       return;
     }
+    // esconde posts de quem você bloqueou
+    const data = (dadosBrutos || []).filter(p => !usuariosBloqueadosCache.includes(p.autor_id));
     if(!data || !data.length){
       feedList.innerHTML = '<p style="color:var(--text-muted); font-size:13px; padding:20px 0; text-align:center;">Nenhum post ainda — seja o primeiro a postar!</p>';
       return;
@@ -3977,7 +4071,8 @@
 
   // ---------- inicialização Supabase ----------
   initMap();
-  initAuth().then(()=>{
+  initAuth().then(async ()=>{
+    await carregarUsuariosBloqueados();
     carregarFeed();
     carregarEventos();
     carregarProvas();
