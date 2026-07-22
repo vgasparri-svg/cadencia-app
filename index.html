@@ -1866,8 +1866,11 @@
   // ============================================================
   const ONBOARDING_CHAVE = 'pelotao_onboarding_visto';
 
+  let onboardingJaAberto = false;
   function mostrarOnboardingSeNovo(){
     try{ if(localStorage.getItem(ONBOARDING_CHAVE)) return; } catch(e){ return; }
+    if(onboardingJaAberto || document.getElementById('modalOnboardingBackdrop')) return;
+    onboardingJaAberto = true;
 
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
@@ -1900,10 +1903,11 @@
 
     function fechar(){
       backdrop.classList.remove('open');
+      onboardingJaAberto = false;
       try{ localStorage.setItem(ONBOARDING_CHAVE, '1'); } catch(e){}
       setTimeout(()=> backdrop.remove(), 300);
     }
-    document.getElementById('btnFecharOnboarding').addEventListener('click', fechar);
+    backdrop.querySelector('#btnFecharOnboarding').addEventListener('click', fechar);
     backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) fechar(); });
   }
 
