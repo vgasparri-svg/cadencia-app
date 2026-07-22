@@ -1646,7 +1646,7 @@
     if(session?.user){ currentUser = { id: session.user.id, email: session.user.email, phone: session.user.phone }; }
     renderGateState();
     atualizarPerfilLogout();
-    if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); garantirInscricaoPush(true); carregarFtpPeso(); }
+    if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); garantirInscricaoPush(true); carregarFtpPeso(); mostrarOnboardingSeNovo(); }
     sb.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user ? { id: session.user.id, email: session.user.email, phone: session.user.phone } : null;
       renderGateState();
@@ -1659,6 +1659,7 @@
         garantirInscricaoPush(true);
         carregarFtpPeso();
         showToast('Login realizado — bem-vindo(a)!');
+        mostrarOnboardingSeNovo();
         if(event === 'SIGNED_IN' && passkeyDisponivelNoClient()){
           setTimeout(async ()=>{
             try{
@@ -1788,6 +1789,122 @@
     if(!supabaseReady){ showToast('Configure o Supabase primeiro (veja o topo do app)'); return false; }
     if(!currentUser){ showToast('Entre com seu e-mail para continuar'); return false; }
     return true;
+  }
+
+  // ============================================================
+  // PERFIL PÚBLICO — clicar no nome/avatar de qualquer ciclista
+  // (no feed, na atividade do pelotão, ou no mapa) abre um resumo
+  // ============================================================
+  document.addEventListener('click', async (e)=>{
+    const alvo = e.target.closest('.avatar-clicavel');
+    if(!alvo) return;
+    const usuarioId = alvo.dataset.usuarioId;
+    const nome = alvo.dataset.nome || 'Ciclista';
+    if(!usuarioId || !supabaseReady) return;
+    abrirPerfilPublico(usuarioId, nome);
+  });
+
+  async function abrirPerfilPublico(usuarioId, nome){
+    let backdrop = document.getElementById('modalPerfilPublicoBackdrop');
+    if(!backdrop){
+      backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop';
+      backdrop.id = 'modalPerfilPublicoBackdrop';
+      backdrop.innerHTML = `
+        <div class="modal">
+          <div class="modal-grab"></div>
+          <div class="profile-head" style="padding:0 0 16px;">
+            <div class="profile-avatar" id="perfilPublicoAvatar" style="width:48px; height:48px; font-size:16px;">CI</div>
+            <div>
+              <h2 id="perfilPublicoNome" style="font-size:16px;">Ciclista</h2>
+              <p style="font-size:11.5px; color:var(--text-muted); font-family:var(--font-mono); margin-top:2px;" id="perfilPublicoSub">carregando…</p>
+            </div>
+          </div>
+          <div class="resumo-grid" id="perfilPublicoResumo" style="padding:0 0 16px;"></div>
+          <div class="modal-actions">
+            <button class="btn-secondary" id="btnFecharPerfilPublico">Fechar</button>
+          </div>
+        </div>`;
+      document.querySelector('.phone').appendChild(backdrop);
+      backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) backdrop.classList.remove('open'); });
+      document.getElementById('btnFecharPerfilPublico').addEventListener('click', ()=> backdrop.classList.remove('open'));
+    }
+    document.getElementById('perfilPublicoAvatar').textContent = nome.slice(0,2).toUpperCase();
+    document.getElementById('perfilPublicoNome').textContent = nome;
+    document.getElementById('perfilPublicoSub').textContent = 'carregando…';
+    document.getElementById('perfilPublicoResumo').innerHTML = '';
+    backdrop.classList.add('open');
+
+    const desde90 = new Date(Date.now() - 90*24*60*60*1000).toISOString();
+    const { data: pedaisRecentes } = await sb.from('pedais')
+      .select('distancia_km, elevacao_m, realizado_em')
+      .eq('usuario_id', usuarioId)
+      .gte('realizado_em', desde90);
+    const { count: totalPedaisVida } = await sb.from('pedais')
+      .select('*', { count: 'exact', head: true })
+      .eq('usuario_id', usuarioId);
+
+    const lista = pedaisRecentes || [];
+    const totalKm90 = lista.reduce((s,p)=> s + (p.distancia_km||0), 0);
+    const totalElev90 = lista.reduce((s,p)=> s + (p.elevacao_m||0), 0);
+    const agora = new Date();
+    const inicioMes = `${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,'0')}-01`;
+    const kmMes = lista.filter(p => p.realizado_em >= inicioMes).reduce((s,p)=> s + (p.distancia_km||0), 0);
+
+    document.getElementById('perfilPublicoSub').textContent = `${totalPedaisVida ?? 0} pedal(is) registrado(s) no total`;
+    document.getElementById('perfilPublicoResumo').innerHTML = `
+      <div class="resumo-item"><div class="resumo-valor">${kmMes.toFixed(0)}</div><div class="resumo-label">km este mês</div></div>
+      <div class="resumo-item"><div class="resumo-valor">${totalKm90.toFixed(0)}</div><div class="resumo-label">km (90 dias)</div></div>
+      <div class="resumo-item"><div class="resumo-valor">${totalElev90.toFixed(0)}</div><div class="resumo-label">m elevação (90d)</div></div>
+      <div class="resumo-item"><div class="resumo-valor">${totalPedaisVida ?? 0}</div><div class="resumo-label">pedais no total</div></div>
+    `;
+  }
+
+  // ============================================================
+  // ONBOARDING — tela rápida de boas-vindas na primeira vez que
+  // a pessoa entra (só uma vez, guardado no navegador dela)
+  // ============================================================
+  const ONBOARDING_CHAVE = 'pelotao_onboarding_visto';
+
+  function mostrarOnboardingSeNovo(){
+    try{ if(localStorage.getItem(ONBOARDING_CHAVE)) return; } catch(e){ return; }
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.id = 'modalOnboardingBackdrop';
+    backdrop.innerHTML = `
+      <div class="modal">
+        <div class="modal-grab"></div>
+        <h3>Bem-vindo(a) ao Pelotão! 🚴</h3>
+        <p class="sub">Um resumo rápido do que dá pra fazer aqui:</p>
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:18px;">
+          <div class="post" style="margin-bottom:0;">
+            <p><strong>🗺️ Mapa</strong> — veja ciclistas pedalando ao vivo e reporte riscos na via (buraco, assalto, assédio).</p>
+          </div>
+          <div class="post" style="margin-bottom:0;">
+            <p><strong>👥 Comunidade</strong> — poste, converse, veja o calendário de provas e a atividade do pelotão.</p>
+          </div>
+          <div class="post" style="margin-bottom:0;">
+            <p><strong>📈 Treino</strong> — conecte Strava/Intervals.icu, acompanhe FTP, potência e sua forma física.</p>
+          </div>
+          <div class="post" style="margin-bottom:0;">
+            <p><strong>📩 Avisar</strong> — clique em qualquer ciclista no mapa pra mandar um aviso rápido (chega até no Garmin).</p>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-primary" id="btnFecharOnboarding" style="background:var(--safety); color:#141A0A;">Entendi, bora pedalar!</button>
+        </div>
+      </div>`;
+    document.querySelector('.phone').appendChild(backdrop);
+    requestAnimationFrame(()=> backdrop.classList.add('open'));
+
+    function fechar(){
+      backdrop.classList.remove('open');
+      try{ localStorage.setItem(ONBOARDING_CHAVE, '1'); } catch(e){}
+      setTimeout(()=> backdrop.remove(), 300);
+    }
+    document.getElementById('btnFecharOnboarding').addEventListener('click', fechar);
+    backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) fechar(); });
   }
 
   // ============================================================
@@ -2361,8 +2478,8 @@
       return `
       <div class="post" style="padding:12px 14px;">
         <div class="post-head" style="margin-bottom:6px;">
-          <div class="avatar">${iniciais}</div>
-          <div><div class="who">${nome}</div><div class="when">${tempoRelativo(p.realizado_em)} · ${iconeFonteAtividade(p.fonte)} ${p.fonte || 'manual'}</div></div>
+          <div class="avatar avatar-clicavel" data-usuario-id="${p.usuario_id}" data-nome="${nome.replace(/"/g,'&quot;')}" style="cursor:pointer;">${iniciais}</div>
+          <div><div class="who avatar-clicavel" data-usuario-id="${p.usuario_id}" data-nome="${nome.replace(/"/g,'&quot;')}" style="cursor:pointer;">${nome}</div><div class="when">${tempoRelativo(p.realizado_em)} · ${iconeFonteAtividade(p.fonte)} ${p.fonte || 'manual'}</div></div>
         </div>
         <p style="font-size:12.5px;">
           <strong>${p.nome_rota || 'Pedal'}</strong> — ${p.distancia_km ?? '—'} km · ${tempo}${p.elevacao_m ? ` · ${p.elevacao_m}m ↑` : ''}
@@ -2480,8 +2597,8 @@
     el.dataset.postId = post.id;
     el.innerHTML = `
       <div class="post-head">
-        <div class="avatar">${(post.usuarios?.nome || 'CI').slice(0,2).toUpperCase()}</div>
-        <div><div class="who">${post.usuarios?.nome || 'Ciclista'}</div><div class="when">${tempoRelativo(post.criado_em)}</div></div>
+        <div class="avatar avatar-clicavel" data-usuario-id="${post.autor_id}" data-nome="${(post.usuarios?.nome || 'Ciclista').replace(/"/g,'&quot;')}" style="cursor:pointer;">${(post.usuarios?.nome || 'CI').slice(0,2).toUpperCase()}</div>
+        <div><div class="who avatar-clicavel" data-usuario-id="${post.autor_id}" data-nome="${(post.usuarios?.nome || 'Ciclista').replace(/"/g,'&quot;')}" style="cursor:pointer;">${post.usuarios?.nome || 'Ciclista'}</div><div class="when">${tempoRelativo(post.criado_em)}</div></div>
         <span class="post-tag">${post.tag || 'Geral'}</span>
       </div>
       <p>${post.conteudo.replace(/</g,'&lt;')}</p>
