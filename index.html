@@ -3351,16 +3351,38 @@
         spotifyDisconnected?.classList.add('hidden');
         spotifyConnected?.classList.remove('hidden');
         zonasMapa = data.spotify_zonas || {};
-        // conectar o player e buscar as playlists não dependem um
-        // do outro — rodar em paralelo, em vez de esperar o player
-        // terminar pra só então começar a buscar as playlists
+        // conecta o player em segundo plano — tocar as playlists já
+        // mapeadas não depende de buscar a lista completa de novo
         garantirPlayerSpotify();
-        if(playlistsCache.length) renderZonasSpotify();
-        else await carregarPlaylists();
+        // só busca a lista completa de playlists (do Spotify) se
+        // ainda não tiver nenhuma zona mapeada, ou se o usuário já
+        // tinha buscado nessa sessão — do contrário, mostra o
+        // resumo do que já está configurado, sem esperar o Spotify
+        if(playlistsCache.length){
+          renderZonasSpotify();
+        } else if(Object.values(zonasMapa).some(v => v)){
+          renderResumoZonasSpotify();
+        } else {
+          await carregarPlaylists();
+        }
       } else {
         spotifyDisconnected?.classList.remove('hidden');
         spotifyConnected?.classList.add('hidden');
       }
+    }
+
+    // mostra só um resumo (sem nome da playlist, sem precisar buscar
+    // no Spotify de novo) — rápido e não depende da API deles
+    function renderResumoZonasSpotify(){
+      const box = document.getElementById('spotifyZonasList');
+      if(!box) return;
+      const zonas = ['Z1','Z2','Z3','Z4','Z5','Z6'];
+      box.innerHTML = zonas.map(z => `
+        <div class="spotify-zona-row">
+          <span class="z-label">${z}</span>
+          <span style="flex:1; font-size:12px; color:${zonasMapa[z] ? 'var(--safety)' : 'var(--text-muted)'};">${zonasMapa[z] ? '✓ playlist mapeada' : '— nenhuma —'}</span>
+        </div>
+      `).join('');
     }
 
     document.getElementById('btnSpotifyConectar')?.addEventListener('click', ()=>{
