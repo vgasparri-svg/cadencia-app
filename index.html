@@ -3436,17 +3436,11 @@
       }
 
       const promessa = (async ()=>{
-        // renova a sessão do Pelotão (Supabase) antes de chamar a
-        // função, se ela estiver perto de expirar — evita o erro
-        // "Sessão inválida" que acontecia com a sessão vencida
-        try{
-          const { data: sessaoAtual } = await sb.auth.getSession();
-          const expiraEm = sessaoAtual?.session?.expires_at;
-          if(expiraEm && (expiraEm - Math.floor(Date.now()/1000)) < 120){
-            await sb.auth.refreshSession();
-          }
-        } catch(e){ /* segue mesmo se a renovação falhar — a chamada abaixo revela o erro real */ }
-
+        // o próprio supabase-js já renova a sessão sozinho em
+        // segundo plano (autoRefreshToken) — forçar uma renovação
+        // manual aqui em cima disso só duplicava o processo e podia
+        // invalidar o token de renovação (rotação de refresh token).
+        // Só lê a sessão atual, sem forçar renovar.
         const { data, error } = await sb.functions.invoke('smart-processor');
         if(error || data?.error){
           let motivo = data?.error || error?.message || 'erro desconhecido';
@@ -3454,11 +3448,7 @@
             try{ const corpo = await error.context.json(); if(corpo?.error) motivo = corpo.error; } catch(e2){}
           }
           console.error('Erro ao obter token do Spotify:', motivo);
-          // se a sessão ainda estiver inválida mesmo após tentar
-          // renovar, tenta mais uma vez — cobre o caso de token
-          // renovado em paralelo por outra aba/aparelho
           if(!jaTentouDeNovo && motivo.includes('Sessão inválida')){
-            await sb.auth.refreshSession();
             return await obterTokenSpotify(true);
           }
           throw new Error(motivo);
