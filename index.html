@@ -3393,6 +3393,7 @@
 
     let tokenSpotifyCache = null;
     let tokenSpotifyCacheExpiraEm = 0; // timestamp (ms) de quando o token em cache deixa de ser confiável
+    let tokenSpotifyEmVoo = null; // promise em andamento, se já tiver uma busca rolando
 
     async function obterTokenSpotify(jaTentouDeNovo){
       // se já temos um token em cache e ele ainda não está perto de
@@ -3403,40 +3404,58 @@
         return tokenSpotifyCache;
       }
 
-      // renova a sessão do Pelotão (Supabase) antes de chamar a
-      // função, se ela estiver perto de expirar — evita o erro
-      // "Sessão inválida" que acontecia com a sessão vencida
-      try{
-        const { data: sessaoAtual } = await sb.auth.getSession();
-        const expiraEm = sessaoAtual?.session?.expires_at;
-        if(expiraEm && (expiraEm - Math.floor(Date.now()/1000)) < 120){
-          await sb.auth.refreshSession();
-        }
-      } catch(e){ /* segue mesmo se a renovação falhar — a chamada abaixo revela o erro real */ }
-
-      const { data, error } = await sb.functions.invoke('smart-processor');
-      if(error || data?.error){
-        let motivo = data?.error || error?.message || 'erro desconhecido';
-        if(error?.context && typeof error.context.json === 'function'){
-          try{ const corpo = await error.context.json(); if(corpo?.error) motivo = corpo.error; } catch(e2){}
-        }
-        console.error('Erro ao obter token do Spotify:', motivo);
-        // se a sessão ainda estiver inválida mesmo após tentar
-        // renovar, tenta mais uma vez — cobre o caso de token
-        // renovado em paralelo por outra aba/aparelho
-        if(!jaTentouDeNovo && motivo.includes('Sessão inválida')){
-          await sb.auth.refreshSession();
-          return await obterTokenSpotify(true);
-        }
-        throw new Error(motivo);
+      // se já tem uma busca de token rolando nesse exato momento
+      // (ex: o player pedindo token ao mesmo tempo que a busca de
+      // playlists), espera ELA terminar em vez de disparar uma
+      // segunda em paralelo — duas renovações simultâneas do lado
+      // do Spotify podem se atropelar e invalidar o token
+      if(!jaTentouDeNovo && tokenSpotifyEmVoo){
+        return await tokenSpotifyEmVoo;
       }
-      // guarda em cache por 50 minutos (o token do Spotify dura 60,
-      // deixamos uma margem confortável) — assim as próximas
-      // chamadas (tocar, trocar de zona, o SDK pedindo token de
-      // novo) usam o mesmo token na hora, sem esperar o servidor
-      tokenSpotifyCache = data.access_token;
-      tokenSpotifyCacheExpiraEm = Date.now() + 50*60*1000;
-      return data.access_token;
+
+      const promessa = (async ()=>{
+        // renova a sessão do Pelotão (Supabase) antes de chamar a
+        // função, se ela estiver perto de expirar — evita o erro
+        // "Sessão inválida" que acontecia com a sessão vencida
+        try{
+          const { data: sessaoAtual } = await sb.auth.getSession();
+          const expiraEm = sessaoAtual?.session?.expires_at;
+          if(expiraEm && (expiraEm - Math.floor(Date.now()/1000)) < 120){
+            await sb.auth.refreshSession();
+          }
+        } catch(e){ /* segue mesmo se a renovação falhar — a chamada abaixo revela o erro real */ }
+
+        const { data, error } = await sb.functions.invoke('smart-processor');
+        if(error || data?.error){
+          let motivo = data?.error || error?.message || 'erro desconhecido';
+          if(error?.context && typeof error.context.json === 'function'){
+            try{ const corpo = await error.context.json(); if(corpo?.error) motivo = corpo.error; } catch(e2){}
+          }
+          console.error('Erro ao obter token do Spotify:', motivo);
+          // se a sessão ainda estiver inválida mesmo após tentar
+          // renovar, tenta mais uma vez — cobre o caso de token
+          // renovado em paralelo por outra aba/aparelho
+          if(!jaTentouDeNovo && motivo.includes('Sessão inválida')){
+            await sb.auth.refreshSession();
+            return await obterTokenSpotify(true);
+          }
+          throw new Error(motivo);
+        }
+        // guarda em cache por 50 minutos (o token do Spotify dura 60,
+        // deixamos uma margem confortável) — assim as próximas
+        // chamadas (tocar, trocar de zona, o SDK pedindo token de
+        // novo) usam o mesmo token na hora, sem esperar o servidor
+        tokenSpotifyCache = data.access_token;
+        tokenSpotifyCacheExpiraEm = Date.now() + 50*60*1000;
+        return data.access_token;
+      })();
+
+      tokenSpotifyEmVoo = promessa;
+      try{
+        return await promessa;
+      } finally {
+        tokenSpotifyEmVoo = null;
+      }
     }
 
     async function garantirPlayerSpotify(){
