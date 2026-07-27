@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2571,10 +2570,33 @@
     const commentBtn = e.target.closest('.comment-toggle-btn');
     const sendCommentBtn = e.target.closest('.comment-send-btn');
     const opcoesBtn = e.target.closest('.btn-opcoes-post');
+    const editarPostBtn = e.target.closest('.btn-editar-post');
+    const apagarPostBtn = e.target.closest('.btn-apagar-post');
 
     if(opcoesBtn){
       if(!exigirLogin()) return;
       abrirModalOpcoesPost(opcoesBtn.dataset.postId, opcoesBtn.dataset.autorId, opcoesBtn.dataset.autorNome);
+      return;
+    }
+
+    if(editarPostBtn){
+      const postEl = document.querySelector(`.post[data-post-id="${editarPostBtn.dataset.postId}"]`);
+      const conteudoAtual = postEl?.querySelector('.post-conteudo')?.textContent || '';
+      const novoConteudo = prompt('Editar post:', conteudoAtual);
+      if(!novoConteudo || novoConteudo === conteudoAtual) return;
+      const { error } = await sb.from('posts').update({ conteudo: novoConteudo }).eq('id', editarPostBtn.dataset.postId);
+      if(error){ showToast('Erro ao editar: ' + error.message); return; }
+      showToast('Post atualizado');
+      carregarFeed();
+      return;
+    }
+
+    if(apagarPostBtn){
+      if(!confirm('Apagar esse post? Essa ação não pode ser desfeita.')) return;
+      const { error } = await sb.from('posts').delete().eq('id', apagarPostBtn.dataset.postId);
+      if(error){ showToast('Erro ao apagar: ' + error.message); return; }
+      showToast('Post apagado');
+      carregarFeed();
       return;
     }
 
@@ -2630,12 +2652,38 @@
     const itens = (data || []).map(c => `
       <div class="comment-item">
         <div class="avatar">${(c.usuarios?.nome || 'CI').slice(0,2).toUpperCase()}</div>
-        <div class="bubble"><div class="who">${c.usuarios?.nome || 'Ciclista'}</div>${c.conteudo.replace(/</g,'&lt;')}</div>
+        <div class="bubble" style="flex:1; display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
+          <div><div class="who">${c.usuarios?.nome || 'Ciclista'}</div><span class="comentario-texto">${c.conteudo.replace(/</g,'&lt;')}</span></div>
+          ${c.autor_id === currentUser?.id ? `<div style="display:flex; gap:4px; flex-shrink:0;">
+            <button class="btn-editar-comentario" data-comentario-id="${c.id}" data-post-id="${postId}" style="color:var(--text-muted); padding:2px;">✏️</button>
+            <button class="btn-apagar-comentario" data-comentario-id="${c.id}" data-post-id="${postId}" style="color:var(--text-muted); padding:2px;">🗑️</button>
+          </div>` : ''}
+        </div>
       </div>`).join('');
     list.querySelector('.comments-items').innerHTML = itens || '<p style="font-size:11.5px; color:var(--text-muted);">Nenhum comentário ainda — seja o primeiro.</p>';
     const countEl = postEl.querySelector('.comment-count');
     if(countEl) countEl.textContent = (data || []).length;
   }
+
+  document.getElementById('feedList').addEventListener('click', async (e)=>{
+    const editarComentario = e.target.closest('.btn-editar-comentario');
+    const apagarComentario = e.target.closest('.btn-apagar-comentario');
+    if(editarComentario){
+      const bubble = editarComentario.closest('.comment-item')?.querySelector('.comentario-texto');
+      const atual = bubble?.textContent || '';
+      const novo = prompt('Editar comentário:', atual);
+      if(!novo || novo === atual) return;
+      const { error } = await sb.from('comentarios').update({ conteudo: novo }).eq('id', editarComentario.dataset.comentarioId);
+      if(error){ showToast('Erro ao editar: ' + error.message); return; }
+      carregarComentarios(editarComentario.dataset.postId);
+    }
+    if(apagarComentario){
+      if(!confirm('Apagar esse comentário?')) return;
+      const { error } = await sb.from('comentarios').delete().eq('id', apagarComentario.dataset.comentarioId);
+      if(error){ showToast('Erro ao apagar: ' + error.message); return; }
+      carregarComentarios(apagarComentario.dataset.postId);
+    }
+  });
 
   async function renderPostEl(post){
     let likeCount = 0, commentCount = 0, jaCurtiu = false;
@@ -2662,9 +2710,11 @@
         <div class="avatar avatar-clicavel" data-usuario-id="${post.autor_id}" data-nome="${(post.usuarios?.nome || 'Ciclista').replace(/"/g,'&quot;')}" style="cursor:pointer;">${(post.usuarios?.nome || 'CI').slice(0,2).toUpperCase()}</div>
         <div><div class="who avatar-clicavel" data-usuario-id="${post.autor_id}" data-nome="${(post.usuarios?.nome || 'Ciclista').replace(/"/g,'&quot;')}" style="cursor:pointer;">${post.usuarios?.nome || 'Ciclista'}</div><div class="when">${tempoRelativo(post.criado_em)}</div></div>
         <span class="post-tag">${post.tag || 'Geral'}</span>
-        ${post.autor_id !== currentUser?.id ? `<button class="btn-opcoes-post" data-post-id="${post.id}" data-autor-id="${post.autor_id}" data-autor-nome="${(post.usuarios?.nome || 'Ciclista').replace(/"/g,'&quot;')}" style="color:var(--text-muted); padding:2px 6px; margin-left:4px;">⋯</button>` : ''}
+        ${post.autor_id !== currentUser?.id ? `<button class="btn-opcoes-post" data-post-id="${post.id}" data-autor-id="${post.autor_id}" data-autor-nome="${(post.usuarios?.nome || 'Ciclista').replace(/"/g,'&quot;')}" style="color:var(--text-muted); padding:2px 6px; margin-left:4px;">⋯</button>` : `
+        <button class="btn-editar-post" data-post-id="${post.id}" aria-label="Editar" style="color:var(--text-muted); padding:2px 4px; margin-left:4px;">✏️</button>
+        <button class="btn-apagar-post" data-post-id="${post.id}" aria-label="Apagar" style="color:var(--text-muted); padding:2px 4px;">🗑️</button>`}
       </div>
-      <p>${post.conteudo.replace(/</g,'&lt;')}</p>
+      <p class="post-conteudo">${post.conteudo.replace(/</g,'&lt;')}</p>
       <div class="post-actions">
         <button class="like-btn ${jaCurtiu?'liked':''}" data-post-id="${post.id}">${likeIcon} <span class="like-count">${likeCount}</span></button>
         <button class="comment-toggle-btn" data-post-id="${post.id}">${commentIcon} <span class="comment-count">${commentCount}</span></button>
@@ -3368,6 +3418,8 @@
 
     async function garantirPlayerSpotify(){
       if(player) return;
+      const titulo = document.getElementById('musicNowTitle');
+      if(titulo) titulo.textContent = 'Conectando ao Spotify…';
       await new Promise((resolve)=>{
         if(window.Spotify || window.__spotifySDKReady){ resolve(); return; }
         document.addEventListener('spotify-sdk-ready', resolve, { once: true });
@@ -3380,6 +3432,8 @@
       player.addListener('ready', ({ device_id })=>{
         deviceId = device_id;
         window.__pelotaoSpotify.ativo = true;
+        const t = document.getElementById('musicNowTitle');
+        if(t && t.textContent === 'Conectando ao Spotify…') t.textContent = 'Nenhuma música tocando';
       });
       player.addListener('not_ready', ()=>{
         window.__pelotaoSpotify.ativo = false;
@@ -3552,14 +3606,40 @@
           <div class="route-name">${l.nome}</div>
           <div class="route-date">${l.data}${l.fonte && l.fonte !== 'manual' ? ` · <span style="color:var(--route);">${l.fonte}</span>` : ''}</div>
         </div>
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:center; gap:6px;">
           ${temRota ? `<button class="btn-ver-rota" data-indice="${i}" style="color:var(--route); font-family:var(--font-mono); font-size:10.5px; border:1px solid var(--line); border-radius:100px; padding:5px 10px;">Ver rota</button>` : ''}
+          ${l.id ? `<button class="btn-editar-pedal" data-indice="${i}" aria-label="Editar" style="color:var(--text-muted); padding:4px;">✏️</button>
+          <button class="btn-apagar-pedal" data-indice="${i}" aria-label="Apagar" style="color:var(--text-muted); padding:4px;">🗑️</button>` : ''}
           <div class="route-nums">${l.km}km <small>${l.tempo}${l.pwr !== '—' ? ` · ${l.pwr}W méd` : ''}${l.np ? ` · ${l.np}W NP` : ''}${pctFtp ? ` · ${pctFtp}% FTP` : ''}${l.elevacao ? ` · ${l.elevacao}m ↑` : ''}${l.fcMedia ? ` · ${l.fcMedia}bpm` : ''}</small></div>
         </div>
       </div>`;
     }).join('');
   }
   renderLogs();
+
+  document.getElementById('logList').addEventListener('click', async (e)=>{
+    const btnEditar = e.target.closest('.btn-editar-pedal');
+    const btnApagar = e.target.closest('.btn-apagar-pedal');
+    if(btnEditar){
+      const l = logs[parseInt(btnEditar.dataset.indice)];
+      if(!l?.id) return;
+      const novoNome = prompt('Novo nome pro pedal:', l.nome);
+      if(!novoNome || novoNome === l.nome) return;
+      const { error } = await sb.from('pedais').update({ nome_rota: novoNome }).eq('id', l.id);
+      if(error){ showToast('Erro ao editar: ' + error.message); return; }
+      showToast('Pedal atualizado');
+      carregarPedaisDoBanco();
+    }
+    if(btnApagar){
+      const l = logs[parseInt(btnApagar.dataset.indice)];
+      if(!l?.id) return;
+      if(!confirm(`Apagar o pedal "${l.nome}"? Essa ação não pode ser desfeita.`)) return;
+      const { error } = await sb.from('pedais').delete().eq('id', l.id);
+      if(error){ showToast('Erro ao apagar: ' + error.message); return; }
+      showToast('Pedal apagado');
+      carregarPedaisDoBanco();
+    }
+  });
 
   // ---------- modal: ver rota de um pedal ao vivo (mapa com o trajeto salvo) ----------
   let mapaRotaModal = null;
@@ -3862,6 +3942,7 @@
     const { data, error } = await sb.from('pedais').select('*').eq('usuario_id', currentUser.id).order('realizado_em', { ascending: false }).limit(20);
     if(error || !data) return;
     logs = data.map(p => ({
+      id: p.id,
       nome: p.nome_rota,
       data: p.realizado_em ? new Date(p.realizado_em).toLocaleDateString('pt-BR', {day:'2-digit', month:'short'}) : '',
       km: p.distancia_km ?? '—',
