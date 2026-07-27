@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -3350,7 +3351,10 @@
         spotifyDisconnected?.classList.add('hidden');
         spotifyConnected?.classList.remove('hidden');
         zonasMapa = data.spotify_zonas || {};
-        await garantirPlayerSpotify();
+        // conectar o player e buscar as playlists não dependem um
+        // do outro — rodar em paralelo, em vez de esperar o player
+        // terminar pra só então começar a buscar as playlists
+        garantirPlayerSpotify();
         if(playlistsCache.length) renderZonasSpotify();
         else await carregarPlaylists();
       } else {
@@ -3370,6 +3374,8 @@
     document.getElementById('btnSpotifyDesconectar')?.addEventListener('click', async ()=>{
       await sb.from('usuarios').update({ spotify_access_token: null, spotify_refresh_token: null, spotify_expires_at: null, spotify_zonas: {} }).eq('id', currentUser.id);
       window.__pelotaoSpotify.ativo = false;
+      tokenSpotifyCache = null;
+      tokenSpotifyCacheExpiraEm = 0;
       setSpotifyStatus('Desconectado.');
       renderEstadoSpotify();
     });
@@ -3385,7 +3391,18 @@
       window.history.replaceState({}, '', window.location.pathname);
     }
 
+    let tokenSpotifyCache = null;
+    let tokenSpotifyCacheExpiraEm = 0; // timestamp (ms) de quando o token em cache deixa de ser confiável
+
     async function obterTokenSpotify(jaTentouDeNovo){
+      // se já temos um token em cache e ele ainda não está perto de
+      // vencer, usa direto — evita chamar o servidor de novo toda
+      // vez (isso era o principal motivo da demora ao carregar
+      // playlists e ao tocar)
+      if(!jaTentouDeNovo && tokenSpotifyCache && Date.now() < tokenSpotifyCacheExpiraEm){
+        return tokenSpotifyCache;
+      }
+
       // renova a sessão do Pelotão (Supabase) antes de chamar a
       // função, se ela estiver perto de expirar — evita o erro
       // "Sessão inválida" que acontecia com a sessão vencida
@@ -3413,6 +3430,12 @@
         }
         throw new Error(motivo);
       }
+      // guarda em cache por 50 minutos (o token do Spotify dura 60,
+      // deixamos uma margem confortável) — assim as próximas
+      // chamadas (tocar, trocar de zona, o SDK pedindo token de
+      // novo) usam o mesmo token na hora, sem esperar o servidor
+      tokenSpotifyCache = data.access_token;
+      tokenSpotifyCacheExpiraEm = Date.now() + 50*60*1000;
       return data.access_token;
     }
 
@@ -3468,6 +3491,7 @@
         const resp = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', { headers: { Authorization: `Bearer ${token}` } });
         if(!resp.ok){
           const textoBruto = await resp.text();
+          if(resp.status === 401) tokenSpotifyCache = null; // token em cache inválido — próxima tentativa busca um novo
           let motivo = `status ${resp.status}`;
           try{
             const corpo = JSON.parse(textoBruto);
@@ -3528,6 +3552,7 @@
           // são falhas comuns e temporárias — tenta reconectar e
           // repetir uma vez antes de mostrar erro pra pessoa
           if(!jaTentouDeNovo && (resp.status === 401 || resp.status === 404)){
+            tokenSpotifyCache = null; // token em cache pode estar velho/inválido — força buscar um novo
             if(resp.status === 404){ deviceId = null; window.__pelotaoSpotify.ativo = false; await player?.connect(); await new Promise(r=>setTimeout(r, 1500)); }
             return await tocarPlaylistDaZona(zona, true);
           }
