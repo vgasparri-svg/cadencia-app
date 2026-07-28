@@ -3498,6 +3498,25 @@
         if(icon) icon.innerHTML = state.paused
           ? '<path d="M8 5v14l11-7z"/>'
           : '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>';
+
+        // registra a música nos controles de mídia do sistema
+        // (tela de bloqueio) — isso ajuda o celular a reconhecer que
+        // tem áudio de verdade tocando e a não suspender a conexão
+        // tão facilmente quando a tela apaga, além de dar controles
+        // de play/pause direto na tela de bloqueio
+        if('mediaSession' in navigator && track){
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: track.name,
+            artist: track.artists.map(a=>a.name).join(', '),
+            album: track.album?.name || 'Pelotão',
+            artwork: track.album?.images?.length ? track.album.images.map(img => ({ src: img.url, sizes: `${img.width}x${img.height}`, type: 'image/jpeg' })) : []
+          });
+          navigator.mediaSession.playbackState = state.paused ? 'paused' : 'playing';
+          navigator.mediaSession.setActionHandler('play', ()=> window.__pelotaoSpotify.togglePlayPause());
+          navigator.mediaSession.setActionHandler('pause', ()=> window.__pelotaoSpotify.togglePlayPause());
+          navigator.mediaSession.setActionHandler('previoustrack', ()=> window.__pelotaoSpotify.anterior());
+          navigator.mediaSession.setActionHandler('nexttrack', ()=> window.__pelotaoSpotify.proxima());
+        }
       });
       player.addListener('initialization_error', ({message})=> setSpotifyStatus('Erro de inicialização: ' + message, 'error'));
       player.addListener('authentication_error', ({message})=> setSpotifyStatus('Erro de autenticação: ' + message, 'error'));
@@ -3616,6 +3635,16 @@
       if(!window.__pelotaoSpotify.ativo || !currentUser) return;
       try{ await obterTokenSpotify(); } catch(e){ console.warn('Renovação periódica do Spotify falhou:', e.message); }
     }, 20*60*1000);
+
+    // celular costuma suspender a conexão do player quando a tela
+    // apaga — ao voltar (tela ligada de novo, ou trocar de app e
+    // voltar), tenta reconectar sozinho, sem precisar que a pessoa
+    // dê play manualmente de novo
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState === 'visible' && player && !window.__pelotaoSpotify.ativo){
+        player.connect().catch(()=>{});
+      }
+    });
   })();
 
 
