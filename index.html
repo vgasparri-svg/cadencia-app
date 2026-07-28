@@ -1063,6 +1063,10 @@
                 <button id="btnSpotifyAtualizarPlaylists" class="intervals-btn-secondary">Atualizar playlists</button>
                 <button id="btnSpotifyDesconectar" class="intervals-btn-secondary">Desconectar</button>
               </div>
+              <div class="intervals-actions" style="margin-top:8px;">
+                <button id="btnSpotifyVerificarConta" class="intervals-btn-secondary">🔍 Verificar conta conectada</button>
+              </div>
+              <p class="intervals-status" id="spotifyContaInfo"></p>
             </div>
             <p class="intervals-status" id="spotifyStatus"></p>
           </div>
@@ -3402,6 +3406,28 @@
     });
 
     document.getElementById('btnSpotifyAtualizarPlaylists')?.addEventListener('click', carregarPlaylists);
+
+    document.getElementById('btnSpotifyVerificarConta')?.addEventListener('click', async ()=>{
+      const info = document.getElementById('spotifyContaInfo');
+      if(info) info.textContent = 'Verificando…';
+      try{
+        const token = await obterTokenSpotify();
+        const resp = await fetch('https://api.spotify.com/v1/me', { headers: { Authorization: `Bearer ${token}` } });
+        if(!resp.ok){
+          const textoBruto = await resp.text();
+          if(info){ info.textContent = `Erro ao verificar (${resp.status}): ${textoBruto || 'sem detalhes'}`; info.classList.add('error'); }
+          return;
+        }
+        const dados = await resp.json();
+        const premium = dados.product === 'premium' ? '✅ Premium' : `⚠️ ${dados.product || 'desconhecido'} (NÃO é Premium)`;
+        if(info){
+          info.classList.remove('error');
+          info.innerHTML = `<strong>Conta conectada agora:</strong><br>Username: ${dados.id}<br>E-mail: ${dados.email || '(não disponível)'}<br>Assinatura: ${premium}`;
+        }
+      } catch(e){
+        if(info){ info.textContent = 'Erro ao verificar: ' + e.message; info.classList.add('error'); }
+      }
+    });
 
     if(window.location.search.includes('spotify=conectado')){
       showToast('Spotify conectado com sucesso!');
