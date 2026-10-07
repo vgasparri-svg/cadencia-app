@@ -917,6 +917,43 @@
   @media (prefers-reduced-motion: reduce){
     *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
   }
+
+  /* ===== Jersey (ateliê Cadência) ===== */
+  #view-jersey .jx{ padding:0 16px 24px; display:grid; gap:16px; }
+  #view-jersey .jx-stage{ background:radial-gradient(120% 90% at 50% 0%, #262A33, #0F1115); border:1px solid var(--line); border-radius:var(--radius-md); padding:16px 10px 12px; }
+  #view-jersey .jx-pair{ display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+  #view-jersey .jx-pair figure{ margin:0; min-width:0; }
+  #view-jersey .jx-pair svg{ display:block; width:100%; height:auto; filter:drop-shadow(0 12px 16px rgba(0,0,0,.45)); }
+  #view-jersey figcaption{ font-family:var(--font-mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--text-muted); text-align:center; margin-top:6px; }
+  #view-jersey .jx-aviso{ margin-top:10px; padding:8px 10px; border-radius:var(--radius-sm); background:rgba(255,90,60,.12); color:var(--alert); font-size:12.5px; }
+  #view-jersey .jx-panel{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); padding:16px; display:grid; gap:18px; min-width:0; }
+  #view-jersey fieldset{ border:0; min-width:0; }
+  #view-jersey legend{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--text-muted); margin-bottom:9px; padding:0; }
+  #view-jersey .pals{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+  #view-jersey .pal{ display:flex; align-items:center; gap:9px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); border-radius:var(--radius-sm); padding:7px 9px; font:500 12.5px var(--font-body); cursor:pointer; text-align:left; }
+  #view-jersey .pal[aria-pressed="true"]{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
+  #view-jersey .sw{ display:flex; flex:none; border-radius:3px; overflow:hidden; border:1px solid rgba(0,0,0,.4); }
+  #view-jersey .sw i{ display:block; width:12px; height:24px; }
+  #view-jersey .nota{ margin-top:9px; font-size:12.5px; color:var(--text-muted); }
+  #view-jersey .cores{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  #view-jersey .cor{ display:grid; gap:4px; font-size:11.5px; color:var(--text-muted); }
+  #view-jersey .cor input{ width:100%; height:38px; padding:2px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface-2); }
+  #view-jersey .cor code{ font-family:var(--font-mono); font-size:11px; color:var(--text); }
+  #view-jersey .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  #view-jersey .chip{ border:1px solid var(--line); background:var(--surface-2); color:var(--text); border-radius:100px; padding:7px 12px; font:500 12.5px var(--font-body); cursor:pointer; }
+  #view-jersey .chip[aria-pressed="true"]{ background:var(--safety); border-color:var(--safety); color:#14181B; }
+  #view-jersey .campos{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  #view-jersey label.f{ display:grid; gap:4px; font-size:11.5px; color:var(--text-muted); min-width:0; }
+  #view-jersey select, #view-jersey input[type=number], #view-jersey textarea{ width:100%; font:14px var(--font-body); color:var(--text); background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:8px 10px; min-width:0; }
+  #view-jersey textarea{ font:11.5px/1.55 var(--font-mono); resize:vertical; min-height:180px; }
+  #view-jersey .acoes{ display:flex; flex-wrap:wrap; gap:8px; }
+  #view-jersey .btn{ border:1px solid var(--safety); background:var(--safety); color:#14181B; border-radius:100px; padding:10px 18px; font:600 12px var(--font-mono); letter-spacing:.1em; text-transform:uppercase; cursor:pointer; }
+  #view-jersey .btn.sec{ background:transparent; color:var(--text); border-color:var(--line); }
+  #view-jersey .png{ display:none; gap:6px; justify-items:center; text-align:center; }
+  #view-jersey .png.on{ display:grid; }
+  #view-jersey .png img{ max-width:100%; border-radius:var(--radius-sm); border:1px solid var(--line); }
+  #view-jersey .png small{ color:var(--text-muted); font-size:12px; }
+  #view-jersey .jx-rodape{ color:var(--text-muted); font-size:11.5px; }
 </style>
 </head>
 <body>
@@ -1121,6 +1158,73 @@
       <div class="provas-fonte">
         Fonte: <a href="https://fecierj.org.br/calendario/geral/" target="_blank" rel="noopener noreferrer">calendário oficial da FECIERJ</a>
         (conferido em <span id="provasConferido"></span>). Datas e locais podem mudar: confirme com o organizador.
+      </div>
+    </section>
+
+    <!-- ===================== JERSEY (ateliê Cadência) ===================== -->
+    <section class="view" id="view-jersey">
+      <div class="section" style="padding-top:20px;">
+        <div class="section-head"><h2>Jersey</h2><span class="count">ateliê</span></div>
+      </div>
+      <div class="jx">
+  <section class="jx-stage" aria-label="Pré-visualização">
+    <div class="jx-pair">
+      <figure><svg id="jx-svgFrente" viewBox="0 0 320 380" role="img" aria-label="Jersey, vista da frente"></svg><figcaption>Frente</figcaption></figure>
+      <figure><svg id="jx-svgCostas" viewBox="0 0 320 380" role="img" aria-label="Jersey, vista das costas"></svg><figcaption>Costas</figcaption></figure>
+    </div>
+    <p class="jx-aviso" id="jx-aviso" hidden></p>
+  </section>
+
+  <section class="jx-panel">
+    <fieldset>
+      <legend>Paletas</legend>
+      <div class="pals" id="jx-pals"></div>
+      <p class="nota" id="jx-palNota"></p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Cores</legend>
+      <div class="cores">
+        <label class="cor" for="jx-c1">Principal<input type="color" id="jx-c1"><code id="jx-h1"></code></label>
+        <label class="cor" for="jx-c2">Secundária<input type="color" id="jx-c2"><code id="jx-h2"></code></label>
+        <label class="cor" for="jx-c3">Detalhe<input type="color" id="jx-c3"><code id="jx-h3"></code></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Estampa</legend>
+      <div class="chips" id="jx-padroes"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Laterais</legend>
+      <div class="chips" id="jx-laterais"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Mangas</legend>
+      <div class="chips" id="jx-mangas"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Pedido</legend>
+      <div class="campos">
+        <label class="f" for="jx-tam">Tamanho
+          <select id="jx-tam"><option>PP</option><option>P</option><option selected>M</option><option>G</option><option>GG</option><option>XGG</option></select>
+        </label>
+        <label class="f" for="jx-qtd">Quantidade<input type="number" id="jx-qtd" min="1" max="500" value="1"></label>
+      </div>
+    </fieldset>
+
+    <div class="acoes">
+      <button class="btn" type="button" id="jx-btnPng">Gerar imagem</button>
+      <button class="btn sec" type="button" id="jx-btnFicha">Copiar ficha</button>
+    </div>
+    <div class="png" id="jx-png"><img id="jx-pngImg" alt="Jersey Cadência, frente e costas"><small>Celular: segure a imagem e escolha salvar. Computador: botão direito, salvar imagem.</small></div>
+    <label class="f" for="jx-ficha">Ficha para a fábrica<textarea id="jx-ficha" readonly></textarea></label>
+  </section>
+
+        <p class="jx-rodape">As cores na tela mudam de aparelho para aparelho. Peça uma amostra física antes de fechar o lote.</p>
       </div>
     </section>
 
@@ -1375,6 +1479,10 @@
     <button class="nav-btn" data-view="assessorias">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14.7 6.3-8.2 8.2a2 2 0 0 0 0 2.8l.2.2a2 2 0 0 0 2.8 0l8.2-8.2M18 5l1 1M3 21l3.5-1L21 5.5 18.5 3 4 17.5Z" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span>Assessorias</span>
+    </button>
+    <button class="nav-btn" data-view="jersey">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3 3 6l2 5 3-1v11h8V10l3 1 2-5-5-3a4 4 0 0 1-8 0Z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Jersey</span>
     </button>
     <button class="nav-btn" data-view="treino">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9-6-18-3 9H2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -4810,6 +4918,290 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
 }
+</script>
+<script>
+(function(){
+  var PALETAS = [
+    {id:'corcovado', nome:'Corcovado',       c:['#1C2B2A','#D8C9A3','#B98B3E'], nota:'Verde-musgo escuro com areia e latão. Sóbria, combina com estampa de curvas de nível.'},
+    {id:'gavea',     nome:'Pedra da Gávea',  c:['#20232B','#7C8798','#E8EAEE'], nota:'Grafite e azul-pedra com branco de contraste. Discreta e técnica.'},
+    {id:'ipanema',   nome:'Ipanema',         c:['#F1E7D8','#E26D3F','#1B2430'], nota:'Base clara de areia com terracota do pôr do sol. Fica bem no calor e se destaca no grupo.'},
+    {id:'atlantico', nome:'Atlântico',       c:['#0A2A43','#2F8FA3','#E9D8A6'], nota:'Azul profundo com turquesa e areia. A mais próxima do mar do Rio.'},
+    {id:'noite',     nome:'Noite Carioca',   c:['#0D0D12','#3A3A46','#E6C65C'], nota:'Preto com dourado. A mais elegante, boa para pedal ao anoitecer.'},
+    {id:'flamboyant',nome:'Flamboyant',      c:['#7A1F2B','#E8D9C4','#C9A24B'], nota:'Bordô com creme e dourado, inspirada na flor do flamboyant. Marca presença.'}
+  ];
+  var PADROES = [
+    {id:'solido',  nome:'Lisa'},
+    {id:'fade',    nome:'Fade'},
+    {id:'niveis',  nome:'Curvas de nível'},
+    {id:'facetas', nome:'Facetas'},
+    {id:'pulso',   nome:'Pulso'},
+    {id:'faixa',   nome:'Faixa'}
+  ];
+  var LATERAIS = [{id:'c1',nome:'Principal'},{id:'dk',nome:'Tom escuro'},{id:'c2',nome:'Secundária'}];
+  var MANGAS   = [{id:'c1',nome:'Principal'},{id:'dk',nome:'Tom escuro'},{id:'c2',nome:'Secundária'},{id:'c3',nome:'Detalhe'}];
+
+  var S = { paleta:'atlantico', c1:'#0A2A43', c2:'#2F8FA3', c3:'#E9D8A6', padrao:'niveis', lateral:'dk', manga:'c1' };
+  var $ = function(id){ return document.getElementById('jx-' + id); };
+  var FONT = "'Arial Black','Helvetica Neue',Arial,sans-serif";
+  var FONT2 = "'Helvetica Neue',Arial,sans-serif";
+
+  function esc(t){ return String(t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function rgb(h){ var n = parseInt(h.slice(1),16); return [n>>16&255, n>>8&255, n&255]; }
+  function hex(a){ return '#' + a.map(function(v){ v = Math.max(0,Math.min(255,Math.round(v))); return (v<16?'0':'') + v.toString(16); }).join(''); }
+  function mix(h, alvo, f){ var a = rgb(h), b = rgb(alvo); return hex([a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f]); }
+  function lum(h){ var a = rgb(h).map(function(v){ v/=255; return v<=0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055,2.4); }); return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2]; }
+  function contraste(a,b){ var l1 = lum(a), l2 = lum(b); return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05); }
+  function oposto(h){ return lum(h) > 0.35 ? '#111111' : '#FFFFFF'; }
+  function cor(chave){ return chave === 'dk' ? mix(S.c1, '#000000', 0.42) : S[chave]; }
+  function hash(i){ var x = Math.sin(i*127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+  // ---- geometria (caimento ajustado, gola baixa, mangas raglan curtas) ----
+  var TORSO = 'M110 46 L210 46 Q222 86 226 140 Q229 200 224 252 Q222 300 232 342 Q160 356 88 342 Q98 300 96 252 Q91 200 94 140 Q98 86 110 46 Z';
+  var LAT_E = 'M60 96 L97 128 Q108 200 106 262 Q106 310 96 350 L60 350 Z';
+  var LAT_D = 'M260 96 L223 128 Q212 200 214 262 Q214 310 224 350 L260 350 Z';
+  var MANGA_E = 'M110 46 L58 68 L40 92 L54 170 L97 152 Q94 96 110 46 Z';
+  var MANGA_D = 'M210 46 L262 68 L280 92 L266 170 L223 152 Q226 96 210 46 Z';
+
+  // contorno suave fechado (Catmull-Rom) para as curvas de nível
+  function blob(cx, cy, r, k){
+    var n = 14, pts = [], i;
+    for(i = 0; i < n; i++){
+      var a = Math.PI * 2 * i / n;
+      var rr = r * (1 + 0.16*Math.sin(3*a + k) + 0.09*Math.sin(5*a + 2*k));
+      pts.push([cx + rr*Math.cos(a)*1.12, cy + rr*Math.sin(a)*0.9]);
+    }
+    var d = 'M' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+    for(i = 0; i < n; i++){
+      var p0 = pts[(i+n-1)%n], p1 = pts[i], p2 = pts[(i+1)%n], p3 = pts[(i+2)%n];
+      d += ' C' + (p1[0]+(p2[0]-p0[0])/6).toFixed(1) + ' ' + (p1[1]+(p2[1]-p0[1])/6).toFixed(1)
+         + ' ' + (p2[0]-(p3[0]-p1[0])/6).toFixed(1) + ' ' + (p2[1]-(p3[1]-p1[1])/6).toFixed(1)
+         + ' ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
+    }
+    return d + ' Z';
+  }
+
+  function estampa(id){
+    var p = S.padrao, o = '', i;
+    if(p === 'fade'){
+      o += '<defs><linearGradient id="fd'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset=".3" stop-color="'+S.c1+'"/><stop offset="1" stop-color="'+S.c2+'"/></linearGradient></defs><rect width="320" height="380" fill="url(#fd'+id+')"/>';
+    } else if(p === 'niveis'){
+      for(i = 0; i < 10; i++){
+        o += '<path d="'+blob(218, 262, 22 + i*24, i*0.35)+'" fill="none" stroke="'+S.c2+'" stroke-opacity="'+(i%4===0 ? .85 : .5)+'" stroke-width="'+(i%4===0 ? 1.6 : 1)+'"/>';
+      }
+      for(i = 0; i < 6; i++){
+        o += '<path d="'+blob(104, 92, 16 + i*20, i*0.5 + 1)+'" fill="none" stroke="'+S.c2+'" stroke-opacity="'+(i%4===0 ? .85 : .5)+'" stroke-width="'+(i%4===0 ? 1.6 : 1)+'"/>';
+      }
+    } else if(p === 'facetas'){
+      var cols = 6, rows = 7, x0 = 62, y0 = 30, dx = 32, dy = 48, pts = [], r, c;
+      for(r = 0; r <= rows; r++){ pts[r] = []; for(c = 0; c <= cols; c++){
+        pts[r][c] = [x0 + c*dx + (hash(r*9+c)-.5)*18, y0 + r*dy + (hash(r*9+c+50)-.5)*20];
+      } }
+      var n = 0;
+      for(r = 0; r < rows; r++){ for(c = 0; c < cols; c++){
+        var a = pts[r][c], b = pts[r][c+1], d = pts[r+1][c], e = pts[r+1][c+1];
+        o += '<polygon points="'+a+' '+b+' '+d+'" fill="'+S.c2+'" fill-opacity="'+(.05 + .38*hash(n++)).toFixed(2)+'"/>';
+        o += '<polygon points="'+b+' '+e+' '+d+'" fill="'+S.c2+'" fill-opacity="'+(.05 + .38*hash(n++)).toFixed(2)+'"/>';
+      } }
+    } else if(p === 'pulso'){
+      o += '<defs><linearGradient id="pg'+id+'" gradientUnits="userSpaceOnUse" x1="0" y1="60" x2="0" y2="340"><stop offset="0" stop-color="'+S.c2+'" stop-opacity="0"/><stop offset="1" stop-color="'+S.c2+'" stop-opacity="1"/></linearGradient></defs>';
+      for(i = -4; i < 40; i++){
+        o += '<line x1="'+(i*9)+'" y1="380" x2="'+(i*9+380)+'" y2="0" stroke="url(#pg'+id+')" stroke-width="'+(i%3===0 ? 3.2 : 1.6)+'"/>';
+      }
+    } else if(p === 'faixa'){
+      o += '<polygon points="60,184 260,148 260,170 60,206" fill="'+S.c2+'"/><polygon points="60,213 260,177 260,180 60,216" fill="'+S.c3+'"/>';
+    }
+    return o;
+  }
+
+  function marca(cx, cy, r, cl){
+    // medidor de cadência: arco aberto embaixo com ponteiro
+    function pt(ang){ var a = ang * Math.PI / 180; return (cx + r*Math.cos(a)).toFixed(2) + ' ' + (cy + r*Math.sin(a)).toFixed(2); }
+    var ar = '<path d="M'+pt(125)+' A'+r+' '+r+' 0 1 1 '+pt(55)+'" fill="none" stroke="'+cl+'" stroke-width="'+(r*0.3).toFixed(2)+'" stroke-linecap="round"/>';
+    var ag = '<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx + r*0.72*Math.cos(-0.8)).toFixed(2)+'" y2="'+(cy + r*0.72*Math.sin(-0.8)).toFixed(2)+'" stroke="'+cl+'" stroke-width="'+(r*0.22).toFixed(2)+'" stroke-linecap="round"/>';
+    return ar + ag + '<circle cx="'+cx+'" cy="'+cy+'" r="'+(r*0.2).toFixed(2)+'" fill="'+cl+'"/>';
+  }
+  function logo(cx, cy, escala, cl){
+    // só o símbolo, sem o nome
+    return marca(cx, cy - 4*escala, 9 * escala, cl);
+  }
+
+  function jersey(id){
+    var frente = id === 'jxF';
+    var cl1 = S.c1, cLat = cor(S.lateral), cMan = cor(S.manga), cDk = cor('dk');
+    var traco = 'stroke="rgba(0,0,0,.35)" stroke-width="1" stroke-linejoin="round"';
+    var o = '<defs>'
+      + '<clipPath id="ct'+id+'"><path d="'+TORSO+'"/></clipPath>'
+      + '<linearGradient id="vol'+id+'" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".30"/><stop offset=".22" stop-color="#000" stop-opacity="0"/><stop offset=".78" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".30"/></linearGradient>'
+      + '<radialGradient id="br'+id+'" cx=".35" cy=".18" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>'
+      + '<linearGradient id="zp'+id+'" x1="0" x2="1"><stop offset="0" stop-color="#F4F5F7"/><stop offset=".5" stop-color="#9EA4AE"/><stop offset="1" stop-color="#E3E6EA"/></linearGradient>'
+      + '<pattern id="tx'+id+'" width="3" height="3" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r=".55" fill="#fff" fill-opacity=".10"/></pattern>'
+      + '</defs>';
+
+    // mangas
+    [[MANGA_E, '53,138 97,119 97,152 54,170'], [MANGA_D, '267,138 223,119 223,152 266,170']].forEach(function(m){
+      o += '<path d="'+m[0]+'" fill="'+cMan+'" '+traco+'/>';
+      o += '<path d="'+m[0]+'" fill="url(#tx'+id+')"/>';
+    });
+    // punhos com friso refletivo
+    o += '<polygon points="52,152 97,133 97,152 54,170" fill="'+cDk+'"/><polyline points="52,152 97,133" stroke="#D5D9E0" stroke-width="2.4" fill="none"/>';
+    o += '<polygon points="268,152 223,133 223,152 266,170" fill="'+cDk+'"/><polyline points="268,152 223,133" stroke="#D5D9E0" stroke-width="2.4" fill="none"/>';
+    // costura raglan
+    o += '<path d="M134 46 Q104 80 97 150" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1" stroke-dasharray="2.2 2.2"/>';
+    o += '<path d="M186 46 Q216 80 223 150" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1" stroke-dasharray="2.2 2.2"/>';
+
+    // tronco
+    o += '<g clip-path="url(#ct'+id+')"><rect width="320" height="380" fill="'+cl1+'"/>' + estampa(id);
+    o += '<path d="'+LAT_E+'" fill="'+cLat+'"/><path d="'+LAT_D+'" fill="'+cLat+'"/>';
+    o += '<path d="M97 128 Q108 200 106 262 Q106 310 96 350" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="1" transform="translate(1.4 0)"/>';
+    o += '<path d="M97 128 Q108 200 106 262 Q106 310 96 350" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="1"/>';
+    o += '<path d="M223 128 Q212 200 214 262 Q214 310 224 350" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="1"/>';
+    o += '<path d="M97 128 Q108 200 106 262 Q106 310 96 350" fill="none" stroke="rgba(255,255,255,.35)" stroke-width=".8" stroke-dasharray="2.2 2.2" transform="translate(3.2 0)"/>';
+    o += '<path d="M223 128 Q212 200 214 262 Q214 310 224 350" fill="none" stroke="rgba(255,255,255,.35)" stroke-width=".8" stroke-dasharray="2.2 2.2" transform="translate(-3.2 0)"/>';
+    // barra de silicone na barra
+    o += '<rect x="60" y="326" width="200" height="30" fill="'+cDk+'"/><rect x="60" y="326" width="200" height="1.6" fill="#D5D9E0"/>';
+    o += '<rect x="60" y="338" width="200" height="6" fill="rgba(255,255,255,.14)"/>';
+    o += '<rect width="320" height="380" fill="url(#tx'+id+')"/><rect width="320" height="380" fill="url(#vol'+id+')"/><rect width="320" height="380" fill="url(#br'+id+')"/></g>';
+    o += '<path d="'+TORSO+'" fill="none" '+traco+'/>';
+
+    // gola
+    if(frente){
+      o += '<path d="M132 46 Q160 86 188 46 Z" fill="rgba(0,0,0,.55)"/>';
+      o += '<path d="M128 44 Q160 92 192 44" fill="none" stroke="'+cDk+'" stroke-width="7" stroke-linecap="round"/>';
+      o += '<path d="M128 44 Q160 92 192 44" fill="none" stroke="'+S.c3+'" stroke-width="1.6" stroke-linecap="round" transform="translate(0 4)"/>';
+      o += '<line x1="160" y1="90" x2="160" y2="214" stroke="#1B1D22" stroke-width="5"/>';
+      o += '<line x1="160" y1="90" x2="160" y2="214" stroke="#C6CAD1" stroke-width="3" stroke-dasharray="1.4 1.4"/>';
+      o += '<rect x="156.5" y="88" width="7" height="14" rx="2" fill="url(#zp'+id+')" stroke="rgba(0,0,0,.45)" stroke-width=".7"/>';
+    } else {
+      o += '<path d="M130 46 Q160 62 190 46 Z" fill="rgba(0,0,0,.4)"/>';
+      o += '<path d="M126 44 Q160 70 194 44" fill="none" stroke="'+cDk+'" stroke-width="7" stroke-linecap="round"/>';
+    }
+    o += '<rect x="124" y="34" width="72" height="13" rx="6" fill="'+cDk+'" '+traco+'/>';
+    o += '<line x1="130" y1="37" x2="190" y2="37" stroke="'+S.c3+'" stroke-width="1.4" stroke-linecap="round"/>';
+
+    // só a logo da Cadência
+    var tc = oposto(cl1);
+    if(frente){
+      o += logo(197, 126, 1.25, tc);
+    } else {
+      o += logo(160, 236, 1.2, tc);
+      o += '<line x1="112" y1="256" x2="208" y2="256" stroke="#D5D9E0" stroke-width="1.8" stroke-opacity=".9"/>';
+      [[110,284,30,40],[145,278,30,46],[180,284,30,40]].forEach(function(b){
+        o += '<rect x="'+b[0]+'" y="'+b[1]+'" width="'+b[2]+'" height="'+b[3]+'" rx="3" fill="'+cDk+'" stroke="rgba(0,0,0,.45)" stroke-width="1"/>';
+        o += '<line x1="'+(b[0]+3)+'" y1="'+(b[1]+3)+'" x2="'+(b[0]+b[2]-3)+'" y2="'+(b[1]+3)+'" stroke="#D5D9E0" stroke-width="1.2"/>';
+      });
+    }
+    return o;
+  }
+
+  function avisos(){ $('aviso').hidden = true; }
+
+  function nomeDe(lista, id){ return lista.filter(function(x){ return x.id === id; })[0].nome; }
+  function ficha(){
+    var t = [
+      'FICHA DE PEDIDO - JERSEY CADÊNCIA',
+      'Personalização: apenas a logo Cadência (frente no peito, costas abaixo da gola).',
+      'Tamanho: ' + $('tam').value + '   Quantidade: ' + ($('qtd').value || '1'),
+      'Cor principal: ' + S.c1.toUpperCase(),
+      'Cor secundária: ' + S.c2.toUpperCase(),
+      'Cor de detalhe: ' + S.c3.toUpperCase(),
+      'Tom escuro (derivado): ' + cor('dk').toUpperCase(),
+      'Estampa: ' + nomeDe(PADROES, S.padrao),
+      'Laterais: ' + nomeDe(LATERAIS, S.lateral).toLowerCase(),
+      'Mangas: ' + nomeDe(MANGAS, S.manga).toLowerCase(),
+      'Acabamento: gola baixa, zíper YKK, friso refletivo nos punhos e nas costas, barra com silicone, três bolsos.',
+      '',
+      'Rascunho do Ateliê Cadência. Confirme medidas e prova de cor com a fábrica.'
+    ];
+    $('ficha').value = t.join('\n');
+  }
+
+  function desenhar(){
+    $('svgFrente').innerHTML = jersey('jxF');
+    $('svgCostas').innerHTML = jersey('jxB');
+    ['1','2','3'].forEach(function(n){ $('h'+n).textContent = S['c'+n].toUpperCase(); });
+    avisos(); ficha();
+  }
+
+  // paletas
+  function montarPaletas(){
+    var box = $('pals'); box.innerHTML = '';
+    PALETAS.forEach(function(p){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'pal'; b.dataset.id = p.id;
+      var sw = document.createElement('span'); sw.className = 'sw';
+      p.c.forEach(function(c){ var i = document.createElement('i'); i.style.background = c; sw.appendChild(i); });
+      var nm = document.createElement('span'); nm.textContent = p.nome;
+      b.append(sw, nm);
+      b.addEventListener('click', function(){
+        S.paleta = p.id; S.c1 = p.c[0]; S.c2 = p.c[1]; S.c3 = p.c[2];
+        $('c1').value = S.c1; $('c2').value = S.c2; $('c3').value = S.c3;
+        marcarPaleta(); desenhar();
+      });
+      box.appendChild(b);
+    });
+  }
+  function marcarPaleta(){
+    Array.prototype.forEach.call($('pals').children, function(b){ b.setAttribute('aria-pressed', String(b.dataset.id === S.paleta)); });
+    var p = PALETAS.filter(function(x){ return x.id === S.paleta; })[0];
+    $('palNota').textContent = p ? p.nota : 'Paleta personalizada.';
+  }
+  function chips(boxId, lista, chave){
+    var box = $(boxId); box.innerHTML = '';
+    lista.forEach(function(it){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = it.nome; b.dataset.id = it.id;
+      b.addEventListener('click', function(){ S[chave] = it.id; marcarChips(boxId, chave); desenhar(); });
+      box.appendChild(b);
+    });
+    marcarChips(boxId, chave);
+  }
+  function marcarChips(boxId, chave){
+    Array.prototype.forEach.call($(boxId).children, function(b){ b.setAttribute('aria-pressed', String(b.dataset.id === S[chave])); });
+  }
+
+  ['c1','c2','c3'].forEach(function(id){
+    $(id).value = S[id];
+    $(id).addEventListener('input', function(){ S[id] = $(id).value; S.paleta = ''; marcarPaleta(); desenhar(); });
+  });
+  ['tam','qtd'].forEach(function(id){ $(id).addEventListener('input', desenhar); });
+
+  // imagem PNG: vitrine escura com frente e costas
+  $('btnPng').addEventListener('click', function(){
+    try{
+      var W = 700, H = 470, nome = '';
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+W*2+'" height="'+H*2+'" viewBox="0 0 '+W+' '+H+'">'
+        + '<defs><radialGradient id="bg" cx=".5" cy="0" r="1.1"><stop offset="0" stop-color="#2A2E38"/><stop offset="1" stop-color="#0F1115"/></radialGradient></defs>'
+        + '<rect width="'+W+'" height="'+H+'" fill="url(#bg)"/>'
+        + '<g transform="translate(15,18)">'+jersey('jxF')+'</g><g transform="translate(365,18)">'+jersey('jxB')+'</g>'
+        + '<text x="175" y="420" text-anchor="middle" font-size="11" letter-spacing="3" fill="#8E939D" font-family="'+FONT2+'" font-weight="600">FRENTE</text>'
+        + '<text x="525" y="420" text-anchor="middle" font-size="11" letter-spacing="3" fill="#8E939D" font-family="'+FONT2+'" font-weight="600">COSTAS</text>'
+        + '<g>'+logo(350, 452, 1.1, '#E9E6DF')+'</g></svg>';
+      var img = new Image();
+      img.onload = function(){
+        try{
+          var c = document.createElement('canvas'); c.width = W*2; c.height = H*2;
+          c.getContext('2d').drawImage(img, 0, 0);
+          $('pngImg').src = c.toDataURL('image/png');
+          $('png').classList.add('on');
+        }catch(e){ $('png').classList.remove('on'); }
+      };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }catch(e){}
+  });
+
+  $('btnFicha').addEventListener('click', function(){
+    var btn = $('btnFicha'), ta = $('ficha');
+    function ok(){ btn.textContent = 'Copiado'; setTimeout(function(){ btn.textContent = 'Copiar ficha'; }, 1600); }
+    function sel(){ ta.focus(); ta.select(); }
+    try{ navigator.clipboard.writeText(ta.value).then(ok, sel); }catch(e){ sel(); }
+  });
+
+  montarPaletas(); marcarPaleta();
+  chips('padroes', PADROES, 'padrao');
+  chips('laterais', LATERAIS, 'lateral');
+  chips('mangas', MANGAS, 'manga');
+  desenhar();
+})();
 </script>
 </body>
 </html>
