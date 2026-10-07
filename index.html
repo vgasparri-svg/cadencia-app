@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -848,6 +847,38 @@
     background:var(--surface-2); border:1px solid var(--line); color:var(--route);
     text-decoration:none;
   }
+  /* melhor horário pra pedalar */
+  .melhor-box{
+    margin:0 16px 12px; padding:12px 14px;
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md);
+  }
+  .melhor-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
+  .melhor-titulo{ font-family:var(--font-display); font-weight:600; font-size:13px; }
+  .melhor-head select{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted);
+    font-family:var(--font-mono); font-size:11px; border-radius:100px;
+    padding:6px 10px; max-width:150px;
+  }
+  .melhor-linha{ display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-top:1px solid var(--line); }
+  .melhor-linha:first-child{ border-top:none; }
+  .melhor-dia{ width:46px; flex-shrink:0; font-size:10.5px; color:var(--text-muted); font-family:var(--font-mono); padding-top:4px; }
+  .melhor-corpo{ flex:1; min-width:0; }
+  .melhor-topo{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .melhor-janela{ font-family:var(--font-mono); font-weight:700; font-size:18px; }
+  .melhor-pill{ font-family:var(--font-mono); font-size:10px; font-weight:700; padding:3px 8px; border-radius:100px; }
+  .melhor-pill.bom{ background:rgba(201,255,61,0.15); color:var(--safety); }
+  .melhor-pill.medio{ background:rgba(255,201,77,0.15); color:var(--gold); }
+  .melhor-pill.ruim{ background:rgba(255,90,60,0.15); color:var(--alert); }
+  .melhor-desc{ font-size:11px; color:var(--text-muted); font-family:var(--font-mono); margin-top:3px; line-height:1.4; }
+  .melhor-strip{ display:flex; align-items:flex-end; gap:3px; height:44px; margin-top:10px; }
+  .melhor-bar{ flex:1; border-radius:3px 3px 0 0; min-height:4px; }
+  .melhor-bar.bom{ background:var(--safety); }
+  .melhor-bar.medio{ background:var(--gold); }
+  .melhor-bar.ruim{ background:var(--alert); }
+  .melhor-bar.passou{ opacity:0.3; }
+  .melhor-bar.destaque{ outline:2px solid var(--text); outline-offset:1px; }
+  .melhor-eixo{ display:flex; gap:3px; margin-top:4px; }
+  .melhor-eixo span{ flex:1; text-align:center; font-size:9px; color:var(--text-muted); font-family:var(--font-mono); }
   .tempo-mais{
     display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center;
     padding:0 16px 14px; font-size:11px; color:var(--text-muted);
@@ -868,7 +899,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--safety)" stroke-width="2"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M5.5 17.5 10 8h5l3.5 9.5M10 8 8 12h6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <h1>Pelotão</h1>
-    <p class="sub" id="gateSubtitle">Mapa, comunidade e segurança pra ciclistas do Rio.</p>
+    <p class="sub" id="gateSubtitle">Mapa, tempo e segurança pra ciclistas do Rio.</p>
 
     <button class="gate-biometric-btn hidden" id="btnFaceIdLogin" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 2a5 5 0 0 0-5 5v3a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5ZM7 11c0 3 2 5 5 5M17 11c0 4-2.5 7-5.5 8M4 15c0 3.5 2 6 5 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -939,11 +970,20 @@
           <button class="btn-mini-add" id="btnAtualizarTempoPontos" type="button">↻ <span id="tempoPontosHora">--:--</span></button>
         </div>
       </div>
+      <div class="melhor-box" id="melhorBox">
+        <div class="melhor-head">
+          <span class="melhor-titulo">⏱️ Melhor horário</span>
+          <select id="melhorPonto" aria-label="Local do pedal"></select>
+        </div>
+        <div id="melhorConteudo"><div class="tempo-vazio" style="padding:4px 0;">Calculando…</div></div>
+      </div>
       <div class="tempo-scroll" id="tempoPontosList" aria-live="polite">
         <div class="tempo-vazio">Carregando o tempo nos pontos de pedal…</div>
       </div>
       <div class="tempo-mais">
-        <span>Mais câmeras do Rio:</span>
+        <span>Câmeras via</span>
+        <a href="https://www.camerasrj.com.br/" target="_blank" rel="noopener noreferrer">CamerasRJ</a>
+        <span>(site independente). Mais:</span>
         <a href="https://cor.rio/" target="_blank" rel="noopener noreferrer">COR (prefeitura)</a>
         <a href="https://transitoaovivo.com/transito-rio-de-janeiro/" target="_blank" rel="noopener noreferrer">Trânsito ao Vivo</a>
         <a href="https://copacabana.com/cameras" target="_blank" rel="noopener noreferrer">Copacabana.com</a>
@@ -1452,6 +1492,15 @@
   // ---------- nav switching ----------
   const views = document.querySelectorAll('.view');
   const navBtns = document.querySelectorAll('.nav-btn');
+
+  // Abas escondidas da barra de baixo. Nada é apagado: as telas e os
+  // dados continuam no código e no banco. Pra voltar com uma aba,
+  // é só tirar o nome dela desta lista (ex.: [] mostra todas).
+  const ABAS_OCULTAS = ['comunidade', 'assessorias'];
+  navBtns.forEach(b => {
+    if(ABAS_OCULTAS.includes(b.dataset.view)) b.classList.add('hidden');
+  });
+
   let ultimoAutoSyncTreino = 0;
   navBtns.forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -1568,17 +1617,19 @@
   //
   // Pra acrescentar ou trocar uma câmera, edite o campo "cam" do
   // ponto: { rotulo: 'texto do botão', url: 'https://...' }.
-  // Só entram aqui páginas de câmera que abrem em outro site; o
-  // app não copia nem reexibe a imagem de terceiros.
+  // Só entram aqui páginas de câmera que abrem em outro site (hoje,
+  // as páginas do CamerasRJ); o app não copia nem reexibe a imagem
+  // de terceiros. Se o CamerasRJ autorizar incorporar as câmeras,
+  // este é o lugar de trocar o link pelo embed.
   // ============================================================
   const PONTOS_TEMPO = [
     { nome: 'Aterro do Flamengo', sub: 'Flamengo',        lat: -22.9318, lng: -43.1730, cam: null },
     { nome: 'Lagoa',              sub: 'Lagoa Rod. de Freitas', lat: -22.9715, lng: -43.2110, cam: null },
-    { nome: 'Copacabana',         sub: 'Orla · Leme–Posto 6', lat: -22.9711, lng: -43.1822, cam: { rotulo: '📹 Ver câmera', url: 'https://www.skylinewebcams.com/en/webcam/brasil/rio-de-janeiro/rio-de-janeiro/copacabana.html' } },
-    { nome: 'Ipanema / Leblon',   sub: 'Orla · Arpoador–Leblon', lat: -22.9866, lng: -43.2050, cam: null },
-    { nome: 'Joá / Av. Niemeyer', sub: 'São Conrado',     lat: -23.0105, lng: -43.2700, cam: null },
-    { nome: 'Barra da Tijuca',    sub: 'Orla da Barra',   lat: -23.0120, lng: -43.3200, cam: { rotulo: '📹 Ver câmera', url: 'https://www.windy.com/webcams/1421085440' } },
-    { nome: 'Grumari',            sub: 'Recreio · Grumari', lat: -23.0475, lng: -43.5287, cam: null },
+    { nome: 'Copacabana',         sub: 'Orla · Leme–Posto 6', lat: -22.9711, lng: -43.1822, cam: { rotulo: '📹 Ver câmera', url: 'https://www.camerasrj.com.br/praias/copacabana-ao-vivo/' } },
+    { nome: 'Ipanema / Leblon',   sub: 'Orla · Arpoador–Leblon', lat: -22.9866, lng: -43.2050, cam: { rotulo: '📹 Ver câmera', url: 'https://www.camerasrj.com.br/praias/ipanema-ao-vivo/' } },
+    { nome: 'Joá / Av. Niemeyer', sub: 'São Conrado',     lat: -23.0105, lng: -43.2700, cam: { rotulo: '📹 São Conrado', url: 'https://www.camerasrj.com.br/praias/sao-conrado-ao-vivo/' } },
+    { nome: 'Barra da Tijuca',    sub: 'Orla da Barra',   lat: -23.0120, lng: -43.3200, cam: { rotulo: '📹 Ver câmera', url: 'https://www.camerasrj.com.br/praias/barra-da-tijuca-ao-vivo/' } },
+    { nome: 'Grumari',            sub: 'Recreio · Grumari', lat: -23.0475, lng: -43.5287, cam: { rotulo: '📹 Recreio (perto)', url: 'https://www.camerasrj.com.br/praias/recreio-ao-vivo/' } },
     { nome: 'Floresta da Tijuca', sub: 'Alto da Boa Vista', lat: -22.9533, lng: -43.2810, cam: null }
   ];
 
@@ -1586,6 +1637,150 @@
   const TEMPO_CHUVA_PROB = 50;   // % de chance de chuva nas próximas 3h
   const TEMPO_CHUVA_MM   = 0.5;  // mm acumulados nas próximas 3h
   const TEMPO_VENTO_KMH  = 30;   // vento forte (km/h)
+
+  // ------------------------------------------------------------
+  // MELHOR HORÁRIO PRA PEDALAR — dá uma nota de 0 a 100 pra cada
+  // hora com sol (6h às 18h; o último horário avaliado, 18h, vai
+  // até 19h) — chuva, vento e calor tiram pontos — e acha a melhor
+  // janela de 2 horas seguidas, hoje (do momento atual em diante) e
+  // amanhã. As horas e os pesos abaixo podem ser ajustados.
+  // ------------------------------------------------------------
+  const HORA_INICIAL_PEDAL = 6, HORA_FINAL_PEDAL = 18;
+  let tempoUltimosDados = null;
+
+  function notaHora(temp, prob, mm, vento){
+    let pen = prob * 0.5                      // chance de chuva
+            + Math.min(mm, 4) * 12            // chuva prevista (mm)
+            + Math.max(0, vento - 18) * 1.2   // vento acima de 18 km/h
+            + Math.max(0, temp - 27) * 3.5    // calor
+            + Math.max(0, 14 - temp) * 3;     // frio
+    if(mm >= 0.3) pen += 15;                  // chuva de fato
+    return Math.max(0, Math.min(100, Math.round(100 - pen)));
+  }
+
+  // horas de um dia (texto AAAA-MM-DD) já com a nota de cada uma
+  function horasDoDia(d, dataStr){
+    const h = d.hourly, out = [];
+    (h.time || []).forEach((t, i) => {
+      if(t.slice(0, 10) !== dataStr) return;
+      const hora = parseInt(t.slice(11, 13), 10);
+      if(hora < HORA_INICIAL_PEDAL || hora > HORA_FINAL_PEDAL) return;
+      const temp = Number(h.temperature_2m[i]);
+      if(isNaN(temp)) return;
+      const prob = Number(h.precipitation_probability[i]) || 0;
+      const mm = Number(h.precipitation[i]) || 0;
+      const vento = Number(h.wind_speed_10m[i]) || 0;
+      out.push({ hora, temp, prob, mm, vento, nota: notaHora(temp, prob, mm, vento) });
+    });
+    return out;
+  }
+
+  // melhor par de horas seguidas a partir de minHora (empate: a mais cedo)
+  function melhorJanela(horas, minHora){
+    let melhor = null;
+    for(let i = 0; i < horas.length - 1; i++){
+      const a = horas[i], b = horas[i + 1];
+      if(a.hora < minHora || b.hora !== a.hora + 1) continue;
+      const nota = (a.nota + b.nota) / 2;
+      if(!melhor || nota > melhor.nota) melhor = { ini: a.hora, fim: b.hora + 1, nota, par: [a, b] };
+    }
+    return melhor;
+  }
+
+  function descricaoJanela(par){
+    const probMax = Math.max(...par.map(x => x.prob));
+    const mm = par.reduce((s, x) => s + x.mm, 0);
+    const ventoMax = Math.max(...par.map(x => x.vento));
+    const temp = Math.round(par.reduce((s, x) => s + x.temp, 0) / par.length);
+    const chuva = (probMax < 20 && mm < 0.2) ? 'sem chuva'
+      : mm >= 0.3 ? `chuva ${mm.toFixed(1)} mm` : `chance de chuva ${probMax}%`;
+    const vento = ventoMax < 12 ? 'vento leve' : ventoMax < 25 ? 'vento moderado' : 'vento forte';
+    return `${chuva} · ${temp}° · ${vento}`;
+  }
+
+  function classeNota(n){ return n >= 65 ? 'bom' : n >= 45 ? 'medio' : 'ruim'; }
+  function rotuloNota(n){ return n >= 80 ? 'Ótimo' : n >= 65 ? 'Bom' : n >= 45 ? 'Regular' : 'Evite'; }
+  function fmtHora(h){ return String(h).padStart(2, '0') + 'h'; }
+
+  function linhaMelhor(rotuloDia, janela, horaAtual, textoSemJanela){
+    const linha = document.createElement('div');
+    linha.className = 'melhor-linha';
+    const dia = document.createElement('span');
+    dia.className = 'melhor-dia';
+    dia.textContent = rotuloDia;
+    const corpo = document.createElement('div');
+    corpo.className = 'melhor-corpo';
+    if(!janela){
+      const d = document.createElement('div');
+      d.className = 'melhor-desc';
+      d.style.marginTop = '4px';
+      d.textContent = textoSemJanela;
+      corpo.appendChild(d);
+    } else {
+      const topo = document.createElement('div');
+      topo.className = 'melhor-topo';
+      const j = document.createElement('span');
+      j.className = 'melhor-janela';
+      const inicio = (rotuloDia === 'Hoje' && janela.ini === horaAtual) ? 'Agora' : fmtHora(janela.ini);
+      j.textContent = `${inicio}–${fmtHora(janela.fim)}`;
+      const pill = document.createElement('span');
+      pill.className = 'melhor-pill ' + classeNota(janela.nota);
+      pill.textContent = rotuloNota(janela.nota);
+      topo.append(j, pill);
+      const desc = document.createElement('div');
+      desc.className = 'melhor-desc';
+      desc.textContent = descricaoJanela(janela.par);
+      corpo.append(topo, desc);
+    }
+    linha.append(dia, corpo);
+    return linha;
+  }
+
+  function renderMelhorHorario(){
+    const box = document.getElementById('melhorConteudo');
+    const sel = document.getElementById('melhorPonto');
+    if(!box || !sel || !tempoUltimosDados) return;
+    const d = tempoUltimosDados[Math.max(0, sel.selectedIndex)];
+    if(!d || !d.hourly || !d.current){
+      box.innerHTML = '<div class="tempo-vazio" style="padding:4px 0;">Sem previsão pra esse local agora.</div>';
+      return;
+    }
+    const agoraStr = String(d.current.time);
+    const hoje = agoraStr.slice(0, 10);
+    const horaAtual = parseInt(agoraStr.slice(11, 13), 10);
+    const datas = [...new Set(d.hourly.time.map(t => t.slice(0, 10)))].sort();
+    const amanha = datas.find(x => x > hoje);
+
+    const horasHoje = horasDoDia(d, hoje);
+    const horasAmanha = amanha ? horasDoDia(d, amanha) : [];
+    const jHoje = melhorJanela(horasHoje, horaAtual);
+    const jAmanha = melhorJanela(horasAmanha, HORA_INICIAL_PEDAL);
+
+    box.innerHTML = '';
+    box.appendChild(linhaMelhor('Hoje', jHoje, horaAtual, 'Já passou do melhor horário de hoje (sol). Veja amanhã.'));
+    box.appendChild(linhaMelhor('Amanhã', jAmanha, horaAtual, 'Previsão de amanhã indisponível.'));
+
+    // faixa com a nota de cada hora de hoje (horas que já passaram ficam apagadas)
+    if(horasHoje.length){
+      const strip = document.createElement('div');
+      strip.className = 'melhor-strip';
+      const eixo = document.createElement('div');
+      eixo.className = 'melhor-eixo';
+      horasHoje.forEach(x => {
+        const b = document.createElement('div');
+        b.className = 'melhor-bar ' + classeNota(x.nota)
+          + (x.hora < horaAtual ? ' passou' : '')
+          + (jHoje && (x.hora === jHoje.ini || x.hora === jHoje.ini + 1) ? ' destaque' : '');
+        b.style.height = Math.max(8, x.nota) + '%';
+        b.title = `${fmtHora(x.hora)}: ${Math.round(x.temp)}°, chuva ${x.prob}%, vento ${Math.round(x.vento)} km/h`;
+        strip.appendChild(b);
+        const lbl = document.createElement('span');
+        lbl.textContent = (x.hora % 3 === 0) ? x.hora : '';
+        eixo.appendChild(lbl);
+      });
+      box.append(strip, eixo);
+    }
+  }
 
   async function carregarTempoPontos(){
     const lista = document.getElementById('tempoPontosList');
@@ -1599,12 +1794,13 @@
       const url = 'https://api.open-meteo.com/v1/forecast'
         + `?latitude=${lats}&longitude=${lngs}`
         + '&current=temperature_2m,precipitation,wind_speed_10m,weather_code'
-        + '&hourly=precipitation_probability,precipitation'
-        + '&forecast_hours=4&timezone=America%2FSao_Paulo';
+        + '&hourly=temperature_2m,precipitation_probability,precipitation,wind_speed_10m'
+        + '&forecast_days=2&timezone=America%2FSao_Paulo';
       const resp = await fetch(url);
       if(!resp.ok) throw new Error('status ' + resp.status);
       let dados = await resp.json();
       if(!Array.isArray(dados)) dados = [dados];
+      tempoUltimosDados = dados;
 
       lista.innerHTML = '';
       PONTOS_TEMPO.forEach((p, i) => {
@@ -1614,9 +1810,12 @@
         const vento = Math.round(d.current.wind_speed_10m);
         const chuvaAgora = Number(d.current.precipitation) || 0;
         const h = d.hourly || {};
-        // próximas 3 horas (o array traz a hora atual + 3)
-        const probs = (h.precipitation_probability || []).slice(1, 4).map(Number);
-        const mms = (h.precipitation || []).slice(0, 4).map(Number);
+        // próximas 3 horas: o array horário cobre hoje e amanhã, então
+        // primeiro acha a posição da hora atual
+        let iAtual = (h.time || []).indexOf(String(d.current.time).slice(0, 13) + ':00');
+        if(iAtual < 0) iAtual = 0;
+        const probs = (h.precipitation_probability || []).slice(iAtual + 1, iAtual + 4).map(Number);
+        const mms = (h.precipitation || []).slice(iAtual, iAtual + 4).map(Number);
         const probMax = probs.length ? Math.max(...probs) : 0;
         const mmTotal = mms.reduce((a, b) => a + (isNaN(b) ? 0 : b), 0);
 
@@ -1667,11 +1866,35 @@
       });
 
       if(!lista.children.length) throw new Error('resposta sem dados');
+      renderMelhorHorario();
       if(horaEl) horaEl.textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     } catch(e){
       console.warn('Não foi possível carregar o tempo dos pontos de pedal:', e.message);
       lista.innerHTML = '<div class="tempo-vazio">Não deu pra carregar o tempo nos pontos agora. Toque em ↻ pra tentar de novo.</div>';
+      if(!tempoUltimosDados){
+        const mb = document.getElementById('melhorConteudo');
+        if(mb) mb.innerHTML = '<div class="tempo-vazio" style="padding:4px 0;">Sem previsão agora. Toque em ↻ pra tentar de novo.</div>';
+      }
     }
+  }
+
+  // seletor do local do "melhor horário" (lembra a última escolha)
+  const melhorPontoSel = document.getElementById('melhorPonto');
+  if(melhorPontoSel){
+    PONTOS_TEMPO.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.nome;
+      o.textContent = p.nome;
+      melhorPontoSel.appendChild(o);
+    });
+    try{
+      const salvo = localStorage.getItem('pelotao_melhor_ponto');
+      if(salvo && PONTOS_TEMPO.some(p => p.nome === salvo)) melhorPontoSel.value = salvo;
+    } catch(e){}
+    melhorPontoSel.addEventListener('change', () => {
+      try{ localStorage.setItem('pelotao_melhor_ponto', melhorPontoSel.value); } catch(e){}
+      renderMelhorHorario();
+    });
   }
   const btnAtualizarTempoPontos = document.getElementById('btnAtualizarTempoPontos');
   if(btnAtualizarTempoPontos) btnAtualizarTempoPontos.addEventListener('click', carregarTempoPontos);
@@ -2116,8 +2339,11 @@
           <div class="post" style="margin-bottom:0;">
             <p><strong>🗺️ Mapa</strong> — veja ciclistas pedalando ao vivo e reporte riscos na via (buraco, assalto, assédio).</p>
           </div>
-          <div class="post" style="margin-bottom:0;">
+          ${ABAS_OCULTAS.includes('comunidade') ? '' : `<div class="post" style="margin-bottom:0;">
             <p><strong>👥 Comunidade</strong> — poste, converse, veja o calendário de provas e a atividade do pelotão.</p>
+          </div>`}
+          <div class="post" style="margin-bottom:0;">
+            <p><strong>⏱️ Tempo</strong> — veja o tempo nos pontos de pedal do Rio e o melhor horário pra sair hoje.</p>
           </div>
           <div class="post" style="margin-bottom:0;">
             <p><strong>📈 Treino</strong> — conecte Strava/Intervals.icu, acompanhe FTP, potência e sua forma física.</p>
@@ -3008,6 +3234,7 @@
         // avisa quando é um comentário de OUTRA pessoa no SEU post
         // (independe de estar vendo a tela de Comunidade ou não)
         if(!currentUser || payload.new.autor_id === currentUser.id) return;
+        if(ABAS_OCULTAS.includes('comunidade')) return; // sem a aba, o aviso não leva a lugar nenhum
         const { data: post } = await sb.from('posts').select('autor_id').eq('id', payload.new.post_id).single();
         if(post?.autor_id !== currentUser.id) return;
         const { data: comentarista } = await sb.from('usuarios').select('nome').eq('id', payload.new.autor_id).single();
