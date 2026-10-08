@@ -5049,9 +5049,9 @@ if ('serviceWorker' in navigator) {
     var ag = '<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx + r*0.72*Math.cos(-0.8)).toFixed(2)+'" y2="'+(cy + r*0.72*Math.sin(-0.8)).toFixed(2)+'" stroke="'+cl+'" stroke-width="'+(r*0.22).toFixed(2)+'" stroke-linecap="round"/>';
     return ar + ag + '<circle cx="'+cx+'" cy="'+cy+'" r="'+(r*0.2).toFixed(2)+'" fill="'+cl+'"/>';
   }
-  function logo(cx, cy, escala, cl){
+  function logo(cx, cy, escala, cl, op){
     // só o símbolo, sem o nome
-    return '<g opacity=".42">' + marca(cx, cy - 4*escala, 9 * escala, cl) + '</g>';
+    return '<g opacity="' + (op || .5) + '">' + marca(cx, cy - 4*escala, 9 * escala, cl) + '</g>';
   }
 
   function jersey(id){
@@ -5110,7 +5110,7 @@ if ('serviceWorker' in navigator) {
     // só a logo da Cadência
     var tc = oposto(cl1);
     if(frente){
-      o += (S.padrao === 'solido') ? logo(197, 126, 1.25, tc) : logo(252, 114, 1.15, oposto(cMan));
+      o += (S.padrao === 'solido') ? logo(197, 126, 1.25, tc) : logo(197, 124, 0.85, tc, .9);
     } else {
       o += (S.padrao === 'solido') ? logo(160, 236, 1.2, tc) : logo(68, 114, 1.15, oposto(cMan));
       var nm = $('nomeMont').value;
