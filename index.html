@@ -1177,6 +1177,12 @@
 
   <section class="jx-panel">
     <fieldset>
+      <legend>Coleção Montanhas</legend>
+      <div class="pals" id="jx-colecao"></div>
+      <p class="nota" id="jx-colNota"></p>
+    </fieldset>
+
+    <fieldset>
       <legend>Paletas</legend>
       <div class="pals" id="jx-pals"></div>
       <p class="nota" id="jx-palNota"></p>
@@ -1204,6 +1210,13 @@
     <fieldset>
       <legend>Mangas</legend>
       <div class="chips" id="jx-mangas"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Nome na barra das costas</legend>
+      <label class="f" for="jx-nomeMont">Montanha
+        <select id="jx-nomeMont"></select>
+      </label>
     </fieldset>
 
     <fieldset>
@@ -4929,18 +4942,29 @@ if ('serviceWorker' in navigator) {
     {id:'noite',     nome:'Noite Carioca',   c:['#0D0D12','#3A3A46','#E6C65C'], nota:'Preto com dourado. A mais elegante, boa para pedal ao anoitecer.'},
     {id:'flamboyant',nome:'Flamboyant',      c:['#7A1F2B','#E8D9C4','#C9A24B'], nota:'Bordô com creme e dourado, inspirada na flor do flamboyant. Marca presença.'}
   ];
+  var COLECAO = [
+    {id:'furka',   nome:'Furkapass',   sub:'Suíça · 2.429 m',        c:['#1E2A32','#C9D6DF','#D52B1E'], padrao:'niveis',    lateral:'dk', manga:'c1', nota:'Gelo e ardósia com um filete vermelho suíço. Curvas de nível para a altitude.'},
+    {id:'mallorca',nome:'Mallorca',    sub:'Espanha · Tramuntana',   c:['#0B3B4A','#E3B04B','#F1EAD8'], padrao:'serpentina',lateral:'dk', manga:'c1', nota:'Mar profundo, sol de amêndoa e calcário. A serpentina lembra a estrada de Sa Calobra.'},
+    {id:'bormio',  nome:'Bormio',      sub:'Itália · Stelvio 2.758 m',c:['#0F1F3D','#E8E5DC','#E4577F'], padrao:'serpentina',lateral:'dk', manga:'c1', nota:'Azul de noite, neve e o rosa do Giro. Os tornantes do Stelvio na estampa.'},
+    {id:'dolomitas',nome:'Dolomitas',  sub:'Itália · Giau 2.236 m',  c:['#2B2E3B','#E8A58B','#F3E6D3'], padrao:'facetas',   lateral:'dk', manga:'c1', nota:'Rocha escura com o rosado do pôr do sol nas paredes, as facetas lembram o calcário.'},
+    {id:'ventoux', nome:'Mont Ventoux',sub:'França · 1.912 m',       c:['#F2F0EA','#8A8F96','#1F2A44'], padrao:'fade',      lateral:'c1', manga:'c1', nota:'Topo calcário branco que desce para pedra cinza. A mais clara da coleção.'},
+    {id:'alpe',    nome:"Alpe d'Huez", sub:'França · 1.850 m',       c:['#1D1D1B','#F7D117','#FFFFFF'], padrao:'serpentina',lateral:'dk', manga:'c1', nota:'Preto com amarelo do Tour. Os 21 tornantes viram o desenho.'},
+    {id:'tourmalet',nome:'Tourmalet',  sub:'França · 2.115 m',       c:['#1F3B2D','#D6A24A','#EDE6D6'], padrao:'niveis',    lateral:'dk', manga:'c1', nota:'Verde dos Pireneus com dourado e creme.'},
+    {id:'teide',   nome:'Teide',       sub:'Espanha · Tenerife',     c:['#2A1A18','#C4572B','#E9DCC8'], padrao:'facetas',   lateral:'dk', manga:'c1', nota:'Terra vulcânica escura com lava alaranjada.'}
+  ];
   var PADROES = [
     {id:'solido',  nome:'Lisa'},
     {id:'fade',    nome:'Fade'},
     {id:'niveis',  nome:'Curvas de nível'},
     {id:'facetas', nome:'Facetas'},
     {id:'pulso',   nome:'Pulso'},
+    {id:'serpentina', nome:'Serpentina'},
     {id:'faixa',   nome:'Faixa'}
   ];
   var LATERAIS = [{id:'c1',nome:'Principal'},{id:'dk',nome:'Tom escuro'},{id:'c2',nome:'Secundária'}];
   var MANGAS   = [{id:'c1',nome:'Principal'},{id:'dk',nome:'Tom escuro'},{id:'c2',nome:'Secundária'},{id:'c3',nome:'Detalhe'}];
 
-  var S = { paleta:'atlantico', c1:'#0A2A43', c2:'#2F8FA3', c3:'#E9D8A6', padrao:'niveis', lateral:'dk', manga:'c1' };
+  var S = { paleta:'atlantico', c1:'#0A2A43', c2:'#2F8FA3', c3:'#E9D8A6', padrao:'niveis', lateral:'dk', manga:'c1', nome:'' };
   var $ = function(id){ return document.getElementById('jx-' + id); };
   var FONT = "'Arial Black','Helvetica Neue',Arial,sans-serif";
   var FONT2 = "'Helvetica Neue',Arial,sans-serif";
@@ -5007,6 +5031,11 @@ if ('serviceWorker' in navigator) {
       for(i = -4; i < 40; i++){
         o += '<line x1="'+(i*9)+'" y1="380" x2="'+(i*9+380)+'" y2="0" stroke="url(#pg'+id+')" stroke-width="'+(i%3===0 ? 3.2 : 1.6)+'"/>';
       }
+    } else if(p === 'serpentina'){
+      var pts = '', y;
+      for(i = 0, y = 58; y < 322; i++, y += 22) pts += (i%2 ? 204 : 116) + ',' + y + ' ';
+      o += '<polyline points="'+pts+'" fill="none" stroke="'+S.c2+'" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round" stroke-opacity=".85"/>';
+      o += '<polyline points="'+pts+'" fill="none" stroke="'+S.c3+'" stroke-width=".8" stroke-linejoin="round" stroke-dasharray="2.5 2.5" stroke-opacity=".9"/>';
     } else if(p === 'faixa'){
       o += '<polygon points="60,184 260,148 260,170 60,206" fill="'+S.c2+'"/><polygon points="60,213 260,177 260,180 60,216" fill="'+S.c3+'"/>';
     }
@@ -5084,6 +5113,11 @@ if ('serviceWorker' in navigator) {
       o += logo(197, 126, 1.25, tc);
     } else {
       o += logo(160, 236, 1.2, tc);
+      var nm = $('nomeMont').value;
+      if(nm){
+        var tn = nm.toUpperCase(), wn = Math.min(112, tn.length * 5.4);
+        o += '<text x="160" y="342" font-size="7.5" font-weight="700" text-anchor="middle" textLength="'+wn.toFixed(1)+'" lengthAdjust="spacing" fill="'+oposto(cDk)+'" font-family="'+FONT2+'">'+esc(tn)+'</text>';
+      }
       o += '<line x1="112" y1="256" x2="208" y2="256" stroke="#D5D9E0" stroke-width="1.8" stroke-opacity=".9"/>';
       [[110,284,30,40],[145,278,30,46],[180,284,30,40]].forEach(function(b){
         o += '<rect x="'+b[0]+'" y="'+b[1]+'" width="'+b[2]+'" height="'+b[3]+'" rx="3" fill="'+cDk+'" stroke="rgba(0,0,0,.45)" stroke-width="1"/>';
@@ -5099,13 +5133,14 @@ if ('serviceWorker' in navigator) {
   function ficha(){
     var t = [
       'FICHA DE PEDIDO - JERSEY CADÊNCIA',
-      'Personalização: apenas a logo Cadência (frente no peito, costas abaixo da gola).',
+      'Personalização: logo Cadência (frente no peito, costas acima do friso refletivo).',
       'Tamanho: ' + $('tam').value + '   Quantidade: ' + ($('qtd').value || '1'),
       'Cor principal: ' + S.c1.toUpperCase(),
       'Cor secundária: ' + S.c2.toUpperCase(),
       'Cor de detalhe: ' + S.c3.toUpperCase(),
       'Tom escuro (derivado): ' + cor('dk').toUpperCase(),
       'Estampa: ' + nomeDe(PADROES, S.padrao),
+      'Nome na barra das costas: ' + ($('nomeMont').value || 'sem nome'),
       'Laterais: ' + nomeDe(LATERAIS, S.lateral).toLowerCase(),
       'Mangas: ' + nomeDe(MANGAS, S.manga).toLowerCase(),
       'Acabamento: gola baixa, zíper YKK, friso refletivo nos punhos e nas costas, barra com silicone, três bolsos.',
@@ -5122,6 +5157,43 @@ if ('serviceWorker' in navigator) {
     avisos(); ficha();
   }
 
+  // coleção de montanhas
+  function textoMont(c){ return c.nome + ' · ' + c.sub.split(' · ').slice(1).join(' · '); }
+  function montarNomes(){
+    var sel = $('nomeMont'); sel.innerHTML = '';
+    var o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'Sem nome'; sel.appendChild(o0);
+    COLECAO.forEach(function(c){ var o = document.createElement('option'); o.value = textoMont(c); o.textContent = c.nome; sel.appendChild(o); });
+    sel.addEventListener('input', desenhar);
+  }
+  function montarColecao(){
+    var box = $('colecao'); box.innerHTML = '';
+    COLECAO.forEach(function(m){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'pal'; b.dataset.id = m.id;
+      var sw = document.createElement('span'); sw.className = 'sw';
+      m.c.forEach(function(c){ var i = document.createElement('i'); i.style.background = c; sw.appendChild(i); });
+      var tx = document.createElement('span');
+      var n = document.createElement('strong'); n.textContent = m.nome; n.style.display = 'block'; n.style.fontWeight = '600';
+      var d = document.createElement('small'); d.textContent = m.sub; d.style.opacity = '.7'; d.style.fontSize = '11px';
+      tx.append(n, d); b.append(sw, tx);
+      b.addEventListener('click', function(){
+        S.colecao = m.id; S.paleta = ''; S.c1 = m.c[0]; S.c2 = m.c[1]; S.c3 = m.c[2];
+        S.padrao = m.padrao; S.lateral = m.lateral; S.manga = m.manga;
+        $('c1').value = S.c1; $('c2').value = S.c2; $('c3').value = S.c3;
+        $('nomeMont').value = textoMont(m);
+        marcarColecao(); marcarPaleta();
+        marcarChips('padroes','padrao'); marcarChips('laterais','lateral'); marcarChips('mangas','manga');
+        desenhar();
+      });
+      box.appendChild(b);
+    });
+  }
+  function marcarColecao(){
+    Array.prototype.forEach.call($('colecao').children, function(b){ b.setAttribute('aria-pressed', String(b.dataset.id === S.colecao)); });
+    var m = COLECAO.filter(function(x){ return x.id === S.colecao; })[0];
+    $('colNota').textContent = m ? m.nota : 'Escolha uma montanha para carregar cores, estampa e nome. Depois dá para ajustar tudo.';
+  }
+
   // paletas
   function montarPaletas(){
     var box = $('pals'); box.innerHTML = '';
@@ -5133,7 +5205,7 @@ if ('serviceWorker' in navigator) {
       var nm = document.createElement('span'); nm.textContent = p.nome;
       b.append(sw, nm);
       b.addEventListener('click', function(){
-        S.paleta = p.id; S.c1 = p.c[0]; S.c2 = p.c[1]; S.c3 = p.c[2];
+        S.colecao = ''; marcarColecao(); S.paleta = p.id; S.c1 = p.c[0]; S.c2 = p.c[1]; S.c3 = p.c[2];
         $('c1').value = S.c1; $('c2').value = S.c2; $('c3').value = S.c3;
         marcarPaleta(); desenhar();
       });
@@ -5150,7 +5222,7 @@ if ('serviceWorker' in navigator) {
     lista.forEach(function(it){
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'chip'; b.textContent = it.nome; b.dataset.id = it.id;
-      b.addEventListener('click', function(){ S[chave] = it.id; marcarChips(boxId, chave); desenhar(); });
+      b.addEventListener('click', function(){ S[chave] = it.id; S.colecao = ''; marcarColecao(); marcarChips(boxId, chave); desenhar(); });
       box.appendChild(b);
     });
     marcarChips(boxId, chave);
@@ -5161,7 +5233,7 @@ if ('serviceWorker' in navigator) {
 
   ['c1','c2','c3'].forEach(function(id){
     $(id).value = S[id];
-    $(id).addEventListener('input', function(){ S[id] = $(id).value; S.paleta = ''; marcarPaleta(); desenhar(); });
+    $(id).addEventListener('input', function(){ S[id] = $(id).value; S.paleta = ''; S.colecao = ''; marcarColecao(); marcarPaleta(); desenhar(); });
   });
   ['tam','qtd'].forEach(function(id){ $(id).addEventListener('input', desenhar); });
 
@@ -5196,6 +5268,7 @@ if ('serviceWorker' in navigator) {
     try{ navigator.clipboard.writeText(ta.value).then(ok, sel); }catch(e){ sel(); }
   });
 
+  montarNomes(); montarColecao(); marcarColecao();
   montarPaletas(); marcarPaleta();
   chips('padroes', PADROES, 'padrao');
   chips('laterais', LATERAIS, 'lateral');
