@@ -5051,7 +5051,7 @@ if ('serviceWorker' in navigator) {
   }
   function logo(cx, cy, escala, cl){
     // só o símbolo, sem o nome
-    return marca(cx, cy - 4*escala, 9 * escala, cl);
+    return '<g opacity=".42">' + marca(cx, cy - 4*escala, 9 * escala, cl) + '</g>';
   }
 
   function jersey(id){
