@@ -5110,9 +5110,9 @@ if ('serviceWorker' in navigator) {
     // só a logo da Cadência
     var tc = oposto(cl1);
     if(frente){
-      o += logo(197, 126, 1.25, tc);
+      o += (S.padrao === 'solido') ? logo(197, 126, 1.25, tc) : logo(252, 114, 1.15, oposto(cMan));
     } else {
-      o += logo(160, 236, 1.2, tc);
+      o += (S.padrao === 'solido') ? logo(160, 236, 1.2, tc) : logo(68, 114, 1.15, oposto(cMan));
       var nm = $('nomeMont').value;
       if(nm){
         var tn = nm.toUpperCase(), wn = Math.min(112, tn.length * 5.4);
