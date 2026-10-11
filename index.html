@@ -954,6 +954,15 @@
   #view-jersey .png img{ max-width:100%; border-radius:var(--radius-sm); border:1px solid var(--line); }
   #view-jersey .png small{ color:var(--text-muted); font-size:12px; }
   #view-jersey .jx-rodape{ color:var(--text-muted); font-size:11.5px; }
+
+  #view-jersey [hidden]{display:none!important}
+  .meus{display:grid;gap:8px;margin-top:12px}
+  .meu{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+  .meu-nome{display:grid;min-width:0}
+  .meu-nome strong{font-weight:600;overflow-wrap:anywhere}
+  .meu-nome small{color:var(--text-muted);font-size:11.5px}
+  .meu-acoes{display:flex;gap:6px;flex-wrap:wrap}
+  .meu-vazio{color:var(--text-muted);font-size:12.5px}
 </style>
 </head>
 <body>
@@ -1217,6 +1226,14 @@
       <label class="f" for="jx-nomeMont">Montanha
         <select id="jx-nomeMont"></select>
       </label>
+    </fieldset>
+
+    <fieldset id="jx-salvarBox" hidden>
+      <legend>Meus designs</legend>
+      <label class="f larga" for="jx-nomeDesign">Nome do design<input type="text" id="jx-nomeDesign" maxlength="60" value="Meu design"></label>
+      <div class="acoes" style="margin-top:10px"><button class="btn" type="button" id="jx-btnSalvar">Salvar design</button></div>
+      <label class="f larga" for="jx-linkDesign" id="jx-linkWrap" hidden style="margin-top:10px">Link para compartilhar com o pelotão<input type="text" id="jx-linkDesign" readonly></label>
+      <div class="meus" id="jx-meus"></div>
     </fieldset>
 
     <fieldset>
@@ -1698,6 +1715,8 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(()=>toast.classList.remove('show'), 2600);
   }
+
+  window.cadenciaApp = { get sb(){ return sb; }, get user(){ return currentUser; }, toast: showToast };
 
   // ============================================================
   // RELÓGIO EM TEMPO REAL + PREVISÃO DO TEMPO (Open-Meteo, sem chave)
@@ -2216,11 +2235,13 @@
     if(session?.user){ currentUser = { id: session.user.id, email: session.user.email, phone: session.user.phone }; }
     renderGateState();
     atualizarPerfilLogout();
+    document.dispatchEvent(new CustomEvent('cadencia:auth'));
     if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); garantirInscricaoPush(true); carregarFtpPeso(); mostrarOnboardingSeNovo(); }
     sb.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user ? { id: session.user.id, email: session.user.email, phone: session.user.phone } : null;
       renderGateState();
       atualizarPerfilLogout();
+      document.dispatchEvent(new CustomEvent('cadencia:auth'));
       if(currentUser){
         carregarUsuariosBloqueados().then(carregarFeed);
         renderEstadoIntervals();
@@ -5344,6 +5365,111 @@ if ('serviceWorker' in navigator) {
     function ok(){ b.textContent = 'Copiado'; setTimeout(function(){ b.textContent = 'Copiar SVG (vetor)'; }, 1600); }
     try{ navigator.clipboard.writeText(ta.value).then(ok, function(){}); }catch(e){}
   });
+
+
+  // ---- salvar e compartilhar (só quando está dentro do app) ----
+  var APP = window.cadenciaApp || null;
+  var CORHEX = /^#[0-9a-fA-F]{6}$/;
+  function temId(lista, id){ return lista.some(function(x){ return x.id === id; }); }
+  function configAtual(){
+    return { c1:S.c1, c2:S.c2, c3:S.c3, padrao:S.padrao, lateral:S.lateral, manga:S.manga, paleta:S.paleta, colecao:S.colecao,
+             nomeMont:$('nomeMont').value, tam:$('tam').value, qtd:Number($('qtd').value) || 1 };
+  }
+  function aplicarConfig(c){
+    if(!c || typeof c !== 'object') return false;
+    ['c1','c2','c3'].forEach(function(k){ if(CORHEX.test(c[k])) S[k] = c[k]; });
+    if(temId(PADROES, c.padrao)) S.padrao = c.padrao;
+    if(temId(LATERAIS, c.lateral)) S.lateral = c.lateral;
+    if(temId(MANGAS, c.manga)) S.manga = c.manga;
+    S.paleta = temId(PALETAS, c.paleta) ? c.paleta : '';
+    S.colecao = temId(COLECAO, c.colecao) ? c.colecao : '';
+    $('c1').value = S.c1; $('c2').value = S.c2; $('c3').value = S.c3;
+    $('nomeMont').value = COLECAO.map(textoMont).indexOf(c.nomeMont) >= 0 ? c.nomeMont : '';
+    if(['PP','P','M','G','GG','XGG'].indexOf(c.tam) >= 0) $('tam').value = c.tam;
+    var q = parseInt(c.qtd, 10); if(q >= 1 && q <= 500) $('qtd').value = q;
+    marcarColecao(); marcarPaleta();
+    marcarChips('padroes','padrao'); marcarChips('laterais','lateral'); marcarChips('mangas','manga');
+    desenhar();
+    return true;
+  }
+  function linkDe(id){ return location.origin + location.pathname + '#jersey=' + id; }
+  function mostrarLink(txt){
+    $('linkWrap').hidden = false;
+    var i = $('linkDesign'); i.value = txt; i.focus(); i.select();
+  }
+  function copiarLink(id){
+    var txt = linkDe(id);
+    try{ navigator.clipboard.writeText(txt).then(function(){ APP.toast('Link copiado'); }, function(){ mostrarLink(txt); }); }
+    catch(e){ mostrarLink(txt); }
+  }
+  function dataCurta(iso){ var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('pt-BR'); }
+
+  async function carregarMeus(){
+    var box = $('meus'); if(!APP) return; box.innerHTML = '';
+    var u = APP.user; if(!u) return;
+    var r = await APP.sb.from('jersey_designs').select('id,nome,created_at').eq('user_id', u.id).order('created_at', {ascending:false}).limit(30);
+    if(r.error){ var e = document.createElement('p'); e.className = 'meu-vazio'; e.textContent = 'Não foi possível carregar seus designs agora.'; box.appendChild(e); return; }
+    if(!r.data.length){ var v = document.createElement('p'); v.className = 'meu-vazio'; v.textContent = 'Nenhum design salvo ainda.'; box.appendChild(v); return; }
+    r.data.forEach(function(d){
+      var row = document.createElement('div'); row.className = 'meu';
+      var nm = document.createElement('div'); nm.className = 'meu-nome';
+      var st = document.createElement('strong'); st.textContent = d.nome;
+      var sm = document.createElement('small'); sm.textContent = dataCurta(d.created_at);
+      nm.append(st, sm);
+      var ac = document.createElement('div'); ac.className = 'meu-acoes';
+      function chip(txt, fn){ var b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = txt; b.addEventListener('click', function(){ fn(b); }); return b; }
+      ac.append(
+        chip('Abrir', function(){ abrirDesign(d.id); }),
+        chip('Link', function(){ copiarLink(d.id); }),
+        chip('Excluir', function(b){
+          if(b.dataset.ok){ excluirDesign(d.id); return; }
+          b.dataset.ok = '1'; b.textContent = 'Confirmar?';
+          setTimeout(function(){ b.dataset.ok = ''; b.textContent = 'Excluir'; }, 3000);
+        })
+      );
+      row.append(nm, ac); box.appendChild(row);
+    });
+  }
+  async function salvarDesign(){
+    var u = APP.user; if(!u){ APP.toast('Entre na sua conta para salvar'); return; }
+    var nome = ($('nomeDesign').value.trim() || 'Meu design').slice(0, 60);
+    var r = await APP.sb.from('jersey_designs').insert({ user_id:u.id, nome:nome, config:configAtual() }).select('id').single();
+    if(r.error){ APP.toast('Não deu pra salvar. Tente de novo.'); return; }
+    APP.toast('Design salvo');
+    mostrarLink(linkDe(r.data.id));
+    carregarMeus();
+  }
+  async function abrirDesign(id){
+    var r = await APP.sb.from('jersey_designs').select('nome,config').eq('id', id).maybeSingle();
+    if(r.error || !r.data || !aplicarConfig(r.data.config)){ APP.toast('Design não encontrado'); return false; }
+    $('nomeDesign').value = r.data.nome;
+    return true;
+  }
+  async function excluirDesign(id){
+    var r = await APP.sb.from('jersey_designs').delete().eq('id', id);
+    if(r.error){ APP.toast('Não deu pra excluir.'); return; }
+    APP.toast('Design excluído'); carregarMeus();
+  }
+  function idDoHash(){ var m = /^#jersey=([0-9a-fA-F-]{36})$/.exec(location.hash); return m ? m[1] : null; }
+  async function tratarHash(){
+    var id = idDoHash(); if(!id || !APP || !APP.user) return;
+    if(await abrirDesign(id)){
+      var aba = document.querySelector('.nav-btn[data-view="jersey"]'); if(aba) aba.click();
+      history.replaceState(null, '', location.pathname + location.search);
+      APP.toast('Design compartilhado carregado');
+    }
+  }
+  function aoAutenticar(){
+    if(!APP) return;
+    $('salvarBox').hidden = !APP.user;
+    carregarMeus(); tratarHash();
+  }
+  if(APP){
+    $('btnSalvar').addEventListener('click', salvarDesign);
+    document.addEventListener('cadencia:auth', aoAutenticar);
+    window.addEventListener('hashchange', tratarHash);
+    if(APP.user) aoAutenticar();
+  }
 
   montarNomes(); montarColecao(); marcarColecao();
   montarPaletas(); marcarPaleta();
