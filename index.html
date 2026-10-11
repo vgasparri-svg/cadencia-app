@@ -963,6 +963,17 @@
   .meu-nome small{color:var(--text-muted);font-size:11.5px}
   .meu-acoes{display:flex;gap:6px;flex-wrap:wrap}
   .meu-vazio{color:var(--text-muted);font-size:12.5px}
+
+  .voto{display:grid;grid-template-columns:78px minmax(0,1fr);gap:10px;border:1px solid var(--line);border-radius:6px;padding:10px}
+  .voto svg{width:78px;height:auto;background:#1A1D24;border-radius:4px}
+  .voto-info{display:grid;gap:6px;min-width:0}
+  .voto-info strong{font-weight:600;overflow-wrap:anywhere}
+  .voto-meta{font-size:12px;color:var(--text-muted)}
+  .barra{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+  .barra i{display:block;height:100%;background:var(--safety)}
+  .compra{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .compra select,.compra input{width:auto;padding:6px 8px}
+  .compra input{width:64px}
 </style>
 </head>
 <body>
@@ -1186,6 +1197,11 @@
 
   <section class="jx-panel">
     <fieldset>
+      <legend>Modelo</legend>
+      <div class="chips" id="jx-modelos"></div>
+    </fieldset>
+
+    <fieldset>
       <legend>Coleção Montanhas</legend>
       <div class="pals" id="jx-colecao"></div>
       <p class="nota" id="jx-colNota"></p>
@@ -1209,6 +1225,7 @@
     <fieldset>
       <legend>Estampa</legend>
       <div class="chips" id="jx-padroes"></div>
+      <label class="f larga" for="jx-escala" style="margin-top:12px"><span id="jx-escalaRotulo">Escala da estampa: 100%</span><input type="range" id="jx-escala" min="80" max="150" step="10" value="100"></label>
     </fieldset>
 
     <fieldset>
@@ -1216,7 +1233,7 @@
       <div class="chips" id="jx-laterais"></div>
     </fieldset>
 
-    <fieldset>
+    <fieldset id="jx-mangasBox">
       <legend>Mangas</legend>
       <div class="chips" id="jx-mangas"></div>
     </fieldset>
@@ -1234,6 +1251,13 @@
       <div class="acoes" style="margin-top:10px"><button class="btn" type="button" id="jx-btnSalvar">Salvar design</button></div>
       <label class="f larga" for="jx-linkDesign" id="jx-linkWrap" hidden style="margin-top:10px">Link para compartilhar com o pelotão<input type="text" id="jx-linkDesign" readonly></label>
       <div class="meus" id="jx-meus"></div>
+    </fieldset>
+
+    <fieldset id="jx-votacaoBox" hidden>
+      <legend>Votação do pelotão</legend>
+      <p class="nota" style="margin:0 0 10px">Designs salvos pelo pelotão. Vote nos que gostar e marque quem quer comprar. A fábrica pede 10 peças por estampa, então o lote fecha quando a barra encher.</p>
+      <div class="acoes"><button class="btn sec" type="button" id="jx-btnVotAtualizar">Atualizar</button></div>
+      <div class="meus" id="jx-votos"></div>
     </fieldset>
 
     <fieldset>
@@ -4976,6 +5000,7 @@ if ('serviceWorker' in navigator) {
     {id:'tourmalet',nome:'Tourmalet',  sub:'França · 2.115 m',       c:['#1F3B2D','#D6A24A','#EDE6D6'], padrao:'niveis',    lateral:'dk', manga:'c1', nota:'Verde dos Pireneus com dourado e creme.'},
     {id:'teide',   nome:'Teide',       sub:'Espanha · Tenerife',     c:['#2A1A18','#C4572B','#E9DCC8'], padrao:'facetas',   lateral:'dk', manga:'c1', nota:'Terra vulcânica escura com lava alaranjada.'}
   ];
+  var MODELOS = [{id:'curta',nome:'Manga curta'},{id:'longa',nome:'Manga longa'},{id:'colete',nome:'Colete'}];
   var PADROES = [
     {id:'solido',  nome:'Lisa'},
     {id:'fade',    nome:'Fade'},
@@ -4988,7 +5013,7 @@ if ('serviceWorker' in navigator) {
   var LATERAIS = [{id:'c1',nome:'Principal'},{id:'dk',nome:'Tom escuro'},{id:'c2',nome:'Secundária'}];
   var MANGAS   = [{id:'c1',nome:'Principal'},{id:'dk',nome:'Tom escuro'},{id:'c2',nome:'Secundária'},{id:'c3',nome:'Detalhe'}];
 
-  var S = { paleta:'atlantico', c1:'#0A2A43', c2:'#2F8FA3', c3:'#E9D8A6', padrao:'niveis', lateral:'dk', manga:'c1', nome:'' };
+  var S = { paleta:'atlantico', c1:'#0A2A43', c2:'#2F8FA3', c3:'#E9D8A6', padrao:'niveis', lateral:'dk', manga:'c1', nome:'', modelo:'curta', escala:100 };
   var $ = function(id){ return document.getElementById('jx-' + id); };
   var FONT = "'Arial Black','Helvetica Neue',Arial,sans-serif";
   var FONT2 = "'Helvetica Neue',Arial,sans-serif";
@@ -5009,6 +5034,13 @@ if ('serviceWorker' in navigator) {
   var LAT_D = 'M260 96 L223 128 Q212 200 214 262 Q214 310 224 350 L260 350 Z';
   var MANGA_E = 'M110 46 L58 68 L40 92 L54 170 L97 152 Q94 96 110 46 Z';
   var MANGA_D = 'M210 46 L262 68 L280 92 L266 170 L223 152 Q226 96 210 46 Z';
+  var MANGA_LE = 'M110 46 L58 68 L38 96 L40 268 L78 270 L97 150 Q94 96 110 46 Z';
+  var MANGA_LD = 'M210 46 L262 68 L282 96 L280 268 L242 270 L223 150 Q226 96 210 46 Z';
+  function geom(){
+    if(S.modelo === 'colete') return { tem:false };
+    if(S.modelo === 'longa') return { tem:true, E:MANGA_LE, D:MANGA_LD, cuffE:'40,252 78,254 78,270 40,268', cuffD:'280,252 242,254 242,270 280,268', lnE:'40,252 78,254', lnD:'280,252 242,254', alt:270 };
+    return { tem:true, E:MANGA_E, D:MANGA_D, cuffE:'52,152 97,133 97,152 54,170', cuffD:'268,152 223,133 223,152 266,170', lnE:'52,152 97,133', lnD:'268,152 223,133', alt:170 };
+  }
 
   // contorno suave fechado (Catmull-Rom) para as curvas de nível
   function blob(cx, cy, r, k){
@@ -5063,6 +5095,10 @@ if ('serviceWorker' in navigator) {
     } else if(p === 'faixa'){
       o += '<polygon points="60,184 260,148 260,170 60,206" fill="'+S.c2+'"/><polygon points="60,213 260,177 260,180 60,216" fill="'+S.c3+'"/>';
     }
+    if(p === 'niveis' || p === 'facetas' || p === 'pulso' || p === 'serpentina'){
+      var k = (S.escala || 100) / 100;
+      o = '<g transform="translate(160 190) scale('+k+') translate(-160 -190)">' + o + '</g>';
+    }
     return o;
   }
 
@@ -5073,13 +5109,14 @@ if ('serviceWorker' in navigator) {
     var ag = '<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx + r*0.72*Math.cos(-0.8)).toFixed(2)+'" y2="'+(cy + r*0.72*Math.sin(-0.8)).toFixed(2)+'" stroke="'+cl+'" stroke-width="'+(r*0.22).toFixed(2)+'" stroke-linecap="round"/>';
     return ar + ag + '<circle cx="'+cx+'" cy="'+cy+'" r="'+(r*0.2).toFixed(2)+'" fill="'+cl+'"/>';
   }
-  function logo(cx, cy, escala, cl, op){
+  function logo(cx, cy, escala, cl, op, fundo){
     // só o símbolo, sem o nome
-    return '<g opacity="' + (op || .5) + '">' + marca(cx, cy - 4*escala, 9 * escala, cl) + '</g>';
+    var selo = fundo ? '<circle cx="'+cx+'" cy="'+(cy - 4*escala)+'" r="'+(12*escala).toFixed(1)+'" fill="'+fundo+'" fill-opacity=".9"/>' : '';
+    return selo + '<g opacity="' + (op || .5) + '">' + marca(cx, cy - 4*escala, 9 * escala, cl) + '</g>';
   }
 
   function jersey(id){
-    var frente = id === 'jxF';
+    var frente = id !== 'jxB';
     var cl1 = S.c1, cLat = cor(S.lateral), cMan = cor(S.manga), cDk = cor('dk');
     var traco = 'stroke="rgba(0,0,0,.35)" stroke-width="1" stroke-linejoin="round"';
     var o = '<defs>'
@@ -5090,17 +5127,21 @@ if ('serviceWorker' in navigator) {
       + '<pattern id="tx'+id+'" width="3" height="3" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r=".55" fill="#fff" fill-opacity=".10"/></pattern>'
       + '</defs>';
 
-    // mangas
-    [[MANGA_E, '53,138 97,119 97,152 54,170'], [MANGA_D, '267,138 223,119 223,152 266,170']].forEach(function(m){
-      o += '<path d="'+m[0]+'" fill="'+cMan+'" '+traco+'/>';
-      o += '<path d="'+m[0]+'" fill="url(#tx'+id+')"/>';
-    });
-    // punhos com friso refletivo
-    o += '<polygon points="52,152 97,133 97,152 54,170" fill="'+cDk+'"/><polyline points="52,152 97,133" stroke="#D5D9E0" stroke-width="2.4" fill="none"/>';
-    o += '<polygon points="268,152 223,133 223,152 266,170" fill="'+cDk+'"/><polyline points="268,152 223,133" stroke="#D5D9E0" stroke-width="2.4" fill="none"/>';
-    // costura raglan
-    o += '<path d="M134 46 Q104 80 97 150" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1" stroke-dasharray="2.2 2.2"/>';
-    o += '<path d="M186 46 Q216 80 223 150" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1" stroke-dasharray="2.2 2.2"/>';
+    // mangas (conforme o modelo)
+    var g = geom();
+    if(g.tem){
+      [g.E, g.D].forEach(function(m){
+        o += '<path d="'+m+'" fill="'+cMan+'" '+traco+'/>';
+        o += '<path d="'+m+'" fill="url(#tx'+id+')"/>';
+      });
+      o += '<polygon points="'+g.cuffE+'" fill="'+cDk+'"/><polyline points="'+g.lnE+'" stroke="#D5D9E0" stroke-width="2.4" fill="none"/>';
+      o += '<polygon points="'+g.cuffD+'" fill="'+cDk+'"/><polyline points="'+g.lnD+'" stroke="#D5D9E0" stroke-width="2.4" fill="none"/>';
+      o += '<path d="M134 46 Q104 80 97 150" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1" stroke-dasharray="2.2 2.2"/>';
+      o += '<path d="M186 46 Q216 80 223 150" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1" stroke-dasharray="2.2 2.2"/>';
+    } else {
+      o += '<path d="M110 46 Q98 90 94 140" fill="none" stroke="'+cDk+'" stroke-width="5" stroke-linecap="round"/><path d="M210 46 Q222 90 226 140" fill="none" stroke="'+cDk+'" stroke-width="5" stroke-linecap="round"/>';
+      o += '<path d="M110 46 Q98 90 94 140" fill="none" stroke="#D5D9E0" stroke-width="1.2" transform="translate(2.4 0)"/><path d="M210 46 Q222 90 226 140" fill="none" stroke="#D5D9E0" stroke-width="1.2" transform="translate(-2.4 0)"/>';
+    }
 
     // tronco
     o += '<g clip-path="url(#ct'+id+')"><rect width="320" height="380" fill="'+cl1+'"/>' + estampa(id);
@@ -5134,9 +5175,9 @@ if ('serviceWorker' in navigator) {
     // só a logo da Cadência
     var tc = oposto(cl1);
     if(frente){
-      o += (S.padrao === 'solido') ? logo(197, 126, 1.25, tc) : logo(197, 124, 0.85, tc, .9);
+      o += (S.padrao === 'solido') ? logo(197, 126, 1.25, tc) : logo(197, 124, 0.85, tc, .9, cl1);
     } else {
-      o += (S.padrao === 'solido') ? logo(160, 236, 1.2, tc) : logo(68, 114, 1.15, oposto(cMan));
+      o += (S.padrao === 'solido') ? logo(160, 236, 1.2, tc) : (g.tem ? logo(68, 114, 1.15, oposto(cMan)) : logo(160, 236, 1.0, tc, .9, cl1));
       var nm = $('nomeMont').value;
       if(nm){
         var tn = nm.toUpperCase(), wn = Math.min(112, tn.length * 5.4);
@@ -5163,7 +5204,8 @@ if ('serviceWorker' in navigator) {
       'Cor secundária: ' + S.c2.toUpperCase(),
       'Cor de detalhe: ' + S.c3.toUpperCase(),
       'Tom escuro (derivado): ' + cor('dk').toUpperCase(),
-      'Estampa: ' + nomeDe(PADROES, S.padrao),
+      'Modelo: ' + nomeDe(MODELOS, S.modelo),
+      'Estampa: ' + nomeDe(PADROES, S.padrao) + ((['niveis','facetas','pulso','serpentina'].indexOf(S.padrao) >= 0 && S.escala !== 100) ? ' (escala ' + S.escala + '%)' : ''),
       'Nome na barra das costas: ' + ($('nomeMont').value || 'sem nome'),
       'Laterais: ' + nomeDe(LATERAIS, S.lateral).toLowerCase(),
       'Mangas: ' + nomeDe(MANGAS, S.manga).toLowerCase(),
@@ -5178,6 +5220,10 @@ if ('serviceWorker' in navigator) {
     $('svgFrente').innerHTML = jersey('jxF');
     $('svgCostas').innerHTML = jersey('jxB');
     ['1','2','3'].forEach(function(n){ $('h'+n).textContent = S['c'+n].toUpperCase(); });
+    var temEscala = ['niveis','facetas','pulso','serpentina'].indexOf(S.padrao) >= 0;
+    $('escala').disabled = !temEscala;
+    $('escalaRotulo').textContent = 'Escala da estampa: ' + S.escala + '%' + (temEscala ? '' : ' (não vale para esta estampa)');
+    $('mangasBox').hidden = S.modelo === 'colete';
     avisos(); ficha();
   }
 
@@ -5246,7 +5292,7 @@ if ('serviceWorker' in navigator) {
     lista.forEach(function(it){
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'chip'; b.textContent = it.nome; b.dataset.id = it.id;
-      b.addEventListener('click', function(){ S[chave] = it.id; S.colecao = ''; marcarColecao(); marcarChips(boxId, chave); desenhar(); });
+      b.addEventListener('click', function(){ S[chave] = it.id; if(chave !== 'modelo'){ S.colecao = ''; marcarColecao(); } marcarChips(boxId, chave); desenhar(); });
       box.appendChild(b);
     });
     marcarChips(boxId, chave);
@@ -5299,15 +5345,16 @@ if ('serviceWorker' in navigator) {
     var cMan = cor(S.manga), cLat = cor(S.lateral), cDk = cor('dk'), solido = S.padrao === 'solido';
     var tc = oposto(S.c1), defs = '', corpo = '', n = 0;
     defs += '<clipPath id="pT"><path d="'+TORSO+'"/></clipPath><clipPath id="pC"><path d="'+CENTRO+'"/></clipPath>'
-          + '<clipPath id="pLE"><path d="'+LAT_E+'"/></clipPath><clipPath id="pME"><path d="'+MANGA_E+'"/></clipPath><clipPath id="pMD"><path d="'+MANGA_D+'"/></clipPath>';
+          + '<clipPath id="pLE"><path d="'+LAT_E+'"/></clipPath><clipPath id="pME"><path d="'+(geom().E || MANGA_E)+'"/></clipPath><clipPath id="pMD"><path d="'+(geom().D || MANGA_D)+'"/></clipPath>';
     var linha = 'fill="none" stroke="#E5322D" stroke-width="1.6" stroke-linejoin="round"';
     function rotulo(txt, x, y){ return '<text x="'+x+'" y="'+y+'" font-size="12" font-weight="700" fill="#222" font-family="'+FONT2+'">'+esc(txt)+'</text>'; }
 
     // frente e costas (centro)
     [['pf','FRENTE (centro)',40],['pb','COSTAS (centro)',210]].forEach(function(p){
       var frente = p[0] === 'pf', cont = '<rect width="320" height="380" fill="'+S.c1+'"/>' + estampa(p[0]);
-      if(frente) cont += solido ? logo(197,126,1.25,tc) : logo(197,124,0.85,tc,.9);
+      if(frente) cont += solido ? logo(197,126,1.25,tc) : logo(197,124,0.85,tc,.9,S.c1);
       else if(solido) cont += logo(160,236,1.2,tc);
+      else if(!geom().tem) cont += logo(160,236,1.0,tc,.9,S.c1);
       corpo += '<g transform="translate('+(p[2]-94)+',14)"><g clip-path="url(#pT)"><g clip-path="url(#pC)">'+cont+'</g></g>'
              + '<g clip-path="url(#pC)"><path d="'+TORSO+'" '+linha+'/></g><g clip-path="url(#pT)"><path d="'+CENTRO+'" '+linha+'/></g></g>';
       corpo += rotulo(p[1], p[2], 392);
@@ -5316,11 +5363,17 @@ if ('serviceWorker' in navigator) {
     corpo += '<g transform="translate(292,-68)"><g clip-path="url(#pT)"><g clip-path="url(#pLE)"><rect width="320" height="380" fill="'+cLat+'"/></g></g>'
            + '<g clip-path="url(#pLE)"><path d="'+TORSO+'" '+linha+'/></g><g clip-path="url(#pT)"><path d="'+LAT_E+'" '+linha+'/></g></g>';
     corpo += rotulo('LATERAL ×2', 372, 304) + '<text x="372" y="319" font-size="10" fill="#555" font-family="'+FONT2+'">(uma espelhada)</text>';
-    // mangas
-    var logoManga = solido ? '' : logo(68,114,1.15,oposto(cMan));
-    corpo += '<g transform="translate(380,14)"><g clip-path="url(#pME)"><rect width="320" height="380" fill="'+cMan+'"/><polygon points="53,138 97,119 97,152 54,170" fill="'+cDk+'"/>'+logoManga+'</g><path d="'+MANGA_E+'" '+linha+'/></g>';
-    corpo += '<g transform="translate(410,14)"><g clip-path="url(#pMD)"><rect width="320" height="380" fill="'+cMan+'"/><polygon points="267,138 223,119 223,152 266,170" fill="'+cDk+'"/></g><path d="'+MANGA_D+'" '+linha+'/></g>';
-    corpo += rotulo(solido ? 'MANGA ESQUERDA' : 'MANGA ESQUERDA (logo)', 420, 218) + rotulo('MANGA DIREITA', 620, 218);
+    // mangas (conforme o modelo)
+    var gm = geom();
+    if(gm.tem){
+      var logoManga = solido ? '' : logo(68,114,1.15,oposto(cMan));
+      corpo += '<g transform="translate(470,14)"><g clip-path="url(#pME)"><rect width="320" height="380" fill="'+cMan+'"/><polygon points="'+gm.cuffE+'" fill="'+cDk+'"/>'+logoManga+'</g><path d="'+gm.E+'" '+linha+'/></g>';
+      corpo += '<g transform="translate(500,14)"><g clip-path="url(#pMD)"><rect width="320" height="380" fill="'+cMan+'"/><polygon points="'+gm.cuffD+'" fill="'+cDk+'"/></g><path d="'+gm.D+'" '+linha+'/></g>';
+      var yl = 14 + gm.alt + 22;
+      corpo += rotulo(solido ? 'MANGA ESQUERDA' : 'MANGA ESQUERDA (logo)', 500, yl) + rotulo('MANGA DIREITA', 700, yl);
+    } else {
+      corpo += rotulo('COLETE: sem mangas', 500, 120);
+    }
     // barras
     var nome = $('nomeMont').value;
     corpo += '<rect x="40" y="450" width="170" height="32" fill="'+cDk+'" '+linha.replace('fill="none" ','')+'/>' + rotulo('BARRA FRENTE', 40, 500);
@@ -5335,7 +5388,7 @@ if ('serviceWorker' in navigator) {
              + '<text x="'+(450+i*110)+'" y="490" font-size="10" fill="#444" font-family="'+FONT2+'">'+it[1].toUpperCase()+'</text>';
     });
     var notas = [
-      'Cadência · painéis da jersey · estampa: ' + nomeDe(PADROES, S.padrao) + (nome ? ' · ' + nome : ''),
+      'Cadência · painéis · ' + nomeDe(MODELOS, S.modelo).toLowerCase() + ' · estampa: ' + nomeDe(PADROES, S.padrao) + (nome ? ' · ' + nome : ''),
       'Linha vermelha = contorno de corte. Referência visual: sem escala, sem margem de costura. Ajustar à modelagem da costureira/gráfica.',
       'Zíper, gola, silicone da barra, bolsos e friso refletivo não estão nesta folha. Veja a ficha do pedido.',
       'Cores de tela: peça prova de cor (amostra impressa) antes de imprimir o lote.'
@@ -5372,12 +5425,15 @@ if ('serviceWorker' in navigator) {
   var CORHEX = /^#[0-9a-fA-F]{6}$/;
   function temId(lista, id){ return lista.some(function(x){ return x.id === id; }); }
   function configAtual(){
-    return { c1:S.c1, c2:S.c2, c3:S.c3, padrao:S.padrao, lateral:S.lateral, manga:S.manga, paleta:S.paleta, colecao:S.colecao,
+    return { modelo:S.modelo, escala:S.escala, c1:S.c1, c2:S.c2, c3:S.c3, padrao:S.padrao, lateral:S.lateral, manga:S.manga, paleta:S.paleta, colecao:S.colecao,
              nomeMont:$('nomeMont').value, tam:$('tam').value, qtd:Number($('qtd').value) || 1 };
   }
   function aplicarConfig(c){
     if(!c || typeof c !== 'object') return false;
     ['c1','c2','c3'].forEach(function(k){ if(CORHEX.test(c[k])) S[k] = c[k]; });
+    if(temId(MODELOS, c.modelo)) S.modelo = c.modelo;
+    var esc = parseInt(c.escala, 10); if(esc >= 80 && esc <= 150) S.escala = esc;
+    $('escala').value = S.escala;
     if(temId(PADROES, c.padrao)) S.padrao = c.padrao;
     if(temId(LATERAIS, c.lateral)) S.lateral = c.lateral;
     if(temId(MANGAS, c.manga)) S.manga = c.manga;
@@ -5388,7 +5444,7 @@ if ('serviceWorker' in navigator) {
     if(['PP','P','M','G','GG','XGG'].indexOf(c.tam) >= 0) $('tam').value = c.tam;
     var q = parseInt(c.qtd, 10); if(q >= 1 && q <= 500) $('qtd').value = q;
     marcarColecao(); marcarPaleta();
-    marcarChips('padroes','padrao'); marcarChips('laterais','lateral'); marcarChips('mangas','manga');
+    marcarChips('modelos','modelo'); marcarChips('padroes','padrao'); marcarChips('laterais','lateral'); marcarChips('mangas','manga');
     desenhar();
     return true;
   }
@@ -5437,7 +5493,7 @@ if ('serviceWorker' in navigator) {
     if(r.error){ APP.toast('Não deu pra salvar. Tente de novo.'); return; }
     APP.toast('Design salvo');
     mostrarLink(linkDe(r.data.id));
-    carregarMeus();
+    carregarMeus(); carregarVotacao();
   }
   async function abrirDesign(id){
     var r = await APP.sb.from('jersey_designs').select('nome,config').eq('id', id).maybeSingle();
@@ -5459,13 +5515,121 @@ if ('serviceWorker' in navigator) {
       APP.toast('Design compartilhado carregado');
     }
   }
+
+  // ---- votação e pedido coletivo (só dentro do app) ----
+  var MIN_LOTE = 10;
+  var TAMS = ['PP','P','M','G','GG','XGG'];
+  function miniatura(cfg, idx){
+    var salvo = {}; Object.keys(S).forEach(function(k){ salvo[k] = S[k]; });
+    ['c1','c2','c3'].forEach(function(k){ if(CORHEX.test(cfg[k])) S[k] = cfg[k]; });
+    if(temId(PADROES, cfg.padrao)) S.padrao = cfg.padrao;
+    if(temId(LATERAIS, cfg.lateral)) S.lateral = cfg.lateral;
+    if(temId(MANGAS, cfg.manga)) S.manga = cfg.manga;
+    if(temId(MODELOS, cfg.modelo)) S.modelo = cfg.modelo;
+    var e = parseInt(cfg.escala, 10); if(e >= 80 && e <= 150) S.escala = e;
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 320 380'); svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = jersey('V' + idx);
+    Object.keys(salvo).forEach(function(k){ S[k] = salvo[k]; });
+    return svg;
+  }
+  function msgVotos(txt){ var p = document.createElement('p'); p.className = 'meu-vazio'; p.textContent = txt; $('votos').appendChild(p); }
+
+  async function carregarVotacao(){
+    if(!APP) return;
+    var box = $('votos'); box.innerHTML = '';
+    var u = APP.user; if(!u) return;
+    var rd = await APP.sb.from('jersey_designs').select('id,nome,config,user_id,created_at').order('created_at', {ascending:false}).limit(30);
+    if(rd.error){ msgVotos('Não foi possível carregar a votação agora.'); return; }
+    if(!rd.data.length){ msgVotos('Nenhum design no pelotão ainda. Salve o seu acima.'); return; }
+    var rv = await APP.sb.from('jersey_votos').select('design_id,user_id,tamanho,qtd').in('design_id', rd.data.map(function(d){ return d.id; }));
+    var linhas = rv.error ? [] : rv.data;
+    var cards = rd.data.map(function(d){
+      var meus = linhas.filter(function(r){ return r.design_id === d.id; });
+      var porTam = {}, pecas = 0;
+      meus.forEach(function(r){ if(r.tamanho){ porTam[r.tamanho] = (porTam[r.tamanho] || 0) + r.qtd; pecas += r.qtd; } });
+      return { d:d, votos:meus.length, pecas:pecas, porTam:porTam, meu:meus.filter(function(r){ return r.user_id === u.id; })[0] || null };
+    });
+    cards.sort(function(a, b){ return (b.votos - a.votos) || (b.pecas - a.pecas); });
+    cards.forEach(function(c, i){ box.appendChild(cardVoto(c, i, u)); });
+  }
+
+  function cardVoto(c, i, u){
+    var d = c.d, card = document.createElement('div'); card.className = 'voto';
+    card.appendChild(miniatura(d.config || {}, i));
+    var info = document.createElement('div'); info.className = 'voto-info';
+    var nm = document.createElement('strong'); nm.textContent = d.nome;
+    var meta = document.createElement('div'); meta.className = 'voto-meta';
+    var falta = Math.max(0, MIN_LOTE - c.pecas);
+    meta.textContent = c.votos + (c.votos === 1 ? ' voto' : ' votos') + ' · ' + c.pecas + ' de ' + MIN_LOTE + ' peças' + (falta ? ' (faltam ' + falta + ')' : ' (lote fechado)');
+    var barra = document.createElement('div'); barra.className = 'barra';
+    var enc = document.createElement('i'); enc.style.width = Math.min(100, c.pecas / MIN_LOTE * 100) + '%'; barra.appendChild(enc);
+    info.append(nm, meta, barra);
+    var tams = TAMS.filter(function(t){ return c.porTam[t]; }).map(function(t){ return t + ': ' + c.porTam[t]; });
+    if(tams.length){ var t = document.createElement('div'); t.className = 'voto-meta'; t.textContent = 'Tamanhos: ' + tams.join(' · '); info.appendChild(t); }
+
+    var ac = document.createElement('div'); ac.className = 'meu-acoes';
+    function chip(txt, fn){ var b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = txt; b.addEventListener('click', function(){ fn(b); }); return b; }
+    var compra = document.createElement('div'); compra.className = 'compra'; compra.hidden = true;
+    var sel = document.createElement('select'); TAMS.forEach(function(t){ var o = document.createElement('option'); o.textContent = t; sel.appendChild(o); });
+    sel.value = (c.meu && c.meu.tamanho) || $('tam').value;
+    var qt = document.createElement('input'); qt.type = 'number'; qt.min = 1; qt.max = 20; qt.value = (c.meu && c.meu.qtd) || 1;
+    sel.setAttribute('aria-label', 'Tamanho'); qt.setAttribute('aria-label', 'Quantidade');
+    compra.append(sel, qt, chip('Confirmar', function(){ definirCompra(d.id, sel.value, parseInt(qt.value, 10)); }));
+    if(c.meu && c.meu.tamanho) compra.append(chip('Cancelar pedido', function(){ cancelarCompra(d.id); }));
+
+    ac.append(
+      chip(c.meu ? 'Votado ✓' : 'Votar', function(){ alternarVoto(d.id, !!c.meu); }),
+      chip(c.meu && c.meu.tamanho ? 'Meu pedido' : 'Quero comprar', function(){ compra.hidden = !compra.hidden; }),
+      chip('Abrir', async function(){ if(await abrirDesign(d.id)) $('nomeDesign').scrollIntoView({behavior:'smooth', block:'center'}); })
+    );
+    if(d.user_id === u.id){
+      ac.append(chip('Copiar resumo', function(){ copiarResumo(c); }));
+    }
+    info.append(ac, compra);
+    card.appendChild(info);
+    return card;
+  }
+
+  async function alternarVoto(id, jaVotou){
+    var u = APP.user; if(!u) return;
+    var r = jaVotou
+      ? await APP.sb.from('jersey_votos').delete().eq('design_id', id).eq('user_id', u.id)
+      : await APP.sb.from('jersey_votos').upsert({ design_id:id, user_id:u.id }, { onConflict:'design_id,user_id' });
+    if(r.error){ APP.toast('Não deu pra registrar o voto.'); return; }
+    carregarVotacao();
+  }
+  async function definirCompra(id, tam, qtd){
+    var u = APP.user; if(!u) return;
+    if(TAMS.indexOf(tam) < 0 || !(qtd >= 1 && qtd <= 20)){ APP.toast('Informe tamanho e quantidade de 1 a 20'); return; }
+    var r = await APP.sb.from('jersey_votos').upsert({ design_id:id, user_id:u.id, tamanho:tam, qtd:qtd }, { onConflict:'design_id,user_id' });
+    if(r.error){ APP.toast('Não deu pra registrar o pedido.'); return; }
+    APP.toast('Pedido registrado'); carregarVotacao();
+  }
+  async function cancelarCompra(id){
+    var u = APP.user; if(!u) return;
+    var r = await APP.sb.from('jersey_votos').update({ tamanho:null, qtd:null }).eq('design_id', id).eq('user_id', u.id);
+    if(r.error){ APP.toast('Não deu pra cancelar.'); return; }
+    APP.toast('Pedido cancelado'); carregarVotacao();
+  }
+  function copiarResumo(c){
+    var linhas = ['PEDIDO COLETIVO - JERSEY CADÊNCIA', 'Design: ' + c.d.nome, 'Total: ' + c.pecas + ' peças (lote mínimo: ' + MIN_LOTE + ')'];
+    TAMS.forEach(function(t){ if(c.porTam[t]) linhas.push(t + ': ' + c.porTam[t]); });
+    linhas.push('Link do design: ' + linkDe(c.d.id));
+    var txt = linhas.join('\n');
+    try{ navigator.clipboard.writeText(txt).then(function(){ APP.toast('Resumo copiado'); }, function(){ mostrarLink(txt); }); }
+    catch(e){ mostrarLink(txt); }
+  }
+
   function aoAutenticar(){
     if(!APP) return;
     $('salvarBox').hidden = !APP.user;
-    carregarMeus(); tratarHash();
+    $('votacaoBox').hidden = !APP.user;
+    carregarMeus(); carregarVotacao(); tratarHash();
   }
   if(APP){
     $('btnSalvar').addEventListener('click', salvarDesign);
+    $('btnVotAtualizar').addEventListener('click', carregarVotacao);
     document.addEventListener('cadencia:auth', aoAutenticar);
     window.addEventListener('hashchange', tratarHash);
     if(APP.user) aoAutenticar();
@@ -5473,6 +5637,8 @@ if ('serviceWorker' in navigator) {
 
   montarNomes(); montarColecao(); marcarColecao();
   montarPaletas(); marcarPaleta();
+  chips('modelos', MODELOS, 'modelo');
+  $('escala').addEventListener('input', function(){ S.escala = parseInt($('escala').value, 10) || 100; desenhar(); });
   chips('padroes', PADROES, 'padrao');
   chips('laterais', LATERAIS, 'lateral');
   chips('mangas', MANGAS, 'manga');
