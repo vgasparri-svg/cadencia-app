@@ -5186,17 +5186,13 @@ if ('serviceWorker' in navigator) {
   var BIB_F = 'M104 6 L130 6 Q134 70 150 100 Q160 108 170 100 Q186 70 190 6 L216 6 Q222 70 230 112 Q238 150 238 190 Q244 270 238 346 L168 346 L164 232 Q160 224 156 232 L152 346 L82 346 Q76 270 82 190 Q82 150 90 112 Q98 70 104 6 Z';
   var BIB_B = 'M104 6 L130 6 Q136 44 160 60 Q184 44 190 6 L216 6 Q222 70 230 112 Q238 150 238 190 Q244 270 238 346 L168 346 L164 232 Q160 224 156 232 L152 346 L82 346 Q76 270 82 190 Q82 150 90 112 Q98 70 104 6 Z';
   function bretelle(id, frente){
-    var cl1 = S.c1, cLat = cor(S.lateral), cStr = cor(S.manga), cDk = cor('dk');
+    var cl1 = S.c1, cStr = S.c1, cDk = cor('dk');
     var traco = 'stroke="rgba(0,0,0,.35)" stroke-width="1" stroke-linejoin="round"';
     var P = frente ? BIB_F : BIB_B;
     var o = '<defs><clipPath id="cb'+id+'"><path d="'+P+'"/></clipPath>'
       + '<linearGradient id="vb'+id+'" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset=".2" stop-color="#000" stop-opacity="0"/><stop offset=".8" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>'
       + '<pattern id="tb'+id+'" width="3" height="3" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r=".55" fill="#fff" fill-opacity=".10"/></pattern></defs>';
-    o += '<g clip-path="url(#cb'+id+')"><rect width="320" height="380" fill="'+cl1+'"/>' + estampa(id);
-    // faixas laterais nas pernas
-    o += '<path d="M82 190 Q76 270 82 346 L98 346 Q93 270 97 196 Z" fill="'+cLat+'"/><path d="M238 190 Q244 270 238 346 L222 346 Q227 270 223 196 Z" fill="'+cLat+'"/>';
-    o += '<path d="M97 196 Q93 270 98 346" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="1"/><path d="M223 196 Q227 270 222 346" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="1"/>';
-    o += '<path d="M97 196 Q93 270 98 346" fill="none" stroke="rgba(255,255,255,.35)" stroke-width=".8" stroke-dasharray="2.2 2.2" transform="translate(3 0)"/><path d="M223 196 Q227 270 222 346" fill="none" stroke="rgba(255,255,255,.35)" stroke-width=".8" stroke-dasharray="2.2 2.2" transform="translate(-3 0)"/>';
+    o += '<g clip-path="url(#cb'+id+')"><rect width="320" height="380" fill="'+cl1+'"/>';
     // gripper de silicone nas bainhas
     o += '<rect x="70" y="326" width="90" height="26" fill="'+cDk+'"/><rect x="164" y="326" width="90" height="26" fill="'+cDk+'"/>';
     o += '<rect x="70" y="326" width="90" height="1.6" fill="#D5D9E0"/><rect x="164" y="326" width="90" height="1.6" fill="#D5D9E0"/>';
@@ -5217,8 +5213,8 @@ if ('serviceWorker' in navigator) {
     // só a logo da Cadência, na coxa
     var tc = oposto(cl1);
     o += frente
-      ? ((S.padrao === 'solido') ? logo(124, 286, 1.1, tc) : logo(124, 286, 0.85, tc, .9, cl1))
-      : ((S.padrao === 'solido') ? logo(160, 176, 1.1, tc) : logo(160, 176, 0.85, tc, .9, cl1));
+      ? logo(124, 286, 1.1, tc)
+      : logo(160, 176, 1.1, tc);
     return o;
   }
 
@@ -5313,7 +5309,7 @@ if ('serviceWorker' in navigator) {
       'Cor de detalhe: ' + S.c3.toUpperCase(),
       'Tom escuro (derivado): ' + cor('dk').toUpperCase(),
       'Modelo: ' + nomeDe(MODELOS, S.modelo),
-      'Estampa: ' + nomeDe(PADROES, S.padrao) + ((['niveis','facetas','pulso','serpentina'].indexOf(S.padrao) >= 0 && S.escala !== 100) ? ' (escala ' + S.escala + '%)' : ''),
+      'Estampa: ' + (S.modelo === 'bretelle' ? 'Lisa (sem estampa)' : nomeDe(PADROES, S.padrao)) + ((S.modelo !== 'bretelle' && ['niveis','facetas','pulso','serpentina'].indexOf(S.padrao) >= 0 && S.escala !== 100) ? ' (escala ' + S.escala + '%)' : ''),
       'Nome na barra das costas: ' + ($('nomeMont').value || 'sem nome'),
       'Laterais: ' + nomeDe(LATERAIS, S.lateral).toLowerCase(),
       'Mangas: ' + nomeDe(MANGAS, S.manga).toLowerCase(),
