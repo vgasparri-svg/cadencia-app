@@ -873,6 +873,11 @@
   }
   .prova-tag.mod{ color:var(--gold); border-color:rgba(255,201,77,0.4); }
   .prova-tag.quando{ color:var(--route); border-color:rgba(53,198,255,0.4); }
+  .prova-acoes{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .prova-acoes button, .prova-acoes a{
+    border:1px solid var(--line); background:var(--surface-2); color:var(--text);
+    border-radius:100px; padding:6px 12px; font:500 11.5px var(--font-body); cursor:pointer; text-decoration:none;
+  }
   .provas-fonte{ padding:6px 16px 18px; font-size:11px; color:var(--text-muted); line-height:1.5; }
   .provas-fonte a{ color:var(--route); text-decoration:underline; text-underline-offset:2px; }
 
@@ -3119,6 +3124,57 @@
     return `em ${Math.round(dias / 30)} meses`;
   }
 
+  // ---- agenda (.ics) e compartilhamento ----
+  function ymd(str){ return str.replace(/-/g, ''); }
+  function maisUmDia(str){
+    const d = dataLocal(str); d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  }
+  function escIcs(t){ return String(t || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\;'); }
+  function gerarIcs(p){
+    const fim = p.data_fim && p.data_fim > p.data_prova ? p.data_fim : p.data_prova;
+    const fonte = p.fonte === 'CBC' ? 'CBC' : 'FECIERJ';
+    return [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Pelotao//Provas//PT', 'CALSCALE:GREGORIAN',
+      'BEGIN:VEVENT',
+      `UID:prova-${p.id || ymd(p.data_prova) + '-' + String(p.nome || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 24)}@pelotao`,
+      `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}`,
+      `DTSTART;VALUE=DATE:${ymd(p.data_prova)}`,
+      `DTEND;VALUE=DATE:${maisUmDia(fim)}`,
+      `SUMMARY:${escIcs(nomeBonito(p.nome))}`,
+      p.local ? `LOCATION:${escIcs(nomeBonito(p.local))}` : '',
+      `DESCRIPTION:${escIcs('Fonte: ' + fonte + '. Datas e locais podem mudar: confirme com o organizador.')}`,
+      'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Prova amanhã', 'TRIGGER:-P1D', 'END:VALARM',
+      'END:VEVENT', 'END:VCALENDAR'
+    ].filter(Boolean).join('\r\n');
+  }
+  function baixarIcs(p){
+    try{
+      const blob = new Blob([gerarIcs(p)], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'prova-' + ymd(p.data_prova) + '.ics';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      showToast('Arquivo do calendário baixado');
+    } catch(e){ showToast('Não deu pra gerar o arquivo do calendário'); }
+  }
+  function textoCompartilhar(p){
+    const ini = dataLocal(p.data_prova);
+    let quando = ini.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+    if(p.data_fim && p.data_fim > p.data_prova){
+      quando += ' a ' + dataLocal(p.data_fim).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+    }
+    return `🏁 ${nomeBonito(p.nome)}\n📅 ${quando}` + (p.local ? `\n📍 ${nomeBonito(p.local)}` : '') + '\nVista no app Pelotão.';
+  }
+  async function compartilharProva(p){
+    const texto = textoCompartilhar(p);
+    try{
+      if(navigator.share){ await navigator.share({ text: texto }); return; }
+    } catch(e){ if(e && e.name === 'AbortError') return; }
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener');
+  }
+
   function criarCardProva(p){
     const ini = dataLocal(p.data_prova);
     const quando = textoQuando(p);
@@ -3147,6 +3203,14 @@
     tags.append(criarEl('span', 'prova-tag', p.fonte === 'CBC' ? 'Nacional · CBC' : 'Estadual · FECIERJ'));
     if(quando) tags.append(criarEl('span', 'prova-tag quando', quando));
     info.append(tags);
+
+    const acoes = criarEl('div', 'prova-acoes');
+    const bCal = criarEl('button', '', '📅 Adicionar ao calendário'); bCal.type = 'button';
+    bCal.addEventListener('click', () => baixarIcs(p));
+    const bCmp = criarEl('button', '', 'Compartilhar'); bCmp.type = 'button';
+    bCmp.addEventListener('click', () => compartilharProva(p));
+    acoes.append(bCal, bCmp);
+    info.append(acoes);
 
     card.append(data, info);
     return card;
