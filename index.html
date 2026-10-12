@@ -1075,6 +1075,20 @@
         <a href="https://copacabana.com/cameras" target="_blank" rel="noopener noreferrer">Copacabana.com</a>
       </div>
 
+      <div style="padding:20px 16px 0;" id="blocoPedais">
+        <div class="section-head" style="margin:0 0 10px;">
+          <h2 style="font-size:14px;">Próximos pedais</h2>
+          <button class="btn-mini-add" id="btnAbrirNovoEvento">+ Agendar</button>
+        </div>
+        <div id="eventosList" class="eventos-scroll"></div>
+
+        <div class="section-head" style="margin:0 0 10px;">
+          <h2 style="font-size:14px;">Atividade do pelotão</h2>
+          <span class="count" style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted);">pedais recentes</span>
+        </div>
+        <div id="atividadeGrupoList" style="margin-bottom:18px;"></div>
+      </div>
+
       <div class="section">
         <div class="section-head"><h2>Últimos alertas</h2><span class="count">2 ativos</span></div>
       </div>
@@ -1111,18 +1125,6 @@
         <button class="chip" data-tag="Iniciantes">Iniciantes</button>
       </div>
       <div style="padding:0 16px;">
-        <div class="section-head" style="margin:0 0 10px;">
-          <h2 style="font-size:14px;">Próximos pedais</h2>
-          <button class="btn-mini-add" id="btnAbrirNovoEvento">+ Agendar</button>
-        </div>
-        <div id="eventosList" class="eventos-scroll"></div>
-
-        <div class="section-head" style="margin:0 0 10px;">
-          <h2 style="font-size:14px;">Atividade do pelotão</h2>
-          <span class="count" style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted);">pedais recentes</span>
-        </div>
-        <div id="atividadeGrupoList" style="margin-bottom:18px;"></div>
-
         <div class="composer">
           <input type="text" placeholder="Compartilhe algo com o pelotão…" id="postInput">
           <select id="postTagSelect">
