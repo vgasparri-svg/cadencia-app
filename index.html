@@ -5066,7 +5066,7 @@ if ('serviceWorker' in navigator) {
     {id:'tourmalet',nome:'Tourmalet',  sub:'França · 2.115 m',       c:['#1F3B2D','#D6A24A','#EDE6D6'], padrao:'niveis',    lateral:'dk', manga:'c1', nota:'Verde dos Pireneus com dourado e creme.'},
     {id:'teide',   nome:'Teide',       sub:'Espanha · Tenerife',     c:['#2A1A18','#C4572B','#E9DCC8'], padrao:'facetas',   lateral:'dk', manga:'c1', nota:'Terra vulcânica escura com lava alaranjada.'}
   ];
-  var MODELOS = [{id:'curta',nome:'Manga curta'},{id:'longa',nome:'Manga longa'},{id:'colete',nome:'Colete'}];
+  var MODELOS = [{id:'curta',nome:'Manga curta'},{id:'longa',nome:'Manga longa'},{id:'colete',nome:'Colete'},{id:'bretelle',nome:'Bretelle'}];
   var PADROES = [
     {id:'solido',  nome:'Lisa'},
     {id:'fade',    nome:'Fade'},
@@ -5181,8 +5181,50 @@ if ('serviceWorker' in navigator) {
     return selo + '<g opacity="' + (op || .5) + '">' + marca(cx, cy - 4*escala, 9 * escala, cl) + '</g>';
   }
 
+
+  // ---- bretelle (bib) combinando com a jersey ----
+  var BIB_F = 'M104 6 L130 6 Q134 70 150 100 Q160 108 170 100 Q186 70 190 6 L216 6 Q222 70 230 112 Q238 150 238 190 Q244 270 238 346 L168 346 L164 232 Q160 224 156 232 L152 346 L82 346 Q76 270 82 190 Q82 150 90 112 Q98 70 104 6 Z';
+  var BIB_B = 'M104 6 L130 6 Q136 44 160 60 Q184 44 190 6 L216 6 Q222 70 230 112 Q238 150 238 190 Q244 270 238 346 L168 346 L164 232 Q160 224 156 232 L152 346 L82 346 Q76 270 82 190 Q82 150 90 112 Q98 70 104 6 Z';
+  function bretelle(id, frente){
+    var cl1 = S.c1, cLat = cor(S.lateral), cStr = cor(S.manga), cDk = cor('dk');
+    var traco = 'stroke="rgba(0,0,0,.35)" stroke-width="1" stroke-linejoin="round"';
+    var P = frente ? BIB_F : BIB_B;
+    var o = '<defs><clipPath id="cb'+id+'"><path d="'+P+'"/></clipPath>'
+      + '<linearGradient id="vb'+id+'" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset=".2" stop-color="#000" stop-opacity="0"/><stop offset=".8" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>'
+      + '<pattern id="tb'+id+'" width="3" height="3" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r=".55" fill="#fff" fill-opacity=".10"/></pattern></defs>';
+    o += '<g clip-path="url(#cb'+id+')"><rect width="320" height="380" fill="'+cl1+'"/>' + estampa(id);
+    // faixas laterais nas pernas
+    o += '<path d="M82 190 Q76 270 82 346 L98 346 Q93 270 97 196 Z" fill="'+cLat+'"/><path d="M238 190 Q244 270 238 346 L222 346 Q227 270 223 196 Z" fill="'+cLat+'"/>';
+    o += '<path d="M97 196 Q93 270 98 346" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="1"/><path d="M223 196 Q227 270 222 346" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="1"/>';
+    o += '<path d="M97 196 Q93 270 98 346" fill="none" stroke="rgba(255,255,255,.35)" stroke-width=".8" stroke-dasharray="2.2 2.2" transform="translate(3 0)"/><path d="M223 196 Q227 270 222 346" fill="none" stroke="rgba(255,255,255,.35)" stroke-width=".8" stroke-dasharray="2.2 2.2" transform="translate(-3 0)"/>';
+    // gripper de silicone nas bainhas
+    o += '<rect x="70" y="326" width="90" height="26" fill="'+cDk+'"/><rect x="164" y="326" width="90" height="26" fill="'+cDk+'"/>';
+    o += '<rect x="70" y="326" width="90" height="1.6" fill="#D5D9E0"/><rect x="164" y="326" width="90" height="1.6" fill="#D5D9E0"/>';
+    o += '<rect x="70" y="338" width="90" height="6" fill="rgba(255,255,255,.14)"/><rect x="164" y="338" width="90" height="6" fill="rgba(255,255,255,.14)"/>';
+    // alças em tela (cor da manga) com costura
+    var sa = frente ? 'M104 6 L130 6 Q134 70 150 100 L132 110 Q114 70 104 6 Z' : 'M104 6 L130 6 Q136 44 160 60 L150 74 Q118 56 104 6 Z';
+    var sb = frente ? 'M216 6 L190 6 Q186 70 170 100 L188 110 Q206 70 216 6 Z' : 'M216 6 L190 6 Q184 44 160 60 L170 74 Q202 56 216 6 Z';
+    o += '<path d="'+sa+'" fill="'+cStr+'"/><path d="'+sb+'" fill="'+cStr+'"/>';
+    // costura central das pernas e fundo
+    o += '<path d="M160 226 L160 346" stroke="rgba(0,0,0,.30)" stroke-width="1" stroke-dasharray="2.2 2.2"/>';
+    if(!frente) o += '<path d="M126 222 Q160 250 194 222" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1" stroke-dasharray="2.2 2.2"/>';
+    o += '<rect width="320" height="380" fill="url(#tb'+id+')"/><rect width="320" height="380" fill="url(#vb'+id+')"/></g>';
+    o += '<path d="'+P+'" fill="none" '+traco+'/>';
+    // debrum no decote
+    o += frente
+      ? '<path d="M130 6 Q134 70 150 100 Q160 108 170 100 Q186 70 190 6" fill="none" stroke="'+cDk+'" stroke-width="4" stroke-linecap="round"/><path d="M130 6 Q134 70 150 100 Q160 108 170 100 Q186 70 190 6" fill="none" stroke="'+S.c3+'" stroke-width="1.2" transform="translate(0 -3)"/>'
+      : '<path d="M130 6 Q136 44 160 60 Q184 44 190 6" fill="none" stroke="'+cDk+'" stroke-width="4" stroke-linecap="round"/>';
+    // só a logo da Cadência, na coxa
+    var tc = oposto(cl1);
+    o += frente
+      ? ((S.padrao === 'solido') ? logo(124, 286, 1.1, tc) : logo(124, 286, 0.85, tc, .9, cl1))
+      : ((S.padrao === 'solido') ? logo(160, 176, 1.1, tc) : logo(160, 176, 0.85, tc, .9, cl1));
+    return o;
+  }
+
   function jersey(id){
     var frente = id !== 'jxB';
+    if(S.modelo === 'bretelle') return bretelle(id, frente);
     var cl1 = S.c1, cLat = cor(S.lateral), cMan = cor(S.manga), cDk = cor('dk');
     var traco = 'stroke="rgba(0,0,0,.35)" stroke-width="1" stroke-linejoin="round"';
     var o = '<defs>'
@@ -5263,8 +5305,8 @@ if ('serviceWorker' in navigator) {
   function nomeDe(lista, id){ return lista.filter(function(x){ return x.id === id; })[0].nome; }
   function ficha(){
     var t = [
-      'FICHA DE PEDIDO - JERSEY CADÊNCIA',
-      'Personalização: logo Cadência (frente no peito, costas acima do friso refletivo).',
+      'FICHA DE PEDIDO - ' + (S.modelo === 'bretelle' ? 'BRETELLE' : 'JERSEY') + ' CADÊNCIA',
+      (S.modelo === 'bretelle' ? 'Personalização: logo Cadência na coxa esquerda (frente) e acima do fundo (costas).' : 'Personalização: logo Cadência (frente no peito, costas acima do friso refletivo).'),
       'Tamanho: ' + $('tam').value + '   Quantidade: ' + ($('qtd').value || '1'),
       'Cor principal: ' + S.c1.toUpperCase(),
       'Cor secundária: ' + S.c2.toUpperCase(),
@@ -5275,7 +5317,7 @@ if ('serviceWorker' in navigator) {
       'Nome na barra das costas: ' + ($('nomeMont').value || 'sem nome'),
       'Laterais: ' + nomeDe(LATERAIS, S.lateral).toLowerCase(),
       'Mangas: ' + nomeDe(MANGAS, S.manga).toLowerCase(),
-      'Acabamento: gola baixa, zíper YKK, friso refletivo nos punhos e nas costas, barra com silicone, três bolsos.',
+      (S.modelo === 'bretelle' ? 'Acabamento: alças em tela elástica, forro (chamois) a definir com a fábrica, grippers de silicone nas bainhas, costuras planas.' : 'Acabamento: gola baixa, zíper YKK, friso refletivo nos punhos e nas costas, barra com silicone, três bolsos.'),
       '',
       'Rascunho do Ateliê Cadência. Confirme medidas e prova de cor com a fábrica.'
     ];
@@ -5289,7 +5331,7 @@ if ('serviceWorker' in navigator) {
     var temEscala = ['niveis','facetas','pulso','serpentina'].indexOf(S.padrao) >= 0;
     $('escala').disabled = !temEscala;
     $('escalaRotulo').textContent = 'Escala da estampa: ' + S.escala + '%' + (temEscala ? '' : ' (não vale para esta estampa)');
-    $('mangasBox').hidden = S.modelo === 'colete';
+    $('mangasBox').hidden = (S.modelo === 'colete' || S.modelo === 'bretelle');
     avisos(); ficha();
   }
 
@@ -5464,6 +5506,7 @@ if ('serviceWorker' in navigator) {
   }
 
   $('btnPaineis').addEventListener('click', function(){
+    if(S.modelo === 'bretelle'){ $('aviso').textContent = 'Painéis planos ainda não estão disponíveis para o bretelle. Use a ficha do pedido.'; $('aviso').hidden = false; return; }
     try{
       var svg = paineisSVG();
       $('svgPaineis').value = svg;
