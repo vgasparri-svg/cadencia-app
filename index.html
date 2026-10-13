@@ -1251,6 +1251,19 @@
       <div class="chips" id="jx-mangas"></div>
     </fieldset>
 
+    <fieldset id="jx-zipBox">
+      <legend>Zíper</legend>
+      <p class="jx-nota" style="margin:0 0 6px">Comprimento</p><div class="jx-chips" id="jx-zComps"></div>
+      <p class="jx-nota" style="margin:12px 0 6px">Cor da fita</p><div class="jx-chips" id="jx-zCors"></div>
+      <p class="jx-nota" style="margin:12px 0 6px">Puxador</p><div class="jx-chips" id="jx-zPuxs"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Tag NFC (opcional)</legend>
+      <div class="jx-chips" id="jx-nfcs"></div>
+      <p class="jx-nota" style="margin-top:8px">A tag é costurada depois da sublimação, longe do zíper e de metais. O link do perfil do ciclista é gravado nela. Aparece na ficha do pedido.</p>
+    </fieldset>
+
     <fieldset>
       <legend>Nome na barra das costas</legend>
       <label class="f" for="jx-nomeMont">Montanha
@@ -1483,6 +1496,19 @@
         <div class="section-head"><h2 style="font-size:14px;">Resumo de treino</h2></div>
         <div id="perfilResumoTreino"></div>
       </div>
+      <div class="section" style="padding-top:0;" id="tagNfcSec">
+        <div class="section-head"><h2 style="font-size:14px;">Minha tag NFC</h2></div>
+        <div style="padding:0 16px;">
+          <p class="intervals-desc" style="margin:0 0 10px;">Grave este link na tag NFC da sua jersey. Quem encostar o celular vê seu nome e sua assessoria.</p>
+          <label style="display:block;font-size:12px;color:var(--text-dim,#9aa);margin-bottom:4px;" for="tagAssessoria">Sua assessoria ou equipe (opcional)</label>
+          <input type="text" id="tagAssessoria" maxlength="60" placeholder="Ex.: Rio Pedal Team" style="width:100%;font:14px var(--font-body);color:var(--text);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;box-sizing:border-box;">
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <button class="btn-secondary" type="button" id="tagSalvar">Salvar</button>
+            <button class="btn-secondary" type="button" id="tagCopiar">Copiar link da tag</button>
+          </div>
+          <p class="intervals-desc" id="tagMsg" style="margin:8px 0 0;" hidden></p>
+        </div>
+      </div>
       <div class="section" style="padding-top:0;">
         <div class="section-head"><h2 style="font-size:14px;">Potência</h2></div>
         <div id="perfilPotencia" class="resumo-grid" style="padding:0 16px;"></div>
@@ -1580,6 +1606,19 @@
       <div class="modal-actions">
         <button class="btn-secondary" id="btnCancelReport">Cancelar</button>
         <button class="btn-primary" id="btnSendReport">Enviar e gerar B.O.</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal: ciclista (aberto pela tag NFC) -->
+  <div class="modal-backdrop" id="modalCiclistaBackdrop">
+    <div class="modal">
+      <div class="modal-grab"></div>
+      <p class="sub" style="margin:0 0 4px;">Ciclista</p>
+      <h3 id="cicNome" style="margin:0 0 6px;">…</h3>
+      <p class="sub" id="cicAssessoria" style="margin:0 0 14px;"></p>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="cicFechar">Fechar</button>
       </div>
     </div>
   </div>
@@ -5073,6 +5112,10 @@ if ('serviceWorker' in navigator) {
     {id:'teide',   nome:'Teide',       sub:'Espanha · Tenerife',     c:['#2A1A18','#C4572B','#E9DCC8'], padrao:'facetas',   lateral:'dk', manga:'c1', nota:'Terra vulcânica escura com lava alaranjada.'}
   ];
   var MODELOS = [{id:'curta',nome:'Manga curta'},{id:'longa',nome:'Manga longa'},{id:'colete',nome:'Colete'},{id:'bretelle',nome:'Bretelle'}];
+  var ZCOMPS = [{id:'curto',nome:'Curto'},{id:'medio',nome:'Médio'},{id:'integral',nome:'Integral'}];
+  var ZCORS  = [{id:'preto',nome:'Preto'},{id:'dk',nome:'Tom escuro'},{id:'c3',nome:'Detalhe'}];
+  var ZPUXS  = [{id:'padrao',nome:'Padrão'},{id:'argola',nome:'Com argola'}];
+  var NFCS   = [{id:'nao',nome:'Sem tag'},{id:'etiqueta',nome:'Etiqueta interna das costas'},{id:'bolso',nome:'Bolso traseiro, por dentro'},{id:'gola',nome:'Gola, por dentro'},{id:'perna',nome:'Perna (bretelle), por dentro'}];
   var PADROES = [
     {id:'solido',  nome:'Lisa'},
     {id:'fade',    nome:'Fade'},
@@ -5085,7 +5128,7 @@ if ('serviceWorker' in navigator) {
   var LATERAIS = [{id:'c1',nome:'Principal'},{id:'dk',nome:'Tom escuro'},{id:'c2',nome:'Secundária'}];
   var MANGAS   = [{id:'c1',nome:'Principal'},{id:'dk',nome:'Tom escuro'},{id:'c2',nome:'Secundária'},{id:'c3',nome:'Detalhe'}];
 
-  var S = { paleta:'atlantico', c1:'#0A2A43', c2:'#2F8FA3', c3:'#E9D8A6', padrao:'niveis', lateral:'dk', manga:'c1', nome:'', modelo:'curta', escala:100 };
+  var S = { paleta:'atlantico', c1:'#0A2A43', c2:'#2F8FA3', c3:'#E9D8A6', padrao:'niveis', lateral:'dk', manga:'c1', nome:'', modelo:'curta', escala:100, zComp:'medio', zCor:'preto', zPux:'padrao', nfc:'nao' };
   var $ = function(id){ return document.getElementById('jx-' + id); };
   var FONT = "'Arial Black','Helvetica Neue',Arial,sans-serif";
   var FONT2 = "'Helvetica Neue',Arial,sans-serif";
@@ -5275,9 +5318,13 @@ if ('serviceWorker' in navigator) {
       o += '<path d="M132 46 Q160 86 188 46 Z" fill="rgba(0,0,0,.55)"/>';
       o += '<path d="M128 44 Q160 92 192 44" fill="none" stroke="'+cDk+'" stroke-width="7" stroke-linecap="round"/>';
       o += '<path d="M128 44 Q160 92 192 44" fill="none" stroke="'+S.c3+'" stroke-width="1.6" stroke-linecap="round" transform="translate(0 4)"/>';
-      o += '<line x1="160" y1="90" x2="160" y2="214" stroke="#1B1D22" stroke-width="5"/>';
-      o += '<line x1="160" y1="90" x2="160" y2="214" stroke="#C6CAD1" stroke-width="3" stroke-dasharray="1.4 1.4"/>';
+      var zy = S.zComp === 'curto' ? 150 : (S.zComp === 'integral' ? 326 : 214);
+      var zt = S.zCor === 'dk' ? cDk : (S.zCor === 'c3' ? S.c3 : '#1B1D22');
+      var zd = lum(zt) > 0.35 ? '#2A2D33' : '#C6CAD1';
+      o += '<line x1="160" y1="90" x2="160" y2="'+zy+'" stroke="'+zt+'" stroke-width="5"/>';
+      o += '<line x1="160" y1="90" x2="160" y2="'+zy+'" stroke="'+zd+'" stroke-width="3" stroke-dasharray="1.4 1.4"/>';
       o += '<rect x="156.5" y="88" width="7" height="14" rx="2" fill="url(#zp'+id+')" stroke="rgba(0,0,0,.45)" stroke-width=".7"/>';
+      if(S.zPux === 'argola') o += '<circle cx="160" cy="108" r="4.2" fill="none" stroke="#C6CAD1" stroke-width="1.4"/>';
     } else {
       o += '<path d="M130 46 Q160 62 190 46 Z" fill="rgba(0,0,0,.4)"/>';
       o += '<path d="M126 44 Q160 70 194 44" fill="none" stroke="'+cDk+'" stroke-width="7" stroke-linecap="round"/>';
@@ -5362,10 +5409,14 @@ if ('serviceWorker' in navigator) {
       'Nome na barra das costas: ' + ($('nomeMont').value || 'sem nome'),
       'Laterais: ' + nomeDe(LATERAIS, S.lateral).toLowerCase(),
       'Mangas: ' + nomeDe(MANGAS, S.manga).toLowerCase(),
-      (S.modelo === 'bretelle' ? 'Acabamento: alças em tela elástica, forro (chamois) a definir com a fábrica, grippers de silicone nas bainhas, costuras planas.' : 'Acabamento: gola baixa, zíper YKK, friso refletivo nos punhos e nas costas, barra com silicone, três bolsos.'),
+      (S.modelo === 'bretelle' ? 'Acabamento: alças em tela elástica, forro (chamois) a definir com a fábrica, grippers de silicone nas bainhas, costuras planas.' : 'Acabamento: gola baixa, zíper (ver acima), friso refletivo nos punhos e nas costas, barra com silicone, três bolsos.'),
       '',
       'Rascunho do Ateliê Cadência. Confirme medidas e prova de cor com a fábrica.'
     ];
+    var ex = [];
+    if(S.modelo !== 'bretelle') ex.push('Zíper: ' + nomeDe(ZCOMPS, S.zComp).toLowerCase() + ', fita ' + nomeDe(ZCORS, S.zCor).toLowerCase() + ', puxador ' + nomeDe(ZPUXS, S.zPux).toLowerCase() + '. Confirmar com a fábrica o tipo (ex.: nº 3 ou 5) e o fornecedor.');
+    ex.push(S.nfc === 'nao' ? 'Tag NFC: não.' : 'Tag NFC: costurar uma tag (ex.: NTAG215) em: ' + nomeDe(NFCS, S.nfc).toLowerCase() + ', DEPOIS da sublimação e longe do zíper e de metais. Gravar o link do perfil do ciclista no app.');
+    t.splice(t.length - 3, 0, ex.join('\n'));
     if(KIT) t.unshift('KIT COMPLETO: jersey (' + nomeDe(MODELOS, (S.modelo === 'longa' || S.modelo === 'colete') ? S.modelo : 'curta').toLowerCase() + ') + bretelle liso na cor principal ' + S.c1.toUpperCase() + ', logo Cadência na coxa e CADÊNCIA em letras garrafais nas costas do bretelle.', '');
     $('ficha').value = t.join('\n');
   }
@@ -5378,6 +5429,7 @@ if ('serviceWorker' in navigator) {
     $('escala').disabled = !temEscala;
     $('escalaRotulo').textContent = 'Escala da estampa: ' + S.escala + '%' + (temEscala ? '' : ' (não vale para esta estampa)');
     $('mangasBox').hidden = (S.modelo === 'colete' || S.modelo === 'bretelle');
+    $('zipBox').hidden = S.modelo === 'bretelle';
     if(KIT) desenharKit();
     avisos(); ficha(); registrar();
   }
@@ -5447,7 +5499,7 @@ if ('serviceWorker' in navigator) {
     lista.forEach(function(it){
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'chip'; b.textContent = it.nome; b.dataset.id = it.id;
-      b.addEventListener('click', function(){ S[chave] = it.id; if(chave !== 'modelo'){ S.colecao = ''; marcarColecao(); } marcarChips(boxId, chave); desenhar(); });
+      b.addEventListener('click', function(){ S[chave] = it.id; if(['modelo','zComp','zCor','zPux','nfc'].indexOf(chave) < 0){ S.colecao = ''; marcarColecao(); } marcarChips(boxId, chave); desenhar(); });
       box.appendChild(b);
     });
     marcarChips(boxId, chave);
@@ -5613,7 +5665,7 @@ if ('serviceWorker' in navigator) {
   function temId(lista, id){ return lista.some(function(x){ return x.id === id; }); }
   function configAtual(){
     return { modelo:S.modelo, escala:S.escala, c1:S.c1, c2:S.c2, c3:S.c3, padrao:S.padrao, lateral:S.lateral, manga:S.manga, paleta:S.paleta, colecao:S.colecao,
-             nomeMont:$('nomeMont').value, tam:$('tam').value, qtd:Number($('qtd').value) || 1 };
+             zComp:S.zComp, zCor:S.zCor, zPux:S.zPux, nfc:S.nfc, nomeMont:$('nomeMont').value, tam:$('tam').value, qtd:Number($('qtd').value) || 1 };
   }
   function aplicarConfig(c){
     if(!c || typeof c !== 'object') return false;
@@ -5624,6 +5676,10 @@ if ('serviceWorker' in navigator) {
     if(temId(PADROES, c.padrao)) S.padrao = c.padrao;
     if(temId(LATERAIS, c.lateral)) S.lateral = c.lateral;
     if(temId(MANGAS, c.manga)) S.manga = c.manga;
+    if(temId(ZCOMPS, c.zComp)) S.zComp = c.zComp; else S.zComp = 'medio';
+    if(temId(ZCORS, c.zCor)) S.zCor = c.zCor; else S.zCor = 'preto';
+    if(temId(ZPUXS, c.zPux)) S.zPux = c.zPux; else S.zPux = 'padrao';
+    S.nfc = temId(NFCS, c.nfc) ? c.nfc : 'nao';
     S.paleta = temId(PALETAS, c.paleta) ? c.paleta : '';
     S.colecao = temId(COLECAO, c.colecao) ? c.colecao : '';
     $('c1').value = S.c1; $('c2').value = S.c2; $('c3').value = S.c3;
@@ -5631,7 +5687,7 @@ if ('serviceWorker' in navigator) {
     if(['PP','P','M','G','GG','XGG'].indexOf(c.tam) >= 0) $('tam').value = c.tam;
     var q = parseInt(c.qtd, 10); if(q >= 1 && q <= 500) $('qtd').value = q;
     marcarColecao(); marcarPaleta();
-    marcarChips('modelos','modelo'); marcarChips('padroes','padrao'); marcarChips('laterais','lateral'); marcarChips('mangas','manga');
+    marcarChips('modelos','modelo'); marcarChips('padroes','padrao'); marcarChips('laterais','lateral'); marcarChips('mangas','manga'); marcarChips('zComps','zComp'); marcarChips('zCors','zCor'); marcarChips('zPuxs','zPux'); marcarChips('nfcs','nfc');
     desenhar();
     return true;
   }
@@ -5714,6 +5770,9 @@ if ('serviceWorker' in navigator) {
     if(temId(MANGAS, cfg.manga)) S.manga = cfg.manga;
     if(temId(MODELOS, cfg.modelo)) S.modelo = cfg.modelo;
     var e = parseInt(cfg.escala, 10); if(e >= 80 && e <= 150) S.escala = e;
+    if(temId(ZCOMPS, cfg.zComp)) S.zComp = cfg.zComp; else S.zComp = 'medio';
+    if(temId(ZCORS, cfg.zCor)) S.zCor = cfg.zCor; else S.zCor = 'preto';
+    if(temId(ZPUXS, cfg.zPux)) S.zPux = cfg.zPux; else S.zPux = 'padrao';
     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 320 380'); svg.setAttribute('aria-hidden', 'true');
     svg.innerHTML = jersey('V' + idx);
@@ -5836,7 +5895,60 @@ if ('serviceWorker' in navigator) {
   chips('padroes', PADROES, 'padrao');
   chips('laterais', LATERAIS, 'lateral');
   chips('mangas', MANGAS, 'manga');
+  chips('zComps', ZCOMPS, 'zComp'); chips('zCors', ZCORS, 'zCor'); chips('zPuxs', ZPUXS, 'zPux'); chips('nfcs', NFCS, 'nfc');
   desenhar();
+})();
+</script>
+<script>
+/* Tag NFC: link do ciclista (#ciclista=ID) e campo de assessoria */
+(function(){
+  var APP = window.cadenciaApp; if(!APP) return;
+  var UUID = /^[0-9a-fA-F-]{36}$/;
+  function $(id){ return document.getElementById(id); }
+  function linkTag(){ return location.origin + location.pathname + '#ciclista=' + APP.user.id; }
+  function msg(t){ var m = $('tagMsg'); m.textContent = t; m.hidden = !t; }
+  async function carregarMinha(){
+    if(!APP.user) return;
+    var r = await APP.sb.from('usuarios').select('assessoria').eq('id', APP.user.id).single();
+    if(r.error){ msg('Para salvar a assessoria, falta rodar o SQL usuarios-assessoria.sql no Supabase.'); return; }
+    $('tagAssessoria').value = r.data.assessoria || ''; msg('');
+  }
+  async function salvar(){
+    if(!APP.user) return;
+    var v = $('tagAssessoria').value.trim().slice(0, 60);
+    var r = await APP.sb.from('usuarios').update({ assessoria: v || null }).eq('id', APP.user.id);
+    if(r.error){ APP.toast('Não deu pra salvar. Falta rodar o SQL?'); return; }
+    APP.toast('Salvo');
+  }
+  function copiar(){
+    if(!APP.user) return;
+    var t = linkTag();
+    try{ navigator.clipboard.writeText(t).then(function(){ APP.toast('Link da tag copiado'); }, function(){ msg(t); }); }
+    catch(e){ msg(t); }
+  }
+  async function abrirCiclista(){
+    var m = /^#ciclista=(.+)$/.exec(location.hash); if(!m || !APP.user) return;
+    var id = m[1]; if(!UUID.test(id)) return;
+    $('cicNome').textContent = '…'; $('cicAssessoria').textContent = '';
+    $('modalCiclistaBackdrop').classList.add('open');
+    var r = await APP.sb.from('usuarios').select('nome, assessoria').eq('id', id).single();
+    if(r.error){ r = await APP.sb.from('usuarios').select('nome').eq('id', id).single(); }
+    if(r.error || !r.data){ $('cicNome').textContent = 'Ciclista não encontrado'; return; }
+    $('cicNome').textContent = r.data.nome || 'Ciclista Cadência';
+    $('cicAssessoria').textContent = r.data.assessoria ? ('Assessoria: ' + r.data.assessoria) : '';
+  }
+  function fechar(){
+    $('modalCiclistaBackdrop').classList.remove('open');
+    if(/^#ciclista=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
+  }
+  $('tagSalvar').addEventListener('click', salvar);
+  $('tagCopiar').addEventListener('click', copiar);
+  $('cicFechar').addEventListener('click', fechar);
+  $('modalCiclistaBackdrop').addEventListener('click', function(e){ if(e.target === this) fechar(); });
+  function aoAutenticar(){ carregarMinha(); abrirCiclista(); }
+  document.addEventListener('cadencia:auth', aoAutenticar);
+  window.addEventListener('hashchange', abrirCiclista);
+  if(APP.user) aoAutenticar();
 })();
 </script>
 </body>
