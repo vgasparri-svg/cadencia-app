@@ -5469,7 +5469,39 @@ if ('serviceWorker' in navigator) {
 
   // ---- painéis planos para gráfica / costureira ----
   var CENTRO = 'M60 0 L260 0 L260 96 L223 128 Q212 200 214 262 Q214 310 224 350 L96 350 Q106 310 106 262 Q108 200 97 128 L60 96 Z';
+  // ---- painéis planos do bretelle ----
+  function paineisBib(){
+    var cDk = cor('dk'), tc = oposto(S.c1), corpo = '', defs = '';
+    var linha = 'fill="none" stroke="#E5322D" stroke-width="1.6" stroke-linejoin="round"';
+    function rotulo(txt, x, y){ return '<text x="'+x+'" y="'+y+'" font-size="12" font-weight="700" fill="#222" font-family="'+FONT2+'">'+esc(txt)+'</text>'; }
+    [['pbF', BIB_F, 'FRENTE', -42, true], ['pbB', BIB_B, 'COSTAS', 138, false]].forEach(function(p){
+      defs += '<clipPath id="'+p[0]+'"><path d="'+p[1]+'"/></clipPath>';
+      var c = '<rect width="320" height="380" fill="'+S.c1+'"/>';
+      c += '<rect x="70" y="326" width="90" height="26" fill="'+cDk+'"/><rect x="164" y="326" width="90" height="26" fill="'+cDk+'"/>';
+      c += logo(124, 286, 1.1, tc);
+      if(!p[4]) c += '<text x="160" y="112" font-size="21" font-weight="900" text-anchor="middle" textLength="118" lengthAdjust="spacingAndGlyphs" fill="'+tc+'" fill-opacity=".5" font-family="'+FONT+'">CADÊNCIA</text>';
+      corpo += '<g transform="translate('+p[3]+',14)"><g clip-path="url(#'+p[0]+')">'+c+'</g><path d="'+p[1]+'" '+linha+'/></g>';
+      corpo += rotulo(p[2] + ' (1 peça)', p[3] + 82, 392);
+    });
+    corpo += '<text x="40" y="410" font-size="10" fill="#555" font-family="'+FONT2+'">Pernas, alças e a faixa escura da bainha já fazem parte de cada painel (silicone interno a definir com a fábrica).</text>';
+    var itens = [['Principal',S.c1],['Tom escuro (bainhas)',cDk]];
+    itens.forEach(function(it, i){
+      corpo += '<rect x="'+(450+i*150)+'" y="60" width="30" height="30" fill="'+it[1]+'" stroke="#999" stroke-width=".8"/>'
+             + '<text x="'+(450+i*150)+'" y="106" font-size="10" font-weight="700" fill="#222" font-family="'+FONT2+'">'+it[0]+'</text>'
+             + '<text x="'+(450+i*150)+'" y="120" font-size="10" fill="#444" font-family="'+FONT2+'">'+it[1].toUpperCase()+'</text>';
+    });
+    var notas = [
+      'Cadência · painéis · bretelle liso',
+      'Linha vermelha = contorno de corte. Referência visual: sem escala, sem margem de costura. Ajustar à modelagem da costureira/gráfica.',
+      'Forro (chamois), elástico das alças e costuras não estão nesta folha. Veja a ficha do pedido.',
+      'Cores de tela: peça prova de cor (amostra impressa) antes de imprimir o lote.'
+    ];
+    notas.forEach(function(t, i){ corpo += '<text x="40" y="'+(540+i*17)+'" font-size="'+(i===0?12:10.5)+'" font-weight="'+(i===0?700:400)+'" fill="#333" font-family="'+FONT2+'">'+esc(t)+'</text>'; });
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" width="1800" height="1240"><rect width="900" height="620" fill="#fff"/><defs>'+defs+'</defs>'+corpo+'</svg>';
+  }
+
   function paineisSVG(){
+    if(S.modelo === 'bretelle') return paineisBib();
     var cMan = cor(S.manga), cLat = cor(S.lateral), cDk = cor('dk'), solido = S.padrao === 'solido';
     var tc = oposto(S.c1), defs = '', corpo = '', n = 0;
     defs += '<clipPath id="pT"><path d="'+TORSO+'"/></clipPath><clipPath id="pC"><path d="'+CENTRO+'"/></clipPath>'
@@ -5526,7 +5558,6 @@ if ('serviceWorker' in navigator) {
   }
 
   $('btnPaineis').addEventListener('click', function(){
-    if(S.modelo === 'bretelle'){ $('aviso').textContent = 'Painéis planos ainda não estão disponíveis para o bretelle. Use a ficha do pedido.'; $('aviso').hidden = false; return; }
     try{
       var svg = paineisSVG();
       $('svgPaineis').value = svg;
