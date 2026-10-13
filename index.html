@@ -1200,6 +1200,11 @@
       <figure><svg id="jx-svgCostas" viewBox="0 0 320 380" role="img" aria-label="Jersey, vista das costas"></svg><figcaption>Costas</figcaption></figure>
     </div>
     <p class="jx-aviso" id="jx-aviso" hidden></p>
+    <div class="jx-acoes" style="margin-top:8px"><button class="btn sec" type="button" style="color:#fff;border-color:rgba(255,255,255,.45);background:transparent" id="jx-btnKit">Ver kit completo (jersey + bretelle)</button></div>
+    <div id="jx-kit" hidden style="margin-top:10px">
+      <div class="jx-pair"><figure><svg id="jx-kJF" viewBox="0 0 320 380" aria-label="Jersey do kit, frente"></svg><figcaption>Jersey · frente</figcaption></figure><figure><svg id="jx-kJB" viewBox="0 0 320 380" aria-label="Jersey do kit, costas"></svg><figcaption>Jersey · costas</figcaption></figure></div>
+      <div class="jx-pair"><figure><svg id="jx-kBF" viewBox="0 0 320 380" aria-label="Bretelle do kit, frente"></svg><figcaption>Bretelle · frente</figcaption></figure><figure><svg id="jx-kBB" viewBox="0 0 320 380" aria-label="Bretelle do kit, costas"></svg><figcaption>Bretelle · costas</figcaption></figure></div>
+    </div>
   </section>
 
   <section class="jx-panel">
@@ -5221,7 +5226,7 @@ if ('serviceWorker' in navigator) {
   }
 
   function jersey(id){
-    var frente = id !== 'jxB';
+    var frente = id.slice(-1) !== 'B';
     if(S.modelo === 'bretelle') return bretelle(id, frente);
     var cl1 = S.c1, cLat = cor(S.lateral), cMan = cor(S.manga), cDk = cor('dk');
     var traco = 'stroke="rgba(0,0,0,.35)" stroke-width="1" stroke-linejoin="round"';
@@ -5298,6 +5303,21 @@ if ('serviceWorker' in navigator) {
     return o;
   }
 
+  // ---- kit completo: jersey + bretelle com as mesmas cores ----
+  var KIT = false;
+  function comModelo(m, id){ var ant = S.modelo; S.modelo = m; try{ return jersey(id); } finally { S.modelo = ant; } }
+  function desenharKit(){
+    var jm = (S.modelo === 'longa' || S.modelo === 'colete') ? S.modelo : 'curta';
+    $('kJF').innerHTML = comModelo(jm, 'kJF'); $('kJB').innerHTML = comModelo(jm, 'kJB');
+    $('kBF').innerHTML = comModelo('bretelle', 'kBF'); $('kBB').innerHTML = comModelo('bretelle', 'kBB');
+  }
+  function alternarKit(){
+    KIT = !KIT; $('kit').hidden = !KIT; $('svgFrente').parentNode.parentNode.hidden = KIT;
+    $('btnKit').textContent = KIT ? 'Ocultar kit' : 'Ver kit completo (jersey + bretelle)';
+    if(KIT) desenharKit();
+    ficha();
+  }
+
   function avisos(){ $('aviso').hidden = true; }
 
   function nomeDe(lista, id){ return lista.filter(function(x){ return x.id === id; })[0].nome; }
@@ -5319,6 +5339,7 @@ if ('serviceWorker' in navigator) {
       '',
       'Rascunho do Ateliê Cadência. Confirme medidas e prova de cor com a fábrica.'
     ];
+    if(KIT) t.unshift('KIT COMPLETO: jersey (' + nomeDe(MODELOS, (S.modelo === 'longa' || S.modelo === 'colete') ? S.modelo : 'curta').toLowerCase() + ') + bretelle liso na cor principal ' + S.c1.toUpperCase() + ', logo Cadência na coxa e CADÊNCIA em letras garrafais nas costas do bretelle.', '');
     $('ficha').value = t.join('\n');
   }
 
@@ -5330,6 +5351,7 @@ if ('serviceWorker' in navigator) {
     $('escala').disabled = !temEscala;
     $('escalaRotulo').textContent = 'Escala da estampa: ' + S.escala + '%' + (temEscala ? '' : ' (não vale para esta estampa)');
     $('mangasBox').hidden = (S.modelo === 'colete' || S.modelo === 'bretelle');
+    if(KIT) desenharKit();
     avisos(); ficha();
   }
 
@@ -5720,7 +5742,11 @@ if ('serviceWorker' in navigator) {
     APP.toast('Pedido cancelado'); carregarVotacao();
   }
   function copiarResumo(c){
+    var cf = c.d.config || {};
     var linhas = ['PEDIDO COLETIVO - JERSEY CADÊNCIA', 'Design: ' + c.d.nome, 'Total: ' + c.pecas + ' peças (lote mínimo: ' + MIN_LOTE + ')'];
+    if(temId(MODELOS, cf.modelo)) linhas.push('Modelo: ' + nomeDe(MODELOS, cf.modelo));
+    if(temId(PADROES, cf.padrao)) linhas.push('Estampa: ' + nomeDe(PADROES, cf.padrao));
+    ['c1','c2','c3'].forEach(function(k, i){ if(CORHEX.test(cf[k])) linhas.push(['Cor principal','Cor secundária','Cor de detalhe'][i] + ': ' + cf[k].toUpperCase()); });
     TAMS.forEach(function(t){ if(c.porTam[t]) linhas.push(t + ': ' + c.porTam[t]); });
     linhas.push('Link do design: ' + linkDe(c.d.id));
     var txt = linhas.join('\n');
@@ -5742,6 +5768,7 @@ if ('serviceWorker' in navigator) {
     if(APP.user) aoAutenticar();
   }
 
+  $('btnKit').addEventListener('click', alternarKit);
   montarNomes(); montarColecao(); marcarColecao();
   montarPaletas(); marcarPaleta();
   chips('modelos', MODELOS, 'modelo');
