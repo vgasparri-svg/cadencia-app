@@ -1555,6 +1555,12 @@
           <div id="listaBloqueados"></div>
         </div>
         <button class="btn-logout" id="btnAtivarFaceIdPerfil" style="border-color:var(--safety); color:var(--safety); margin-bottom:10px;">Ativar Face ID / Touch ID neste aparelho</button>
+        <div style="border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
+          <label style="display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer;">
+            <input type="checkbox" id="chkAlertaChuva" style="width:20px;height:20px;"> Alerta de chuva
+          </label>
+          <p class="intervals-desc" id="alertaChuvaDesc" style="margin:6px 0 0;">Aviso por notificação quando a chuva estiver chegando nas próximas horas, para o local da sua previsão.</p>
+        </div>
         <button class="btn-logout" id="btnAtivarPushPerfil" style="border-color:var(--route); color:var(--route); margin-bottom:10px;">Reativar notificações push neste aparelho</button>
         <button class="btn-logout" id="btnLogoutPerfil">Sair da conta</button>
       </div>
@@ -1832,6 +1838,9 @@
     if(n) n.textContent = 'Previsão · ' + climaNome;
     if(b) b.textContent = climaGps ? '↩ Voltar ao Rio' : '📍 Usar minha localização';
     if(st) st.textContent = climaGps ? climaNome : 'Zona Sul · Rio de Janeiro';
+    try{ sincronizarPontoGps(); } catch(e){}
+    try{ if(map) map.flyTo({ center: climaGps ? [climaLng, climaLat] : RIO_CENTER, zoom: climaGps ? 13 : 12.5 }); } catch(e){}
+    try{ sincronizarAlertaChuva(); } catch(e){}
   }
   function posicaoAtual(){
     return new Promise((ok, erro) => {
@@ -2195,6 +2204,27 @@
       renderMelhorHorario();
     });
   }
+  // quando a previsão usa a localização do celular, entra um ponto "Perto de você" no topo
+  function sincronizarPontoGps(){
+    const i = PONTOS_TEMPO.findIndex(p => p.gps);
+    if(climaGps){
+      const p = { nome: 'Perto de você', sub: climaNome, lat: climaLat, lng: climaLng, cam: null, gps: true };
+      if(i >= 0) PONTOS_TEMPO[i] = p; else PONTOS_TEMPO.unshift(p);
+    } else if(i >= 0){
+      PONTOS_TEMPO.splice(i, 1);
+    }
+    if(melhorPontoSel){
+      const atual = melhorPontoSel.value;
+      melhorPontoSel.innerHTML = '';
+      PONTOS_TEMPO.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p.nome; o.textContent = p.nome;
+        melhorPontoSel.appendChild(o);
+      });
+      melhorPontoSel.value = PONTOS_TEMPO.some(p => p.nome === atual) ? atual : PONTOS_TEMPO[0].nome;
+    }
+    carregarTempoPontos();
+  }
   const btnAtualizarTempoPontos = document.getElementById('btnAtualizarTempoPontos');
   if(btnAtualizarTempoPontos) btnAtualizarTempoPontos.addEventListener('click', carregarTempoPontos);
   carregarTempoPontos();
@@ -2455,6 +2485,42 @@
     await garantirInscricaoPush(false);
   });
 
+  // ---------- alerta de chuva (um aviso agendado no servidor lê estas colunas) ----------
+  const chkAlertaChuva = document.getElementById('chkAlertaChuva');
+  const alertaChuvaDesc = document.getElementById('alertaChuvaDesc');
+  function textoAlertaChuva(ativo, nome){
+    alertaChuvaDesc.textContent = ativo
+      ? `Ligado. Você será avisado quando a chuva estiver chegando em ${nome || 'seu local'}.`
+      : 'Aviso por notificação quando a chuva estiver chegando nas próximas horas, para o local da sua previsão.';
+  }
+  async function salvarAlertaChuva(ativo){
+    if(!currentUser || !supabaseReady) return false;
+    const { error } = await sb.from('usuarios').update({
+      alerta_chuva: ativo, alerta_chuva_lat: climaLat, alerta_chuva_lng: climaLng, alerta_chuva_nome: climaNome
+    }).eq('id', currentUser.id);
+    if(error){ showToast('Não deu pra salvar o alerta. Falta rodar o SQL do alerta de chuva?'); return false; }
+    return true;
+  }
+  chkAlertaChuva.addEventListener('change', async () => {
+    const ativo = chkAlertaChuva.checked;
+    if(!exigirLogin()){ chkAlertaChuva.checked = !ativo; return; }
+    if(ativo && !(await garantirInscricaoPush(false))){ chkAlertaChuva.checked = false; return; }
+    if(!(await salvarAlertaChuva(ativo))){ chkAlertaChuva.checked = !ativo; return; }
+    textoAlertaChuva(ativo, climaNome);
+    showToast(ativo ? 'Alerta de chuva ligado' : 'Alerta de chuva desligado');
+  });
+  function sincronizarAlertaChuva(){
+    if(chkAlertaChuva && chkAlertaChuva.checked){ salvarAlertaChuva(true).then(ok => { if(ok) textoAlertaChuva(true, climaNome); }); }
+  }
+  async function carregarAlertaChuva(){
+    if(!currentUser || !supabaseReady) return;
+    const { data, error } = await sb.from('usuarios').select('alerta_chuva, alerta_chuva_nome').eq('id', currentUser.id).single();
+    if(error || !data) return;
+    chkAlertaChuva.checked = !!data.alerta_chuva;
+    textoAlertaChuva(!!data.alerta_chuva, data.alerta_chuva_nome);
+  }
+  document.addEventListener('cadencia:auth', carregarAlertaChuva);
+
   const modalAvisarBackdrop = document.getElementById('modalAvisarBackdrop');
   let avisarUsuarioIdAlvo = null;
 
@@ -2688,8 +2754,8 @@
     map = new mapboxgl.Map({
       container: 'map',
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: RIO_CENTER,
-      zoom: 12.5,
+      center: climaGps ? [climaLng, climaLat] : RIO_CENTER,
+      zoom: climaGps ? 13 : 12.5,
       attributionControl: false
     });
     map.addControl(new mapboxgl.AttributionControl({ compact: true }));
