@@ -2231,6 +2231,37 @@
   setInterval(carregarTempoPontos, 15*60*1000); // atualiza a cada 15 minutos
 
   // ============================================================
+  // CONEXÃO E ERROS INESPERADOS — avisa em vez de falhar em silêncio
+  // ============================================================
+  (function(){
+    const faixa = document.createElement('div');
+    faixa.setAttribute('role', 'status');
+    faixa.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;padding:calc(6px + env(safe-area-inset-top,0px)) 12px 6px;text-align:center;font:600 12px var(--font-body, system-ui);background:#C0392B;color:#fff;transform:translateY(-100%);transition:transform .25s;';
+    faixa.textContent = 'Sem conexão. Algumas informações podem não carregar.';
+    document.body.appendChild(faixa);
+    function mostrar(offline){ faixa.style.transform = offline ? 'translateY(0)' : 'translateY(-100%)'; }
+    window.addEventListener('offline', () => mostrar(true));
+    window.addEventListener('online', () => {
+      mostrar(false);
+      showToast('Conexão voltou');
+      try{ carregarClima(); carregarTempoPontos(); } catch(e){}
+    });
+    if(navigator.onLine === false) mostrar(true);
+
+    // falha inesperada de rede/servidor: no máximo um aviso a cada 30 s
+    let ultimoAviso = 0;
+    window.addEventListener('unhandledrejection', (ev) => {
+      const r = ev.reason, msg = String((r && r.message) || r || '');
+      console.warn('Falha não tratada:', r);
+      if(navigator.onLine === false) return; // a faixa de "sem conexão" já avisa
+      if(!/fetch|network|timeout|supabase|json/i.test(msg)) return; // ignora ruído (permissões, cancelamentos)
+      if(Date.now() - ultimoAviso < 30000) return;
+      ultimoAviso = Date.now();
+      showToast('Não deu pra falar com o servidor. Tente de novo.');
+    });
+  })();
+
+  // ============================================================
   // AUTENTICAÇÃO — gate em tela cheia, código de 6 dígitos por e-mail
   // (sem link pra clicar, sem custo de SMS)
   // ============================================================
