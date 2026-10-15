@@ -1014,7 +1014,7 @@
 
   <div class="statusbar">
     <span id="relogioAtual">--:--</span>
-    <span>Zona Sul · Rio de Janeiro</span>
+    <span id="statusLocal">Zona Sul · Rio de Janeiro</span>
   </div>
 
 
@@ -1052,6 +1052,10 @@
         <span>Aterro · Orla · Lagoa</span>
       </div>
 
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 16px 6px;">
+        <span id="climaLocalNome" style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">Previsão · Rio de Janeiro</span>
+        <button class="chip" type="button" id="btnClimaLocal" style="font-size:11px;">📍 Usar minha localização</button>
+      </div>
       <div class="chip-row" id="previsaoSemanaList" style="padding:2px 16px 16px;"></div>
 
       <!-- ===== TEMPO AO VIVO: clima por ponto de pedal + câmeras ===== -->
@@ -1820,12 +1824,51 @@
   }
 
   const RIO_LAT = -22.9068, RIO_LNG = -43.1729;
+  let climaLat = RIO_LAT, climaLng = RIO_LNG, climaNome = 'Rio de Janeiro', climaGps = false;
+  const CLIMA_LS = 'clima_local';
+  function lsClima(v){ try{ if(v === undefined) return localStorage.getItem(CLIMA_LS); localStorage.setItem(CLIMA_LS, v); }catch(e){} return null; }
+  function rotuloClima(){
+    const n = document.getElementById('climaLocalNome'), b = document.getElementById('btnClimaLocal'), st = document.getElementById('statusLocal');
+    if(n) n.textContent = 'Previsão · ' + climaNome;
+    if(b) b.textContent = climaGps ? '↩ Voltar ao Rio' : '📍 Usar minha localização';
+    if(st) st.textContent = climaGps ? climaNome : 'Zona Sul · Rio de Janeiro';
+  }
+  function posicaoAtual(){
+    return new Promise((ok, erro) => {
+      if(!('geolocation' in navigator)) return erro(new Error('sem geolocalização'));
+      navigator.geolocation.getCurrentPosition(p => ok(p.coords), erro, { enableHighAccuracy:false, timeout:10000, maximumAge:600000 });
+    });
+  }
+  async function nomeDoLugar(lat, lng){
+    try{
+      const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=pt`);
+      if(!r.ok) throw new Error('status ' + r.status);
+      const d = await r.json();
+      return d.city || d.locality || d.principalSubdivision || 'Sua localização';
+    }catch(e){ return 'Sua localização'; }
+  }
+  async function usarGpsNoClima(silencioso){
+    try{
+      const c = await posicaoAtual();
+      climaLat = c.latitude; climaLng = c.longitude; climaGps = true;
+      climaNome = await nomeDoLugar(climaLat, climaLng);
+      lsClima('gps');
+    }catch(e){
+      if(!silencioso) showToast('Não consegui sua localização. Confira a permissão do navegador.');
+      return;
+    }
+    rotuloClima(); carregarClima();
+  }
+  function usarRioNoClima(){
+    climaLat = RIO_LAT; climaLng = RIO_LNG; climaNome = 'Rio de Janeiro'; climaGps = false;
+    lsClima('rio'); rotuloClima(); carregarClima();
+  }
 
   async function carregarClima(){
     const chipTexto = document.getElementById('weatherTexto');
     const previsaoList = document.getElementById('previsaoSemanaList');
     try{
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${RIO_LAT}&longitude=${RIO_LNG}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=America%2FSao_Paulo&forecast_days=7`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${climaLat}&longitude=${climaLng}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=America%2FSao_Paulo&forecast_days=7`;
       const resp = await fetch(url);
       if(!resp.ok) throw new Error('status ' + resp.status);
       const dados = await resp.json();
@@ -1858,7 +1901,9 @@
       if(previsaoList) previsaoList.innerHTML = '';
     }
   }
+  document.getElementById('btnClimaLocal').addEventListener('click', () => { climaGps ? usarRioNoClima() : usarGpsNoClima(false); });
   carregarClima();
+  if(lsClima() === 'gps') usarGpsNoClima(true);
   setInterval(carregarClima, 30*60*1000); // atualiza a cada 30 minutos
 
   // ============================================================
