@@ -1334,6 +1334,7 @@
       <button class="btn" type="button" id="jx-btnPng">Gerar imagem</button>
       <button class="btn sec" type="button" id="jx-btnFicha">Copiar ficha</button>
       <button class="btn sec" type="button" id="jx-btnPaineis">Painéis para gráfica</button>
+      <button class="btn sec" type="button" id="jx-btnPedido">Link para a fábrica</button>
     </div>
     <div class="png" id="jx-pn"><img id="jx-pnImg" alt="Painéis planos da jersey"><small>Folha com as peças planas e a tabela de cores, para levar à gráfica de sublimação ou à costureira. Sem escala e sem margem de costura.</small><button class="btn sec" type="button" id="jx-btnSvg">Copiar SVG (vetor)</button></div>
     <textarea id="jx-svgPaineis" hidden></textarea>
@@ -6042,6 +6043,56 @@ if ('serviceWorker' in navigator) {
     desenhar();
     return true;
   }
+  // ---- link público do pedido para a fábrica (abre sem login: #pedido=<token>) ----
+  async function gerarLinkPedido(){
+    if(!APP || !APP.user){ if(APP) APP.toast('Entre com seu e-mail para gerar o link'); return; }
+    var token = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : null; if(!token){ APP.toast('Navegador sem suporte'); return; }
+    var r = await APP.sb.from('pedido_fabrica').insert({ token: token, user_id: APP.user.id, config: configAtual(), ficha: $('ficha').value, expira: new Date(Date.now() + 30 * 864e5).toISOString() });
+    if(r.error){ APP.toast('Não deu pra gerar. Falta rodar o SQL pedido-fabrica.sql?'); return; }
+    var url = location.origin + location.pathname + '#pedido=' + token;
+    var texto = 'Pedido de jersey Cadência: abra o link para ver o desenho (frente e costas), a ficha com as cores e os painéis para a gráfica (vale 30 dias).\n' + url;
+    if(navigator.share){ try{ await navigator.share({ text: texto }); return; } catch(e){ if(e && e.name === 'AbortError') return; } }
+    try{ await navigator.clipboard.writeText(texto); APP.toast('Link copiado — cole no WhatsApp ou e-mail'); } catch(e){ prompt('Copie o link:', url); }
+  }
+  function paginaPedido(token){
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#14181B;color:#EDEFEE;overflow:auto;padding:20px 16px 40px';
+    ov.innerHTML = '<div style="max-width:560px;margin:0 auto"><h2 style="font-size:20px;margin-bottom:4px">Pedido de jersey Cadência</h2><p id="pdMsg" style="font-size:13px;color:#8B939A;margin-bottom:14px">Carregando…</p><div id="pdCorpo" hidden>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><svg id="pdF" viewBox="0 0 320 380" style="width:100%;height:auto"></svg><p style="text-align:center;font-size:11px;color:#8B939A">FRENTE</p></div><div><svg id="pdB" viewBox="0 0 320 380" style="width:100%;height:auto"></svg><p style="text-align:center;font-size:11px;color:#8B939A">COSTAS</p></div></div>'
+      + '<label style="display:block;font-size:11px;color:#8B939A;margin:14px 0 4px;font-family:monospace">FICHA</label><textarea id="pdFicha" readonly style="width:100%;height:260px;background:#232A2F;color:#EDEFEE;border:1px solid #2E363C;border-radius:9px;padding:10px;font:12px monospace"></textarea>'
+      + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button id="pdCopiar" style="flex:1;padding:12px;border-radius:100px;background:#C9FF3D;color:#141A0A;font-weight:700">Copiar ficha</button><button id="pdPaineis" style="flex:1;padding:12px;border-radius:100px;border:1px solid #2E363C;color:#EDEFEE">Painéis para gráfica</button></div>'
+      + '<div id="pdPn" hidden style="margin-top:12px"><img id="pdPnImg" alt="Painéis planos" style="width:100%;background:#fff;border-radius:8px"><p style="font-size:11px;color:#8B939A;margin-top:6px">Celular: segure a imagem e escolha salvar. Computador: botão direito, salvar imagem. Peça prova de cor antes de imprimir o lote.</p></div></div></div>';
+    document.body.appendChild(ov);
+    var f = function(i){ return ov.querySelector('#' + i); }, ficha = '';
+    APP.sb.rpc('pedido_fabrica_ler', { t: token }).then(function(r){
+      if(r.error || !r.data){ f('pdMsg').textContent = 'Este link não é válido ou expirou. Peça um novo a quem enviou.'; return; }
+      try{
+        aplicarConfig(r.data.config); ficha = r.data.ficha || '';
+        f('pdF').innerHTML = jersey('pdF'); f('pdB').innerHTML = jersey('pdB');
+        f('pdFicha').value = ficha; f('pdCorpo').hidden = false;
+        f('pdMsg').textContent = 'Enviado em ' + dataCurta(r.data.criado_em) + '. As cores na tela variam de aparelho para aparelho: peça uma amostra física.';
+      }catch(e){ f('pdMsg').textContent = 'Não foi possível montar o desenho.'; }
+    });
+    f('pdCopiar').addEventListener('click', function(){
+      var b = this, ta = f('pdFicha');
+      function ok(){ b.textContent = 'Copiado'; setTimeout(function(){ b.textContent = 'Copiar ficha'; }, 1600); }
+      try{ navigator.clipboard.writeText(ta.value).then(ok, function(){ ta.focus(); ta.select(); }); }catch(e){ ta.focus(); ta.select(); }
+    });
+    f('pdPaineis').addEventListener('click', function(){
+      try{
+        var svg = paineisSVG(), img = new Image();
+        img.onload = function(){ try{ var c = document.createElement('canvas'); c.width = 1800; c.height = 1240; c.getContext('2d').drawImage(img, 0, 0); f('pdPnImg').src = c.toDataURL('image/png'); f('pdPn').hidden = false; }catch(e){} };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      }catch(e){}
+    });
+  }
+  function checarPedido(){
+    var m = /^#pedido=([0-9a-fA-F-]{36})$/.exec(location.hash);
+    if(m && APP && !document.getElementById('pdMsg')) paginaPedido(m[1]);
+  }
+  setTimeout(checarPedido, 0); window.addEventListener('hashchange', checarPedido);
+  $('btnPedido').addEventListener('click', gerarLinkPedido);
+
   function linkDe(id){ return location.origin + location.pathname + '#jersey=' + id; }
   function mostrarLink(txt){
     $('linkWrap').hidden = false;
