@@ -1557,6 +1557,15 @@
         </div>
       </div>
 
+      <div class="section" style="padding-top:0;" id="lojaPedSec" hidden>
+        <div class="section-head"><h2 style="font-size:14px;">Pedidos da loja</h2></div>
+        <div style="padding:0 16px;">
+          <p class="intervals-desc" style="margin:0 0 10px;">Pedidos feitos em loja.html. Confirme o Pix e mude a situação; o cliente vê no link dele.</p>
+          <button type="button" class="btn-secondary" id="lojaPedAtualizar">Atualizar</button>
+          <div id="lojaPedLista" style="margin-top:10px;"></div>
+        </div>
+      </div>
+
       <div class="section" style="padding-top:0;" id="tagNfcSec">
         <div class="section-head"><h2 style="font-size:14px;">Minha tag NFC</h2></div>
         <div style="padding:0 16px;">
@@ -6629,6 +6638,54 @@ if ('serviceWorker' in navigator) {
   document.addEventListener('cadencia:auth', carregarNome);
   if(APP.user) carregarNome();
   mostrarRecentes();
+})();
+</script>
+<script>
+/* Pedidos da loja: painel do dono (RLS só libera para o e-mail do dono) */
+(function(){
+  var APP = window.cadenciaApp; if(!APP) return;
+  var DONO = 'vgasparri@gmail.com';
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  var ST = [['aguardando_pagamento','Aguardando pagamento'],['pago','Pago'],['em_producao','Em produção'],['enviado','Enviado'],['cancelado','Cancelado']];
+  function moeda(v){ return v == null ? 'a combinar' : 'R$ ' + Number(v).toFixed(2).replace('.', ','); }
+  function zap(c){ var d = String(c||'').replace(/\D/g,''); if(d.length >= 10 && !/@/.test(c)) return 'https://wa.me/' + (d.length <= 11 ? '55' + d : d); return null; }
+  function eDono(){ return APP.user && String(APP.user.email||'').toLowerCase() === DONO; }
+  async function carregar(){
+    var sec = $('lojaPedSec'); if(!sec) return;
+    if(!eDono()){ sec.hidden = true; return; }
+    sec.hidden = false;
+    var box = $('lojaPedLista'); box.innerHTML = '<p class="intervals-desc">Carregando…</p>';
+    var r = await APP.sb.from('loja_pedidos').select('*').order('criado_em', { ascending:false }).limit(100);
+    if(r.error){ box.innerHTML = '<p class="intervals-desc">Não deu pra carregar. Rodou o loja-pedidos.sql no Supabase?</p>'; return; }
+    if(!r.data.length){ box.innerHTML = '<p class="intervals-desc">Nenhum pedido ainda.</p>'; return; }
+    box.innerHTML = r.data.map(function(p){
+      var w = zap(p.contato), dt = new Date(p.criado_em).toLocaleDateString('pt-BR');
+      return '<div data-id="' + p.id + '" style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;">'
+        + '<div style="display:flex;justify-content:space-between;gap:8px;font-size:14px;"><b>#' + p.numero + ' · ' + esc(p.nome) + '</b><span style="color:var(--text-dim,#9aa);font-size:12px;">' + dt + '</span></div>'
+        + '<div style="font-size:13px;margin:6px 0;">' + (p.itens||[]).map(function(i){ return esc(i.qtd + 'x ' + i.nomePeca + ' · ' + i.desenho + ' · tam ' + i.tam); }).join('<br>') + '</div>'
+        + '<div style="font-size:13px;margin-bottom:4px;">Total: ' + moeda(p.total) + '</div>'
+        + '<div style="font-size:13px;margin-bottom:4px;">Contato: ' + (w ? '<a href="' + w + '" target="_blank" rel="noopener">' + esc(p.contato) + '</a>' : esc(p.contato)) + '</div>'
+        + (p.envio ? '<div style="font-size:13px;margin-bottom:6px;">Entrega: ' + esc(p.envio) + '</div>' : '')
+        + '<select class="lpSt" style="width:100%;font:14px var(--font-body);color:var(--text);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:6px;">' + ST.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') + '</select>'
+        + '<input class="lpObs" type="text" maxlength="200" placeholder="Anotação interna (opcional)" value="' + esc(p.obs_interna||'') + '" style="width:100%;font:14px var(--font-body);color:var(--text);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:6px;">'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="btn-secondary lpSalvar">Salvar</button><button type="button" class="btn-secondary lpLink">Copiar link do cliente</button></div></div>';
+    }).join('');
+  }
+  $('lojaPedLista').addEventListener('click', async function(e){
+    var card = e.target.closest('[data-id]'); if(!card) return;
+    var id = card.getAttribute('data-id');
+    if(e.target.classList.contains('lpSalvar')){
+      var r = await APP.sb.from('loja_pedidos').update({ status: card.querySelector('.lpSt').value, obs_interna: card.querySelector('.lpObs').value.trim() || null, atualizado_em: new Date().toISOString() }).eq('id', id);
+      APP.toast(r.error ? 'Não deu pra salvar' : 'Pedido atualizado');
+    } else if(e.target.classList.contains('lpLink')){
+      var url = location.origin + '/loja.html#pedido=' + id;
+      try{ await navigator.clipboard.writeText(url); APP.toast('Link copiado'); }catch(err){ prompt('Copie o link:', url); }
+    }
+  });
+  $('lojaPedAtualizar').addEventListener('click', carregar);
+  document.addEventListener('cadencia:auth', carregar);
+  if(APP.user) carregar();
 })();
 </script>
 </body>
