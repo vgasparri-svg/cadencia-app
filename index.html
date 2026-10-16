@@ -1851,7 +1851,7 @@
   // Abas escondidas da barra de baixo. Nada é apagado: as telas e os
   // dados continuam no código e no banco. Pra voltar com uma aba,
   // é só tirar o nome dela desta lista (ex.: [] mostra todas).
-  const ABAS_OCULTAS = [];
+  const ABAS_OCULTAS = ['comunidade', 'assessorias'];
   navBtns.forEach(b => {
     if(ABAS_OCULTAS.includes(b.dataset.view)) b.classList.add('hidden');
   });
