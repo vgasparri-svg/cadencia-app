@@ -1545,6 +1545,11 @@
         <div class="section-head"><h2 style="font-size:14px;">Recados</h2></div>
         <div style="padding:0 16px;">
           <p class="intervals-desc" style="margin:0 0 10px;">Mande um texto para outro ciclista. Chega como notificação no celular dele e aparece no relógio (Garmin) se ele estiver com as notificações liberadas.</p>
+          <label style="display:block;font-size:12px;color:var(--text-dim,#9aa);margin-bottom:4px;" for="recMeuNome">Seu nome no app (é o que os outros veem e buscam)</label>
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <input type="text" id="recMeuNome" maxlength="40" placeholder="Ex.: Vinicius" style="flex:1;min-width:0;font:14px var(--font-body);color:var(--text);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;box-sizing:border-box;">
+            <button type="button" id="recSalvarNome" style="font-size:12px;padding:7px 14px;border:1px solid var(--line);border-radius:100px;">Salvar</button>
+          </div>
           <input type="search" id="recBusca" maxlength="40" placeholder="Buscar ciclista pelo nome…" autocomplete="off" style="width:100%;font:14px var(--font-body);color:var(--text);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;box-sizing:border-box;">
           <div id="recLista" style="margin-top:8px;"></div>
         </div>
@@ -6556,6 +6561,21 @@ if ('serviceWorker' in navigator) {
     var t = document.createElement('button'); t.className = 'btn-avisar-ciclista'; t.dataset.usuarioId = b.dataset.id; t.dataset.nome = b.dataset.nome; t.style.display = 'none';
     document.body.appendChild(t); t.click(); t.remove();
   });
+  async function carregarNome(){
+    if(!APP.user) return;
+    var r = await APP.sb.from('usuarios').select('nome').eq('id', APP.user.id).single();
+    if(!r.error && r.data) $('recMeuNome').value = (r.data.nome && r.data.nome !== 'Ciclista') ? r.data.nome : '';
+  }
+  $('recSalvarNome').addEventListener('click', async function(){
+    if(!APP.user){ APP.toast('Entre com seu e-mail para continuar'); return; }
+    var v = $('recMeuNome').value.trim().slice(0, 40);
+    if(v.length < 2){ APP.toast('Escreva seu nome'); return; }
+    var r = await APP.sb.from('usuarios').update({ nome: v }).eq('id', APP.user.id);
+    if(r.error){ APP.toast('Não deu pra salvar o nome'); return; }
+    APP.toast('Nome salvo');
+  });
+  document.addEventListener('cadencia:auth', carregarNome);
+  if(APP.user) carregarNome();
   mostrarRecentes();
 })();
 </script>
