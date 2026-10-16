@@ -92,24 +92,40 @@
     <label>Peça</label><div class="chips" id="pModelo"></div>
     <label>Tamanho</label><div class="chips" id="pTam"></div>
     <label>Quantidade</label><input class="qtd" id="pQtd" type="number" min="1" max="50" value="1" inputmode="numeric">
-    <div class="preco" id="pPreco"></div><p class="pre">Pré-venda: produção sob encomenda depois de fechar o lote. Prazo e pagamento combinados por mensagem.</p>
+    <div class="preco" id="pPreco"></div><p class="pre">Pré-venda: produção sob encomenda depois de fechar o lote. Pagamento por Pix depois de registrar o pedido; prazo combinado por mensagem.</p>
     <button class="btn" id="pAdd">Adicionar ao pedido</button></div>
 </div></div>
 
 <div class="modal" id="envio"><div class="mw" style="grid-template-columns:minmax(0,1fr);max-width:560px">
   <button class="fechar" id="fecharEnvio">← Voltar</button>
-  <div><h2 style="margin:0 0 4px">Seu pedido</h2><div class="itens" id="itens"></div>
+  <div id="formEnvio"><h2 style="margin:0 0 4px">Seu pedido</h2><div class="itens" id="itens"></div>
     <div class="info"><label>Seu nome</label><input class="qtd" id="cNome" style="width:100%" maxlength="60" placeholder="Nome e sobrenome">
-    <label>Resumo (será enviado)</label></div><textarea id="resumo" readonly></textarea>
-    <button class="btn" id="enviarZap">Enviar pelo WhatsApp</button><button class="btn sec" id="copiarResumo">Copiar pedido</button>
-    <p class="pre" id="envMsg" style="margin-top:10px"></p></div>
+    <label>WhatsApp ou e-mail para contato</label><input class="qtd" id="cContato" style="width:100%" maxlength="120" placeholder="(21) 99999-9999 ou nome@email.com">
+    <label>Endereço de entrega / observações (opcional)</label><textarea id="cEnvio" maxlength="400" style="height:64px" placeholder="Rua, número, bairro, cidade, CEP. Ou: retiro em mãos."></textarea>
+    <label>Resumo do pedido</label></div><textarea id="resumo" readonly></textarea>
+    <button class="btn" id="finalizar">Finalizar pedido</button>
+    <button class="btn sec" id="enviarZap">Enviar pelo WhatsApp</button><button class="btn sec" id="copiarResumo">Copiar pedido</button>
+    <p class="pre" id="envMsg" style="margin-top:10px">Ao finalizar, seu pedido é registrado e você recebe as instruções de pagamento por Pix. A produção só começa depois do pagamento e do fechamento do lote.</p></div>
+  <div id="confirma" style="display:none"><h2 style="margin:0 0 6px">Pedido <span id="cfNum"></span> registrado</h2>
+    <p class="pre" id="cfTotal" style="margin:0 0 12px"></p>
+    <div class="info" id="cfPix" style="display:none"><label>Pague por Pix</label><div class="itens"><div class="it"><span><small style="color:#9BA0AA" id="cfPixNome"></small><br><b id="cfPixChave" style="word-break:break-all"></b></span><button id="cfPixCopiar">copiar</button></div></div>
+    <p class="pre">Depois de pagar, envie o comprovante com o número do pedido.</p></div>
+    <p class="pre" id="cfSemPix" style="display:none">Vamos combinar o pagamento por mensagem. Guarde o número do pedido.</p>
+    <button class="btn" id="cfZap">Enviar comprovante pelo WhatsApp</button>
+    <button class="btn sec" id="cfLink">Copiar link de acompanhamento</button>
+    <button class="btn sec" id="cfFechar">Fechar</button>
+    <p class="pre" id="cfMsg" style="margin-top:10px"></p></div>
 </div></div>
+<div class="modal" id="acomp"><div class="mw" style="grid-template-columns:minmax(0,1fr);max-width:560px"><button class="fechar" id="acFechar">← Voltar à loja</button><div id="acBody"></div></div></div>
 <div class="barra" id="barra"><span id="barraTx"></span><button class="btn" id="abrirEnvio">Ver pedido</button></div>
 <input id="nomeMont" type="hidden" value="">
 
 <script>
 (function(){
   // ====== CONFIGURAÇÃO (edite aqui) ======
+  var PIX_CHAVE = '';  // chave Pix (CPF/CNPJ/e-mail/telefone/aleatória). Vazio = pagamento combinado por mensagem.
+  var PIX_NOME = '';   // nome do recebedor que aparece para o cliente (opcional)
+  var SB_URL = 'https://lnjpykjrqgsxstpdatwk.supabase.co', SB_KEY = 'sb_publishable_xVvIljWR6Ytp4nF8RQMVWg_zMZsph6T';
   var WHATSAPP = '';   // número com DDI e DDD, só dígitos. Ex.: '5521999999999'. Vazio = só copiar o pedido.
   var PRECOS = { curta: null, longa: null, colete: null, bretelle: null, kit: null };  // em reais. null = "Sob consulta". Ex.: curta: 289.90
   // =======================================
@@ -678,7 +694,13 @@
       box.appendChild(d);
     });
   }
-  g('abrirEnvio').addEventListener('click', function(){ listaItens(); g('resumo').value = resumo(); g('enviarZap').style.display = WHATSAPP ? '' : 'none'; g('envio').classList.add('on'); g('envio').scrollTop = 0; });
+  function totalCarrinho(){ var t = 0, ok = true; carrinho.forEach(function(i){ var pc = precoDe(i.peca); if(pc) t += pc * i.qtd; else ok = false; }); return (carrinho.length && ok) ? t : null; }
+  function rpc(fn, args){
+    return fetch(SB_URL + '/rest/v1/rpc/' + fn, { method:'POST', headers:{ 'apikey':SB_KEY, 'Authorization':'Bearer ' + SB_KEY, 'Content-Type':'application/json' }, body: JSON.stringify(args) })
+      .then(function(r){ if(!r.ok) throw new Error('http ' + r.status); return r.json(); });
+  }
+  function abrirEnvioTela(){ g('confirma').style.display = 'none'; g('formEnvio').style.display = ''; }
+  g('abrirEnvio').addEventListener('click', function(){ abrirEnvioTela(); listaItens(); g('resumo').value = resumo(); g('enviarZap').style.display = WHATSAPP ? '' : 'none'; g('envio').classList.add('on'); g('envio').scrollTop = 0; });
   g('fecharEnvio').addEventListener('click', function(){ g('envio').classList.remove('on'); });
   g('cNome').addEventListener('input', function(){ g('resumo').value = resumo(); });
   g('enviarZap').addEventListener('click', function(){ window.open('https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(g('resumo').value), '_blank'); });
@@ -687,6 +709,60 @@
     function ok(){ m.textContent = 'Pedido copiado. Cole na conversa para enviar.'; }
     try{ navigator.clipboard.writeText(ta.value).then(ok, function(){ ta.focus(); ta.select(); }); }catch(e){ ta.focus(); ta.select(); }
   });
+  function copiar(txt, el, msg){
+    function ok(){ el.textContent = msg; }
+    try{ navigator.clipboard.writeText(txt).then(ok, function(){ el.textContent = txt; }); }catch(e){ el.textContent = txt; }
+  }
+  var ultimo = null;
+  g('finalizar').addEventListener('click', function(){
+    var m = g('envMsg'), nome = g('cNome').value.trim(), contato = g('cContato').value.trim();
+    if(!carrinho.length){ m.textContent = 'Seu pedido está vazio.'; return; }
+    if(nome.length < 2){ m.textContent = 'Escreva seu nome.'; g('cNome').focus(); return; }
+    if(contato.length < 5){ m.textContent = 'Informe um WhatsApp ou e-mail para contato.'; g('cContato').focus(); return; }
+    var itens = carrinho.map(function(i){ return { peca:i.peca, nomePeca:nomePeca(i.peca), desenho:i.prod.nome, tam:i.tam, qtd:i.qtd, cores:i.prod.c, preco:precoDe(i.peca) }; });
+    var total = totalCarrinho(), btn = g('finalizar'); btn.disabled = true; m.textContent = 'Registrando pedido…';
+    rpc('loja_criar_pedido', { p_nome:nome, p_contato:contato, p_envio:g('cEnvio').value.trim(), p_itens:itens, p_total:total })
+      .then(function(r){
+        ultimo = { id:r.id, numero:r.numero, total:total, nome:nome, resumo:g('resumo').value };
+        mostrarConfirma();
+        carrinho = []; barra();
+      })
+      .catch(function(){ m.textContent = 'Não consegui registrar agora. Use "Enviar pelo WhatsApp" ou "Copiar pedido" para mandar manualmente.'; })
+      .then(function(){ btn.disabled = false; });
+  });
+  function mostrarConfirma(){
+    g('formEnvio').style.display = 'none'; g('confirma').style.display = '';
+    g('cfNum').textContent = '#' + ultimo.numero;
+    g('cfTotal').textContent = ultimo.total ? 'Total: ' + moeda(ultimo.total) : 'Valor a combinar.';
+    g('cfPix').style.display = PIX_CHAVE ? '' : 'none'; g('cfSemPix').style.display = PIX_CHAVE ? 'none' : '';
+    g('cfPixChave').textContent = PIX_CHAVE; g('cfPixNome').textContent = PIX_NOME;
+    g('cfZap').style.display = WHATSAPP ? '' : 'none'; g('cfMsg').textContent = '';
+    g('envio').scrollTop = 0;
+  }
+  function linkPedido(){ return location.origin + location.pathname + '#pedido=' + ultimo.id; }
+  g('cfPixCopiar').addEventListener('click', function(){ copiar(PIX_CHAVE, g('cfMsg'), 'Chave Pix copiada.'); });
+  g('cfLink').addEventListener('click', function(){ copiar(linkPedido(), g('cfMsg'), 'Link copiado. Guarde para acompanhar o pedido.'); });
+  g('cfZap').addEventListener('click', function(){
+    var t = 'Olá! Fiz o pedido #' + ultimo.numero + ' na loja Cadência (' + ultimo.nome + ').' + (ultimo.total ? ' Total ' + moeda(ultimo.total) + '.' : '') + ' Segue o comprovante do Pix.';
+    window.open('https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(t), '_blank');
+  });
+  g('cfFechar').addEventListener('click', function(){ g('envio').classList.remove('on'); });
+
+  // ---- acompanhar pedido pelo link (#pedido=<id>) ----
+  var STATUS = { aguardando_pagamento:'Aguardando pagamento', pago:'Pagamento confirmado', em_producao:'Em produção', enviado:'Enviado', cancelado:'Cancelado' };
+  function acompanhar(){
+    var m = /#pedido=([0-9a-f-]{36})/i.exec(location.hash); if(!m) return;
+    var box = g('acomp'); box.classList.add('on'); g('acBody').textContent = 'Carregando…';
+    rpc('loja_pedido_ler', { p_id:m[1] }).then(function(p){
+      if(!p){ g('acBody').textContent = 'Pedido não encontrado.'; return; }
+      g('acBody').innerHTML = '<h2 style="margin:0 0 4px">Pedido #' + p.numero + '</h2><p class="pre" style="margin:0 0 12px">' + esc(p.nome) + '</p>'
+        + '<div class="info"><label>Situação</label><div style="font-size:18px;font-weight:700;color:#D9B766">' + esc(STATUS[p.status] || p.status) + '</div></div>'
+        + '<div class="itens" style="margin-top:12px">' + (p.itens || []).map(function(i){ return '<div class="it"><span>' + i.qtd + 'x ' + esc(i.nomePeca) + '<br><small style="color:#9BA0AA">' + esc(i.desenho) + ' · tam ' + esc(i.tam) + '</small></span></div>'; }).join('') + '</div>'
+        + (p.total ? '<p class="pre">Total: ' + moeda(p.total) + '</p>' : '');
+    }).catch(function(){ g('acBody').textContent = 'Não consegui carregar agora. Tente de novo em instantes.'; });
+  }
+  g('acFechar').addEventListener('click', function(){ g('acomp').classList.remove('on'); history.replaceState(null, '', location.pathname); });
+  window.addEventListener('hashchange', acompanhar); acompanhar();
   abas(); grade(); banner();
 })();
 </script>
