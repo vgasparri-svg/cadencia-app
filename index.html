@@ -23,7 +23,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
-<script src="https://sdk.scdn.co/spotify-player.js"></script>
+<script src="https://sdk.scdn.co/spotify-player.js" defer></script>
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
 <style>
   :root{
@@ -4535,7 +4535,17 @@
         }
         throw new Error(motivo);
       }
+      tokenCache = { valor: data.access_token, em: Date.now() };
       return data.access_token;
+    }
+
+    // token reaproveitado por até 15 min nos cliques de tocar (evita
+    // chamar o servidor — que às vezes demora a "acordar" — a cada
+    // toque). O player do Spotify continua pedindo token novo sozinho.
+    let tokenCache = null;
+    async function tokenRapido(){
+      if(tokenCache && Date.now() - tokenCache.em < 15*60*1000) return tokenCache.valor;
+      return await obterTokenSpotify();
     }
 
     async function garantirPlayerSpotify(){
@@ -4661,7 +4671,7 @@
       // mas o navegador não emite som nenhum
       try{ await player?.activateElement?.(); } catch(e){ console.warn('activateElement falhou (SDK pode não suportar):', e); }
       try{
-        const token = await obterTokenSpotify();
+        const token = await tokenRapido();
         const resp = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -4673,6 +4683,7 @@
           // token expirado (401) ou dispositivo não encontrado (404)
           // são falhas comuns e temporárias — tenta reconectar e
           // repetir uma vez antes de mostrar erro pra pessoa
+          if(resp.status === 401) tokenCache = null;
           if(!jaTentouDeNovo && (resp.status === 401 || resp.status === 404)){
             if(resp.status === 404){ deviceId = null; window.__pelotaoSpotify.ativo = false; await player?.connect(); await new Promise(r=>setTimeout(r, 1500)); }
             return await tocarPlaylistDaZona(zona, true);
