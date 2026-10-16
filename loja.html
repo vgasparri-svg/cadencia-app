@@ -148,6 +148,24 @@
     {id:'tourmalet',nome:'Tourmalet',  sub:'França · 2.115 m',       c:['#1F3B2D','#D6A24A','#EDE6D6'], padrao:'niveis',    lateral:'dk', manga:'c1', nota:'Verde dos Pireneus com dourado e creme.'},
     {id:'teide',   nome:'Teide',       sub:'Espanha · Tenerife',     c:['#2A1A18','#C4572B','#E9DCC8'], padrao:'facetas',   lateral:'dk', manga:'c1', nota:'Terra vulcânica escura com lava alaranjada.'}
   ];
+  var BRASIL = [
+    {id:'vistachinesa',nome:'Vista Chinesa',   sub:'Rio de Janeiro · Subida',     c:['#0F2E22','#C9372C','#E8D9A8'], padrao:'niveis',    lateral:'dk', manga:'c1', nota:'Verde da Floresta da Tijuca com o vermelho do pagode. As curvas de nível são a subida.'},
+    {id:'paineiras',   nome:'Paineiras',       sub:'Rio de Janeiro · Corcovado',  c:['#1A2A2E','#C9D6C8','#D4A83A'], padrao:'serpentina',lateral:'dk', manga:'c1', nota:'Pedra clara do Cristo sobre verde-petróleo, com um dourado de fim de tarde.'},
+    {id:'riodorastro', nome:'Rio do Rastro',   sub:'Santa Catarina · Serra',      c:['#1F2F44','#D95D39','#EDE3CF'], padrao:'serpentina',lateral:'dk', manga:'c1', nota:'Azul de serra com laranja de pôr do sol. A serpentina é a estrada de curvas.'},
+    {id:'corvobranco', nome:'Corvo Branco',    sub:'Santa Catarina · Cânion',     c:['#2B2A2E','#D8D4CC','#B3472A'], padrao:'facetas',   lateral:'dk', manga:'c1', nota:'Paredão de pedra cinza e claro, com terra avermelhada. Facetas de rocha.'},
+    {id:'graciosa',    nome:'Graciosa',        sub:'Paraná · Mata Atlântica',     c:['#18332B','#9FC1A8','#F3F1E7'], padrao:'fade',      lateral:'dk', manga:'c1', nota:'Verde de mata com neblina que sobe. Suave, para dias frios.'},
+    {id:'monteverde',  nome:'Monte Verde',     sub:'Minas Gerais · Mantiqueira',  c:['#22303F','#E9C46A','#F5F1E6'], padrao:'niveis',    lateral:'dk', manga:'c1', nota:'Azul frio da serra com um amarelo de manhã. Curvas de nível para a altitude.'}
+  ];
+  var LISAS = [
+    {id:'preta',    nome:'Preta',        c:['#111214','#3A3D44','#D9B766'], nota:'Preto total com detalhe dourado. A mais discreta.'},
+    {id:'grafite',  nome:'Grafite',      c:['#2B2E35','#5A606B','#E8EAEE'], nota:'Cinza escuro com detalhe claro. Combina com tudo.'},
+    {id:'branca',   nome:'Branca',       c:['#F4F2EC','#C9CCD2','#1F2733'], nota:'Branco limpo com detalhe escuro. Boa para o calor.'},
+    {id:'marinho',  nome:'Marinho',      c:['#0F2142','#2F4C7E','#E9D8A6'], nota:'Azul-marinho com detalhe areia.'},
+    {id:'vermelha', nome:'Vermelha',     c:['#C8102E','#8E0B20','#F4F2EC'], nota:'Vermelho forte com detalhe branco. Aparece de longe.'},
+    {id:'garrafa',  nome:'Verde-garrafa',c:['#123524','#2D5A43','#E3D9B5'], nota:'Verde escuro com detalhe creme.'},
+    {id:'laranja',  nome:'Laranja',      c:['#F26A1B','#B84A0C','#111214'], nota:'Laranja vivo com detalhe preto.'},
+    {id:'lima',     nome:'Lima',         c:['#CFE600','#8DA300','#111214'], nota:'Amarelo-lima de alta visibilidade com detalhe preto.'}
+  ];
   var MODELOS = [{id:'curta',nome:'Manga curta'},{id:'longa',nome:'Manga longa'},{id:'colete',nome:'Colete'},{id:'bretelle',nome:'Bretelle'}];
   var ZCOMPS = [{id:'curto',nome:'Curto'},{id:'medio',nome:'Médio'},{id:'integral',nome:'Integral'}];
   var ZCORS  = [{id:'preto',nome:'Preto'},{id:'dk',nome:'Tom escuro'},{id:'c3',nome:'Detalhe'}];
@@ -582,8 +600,10 @@
   ];
   var TAMS = ['PP','P','M','G','GG','XGG'];
   var PRODS = COLECAO.map(function(c){ return { id:c.id, grupo:'montanhas', nome:c.nome, sub:c.sub, nota:c.nota, c:c.c, padrao:c.padrao, lateral:c.lateral, manga:c.manga }; })
+    .concat(BRASIL.map(function(c){ return { id:c.id, grupo:'brasil', nome:c.nome, sub:c.sub, nota:c.nota, c:c.c, padrao:c.padrao, lateral:c.lateral, manga:c.manga }; }))
+    .concat(LISAS.map(function(c){ return { id:c.id, grupo:'lisas', nome:c.nome, sub:'Lisa · sem estampa', nota:c.nota, c:c.c, padrao:'solido', lateral:'c1', manga:'c1' }; }))
     .concat(PALETAS.map(function(p){ return { id:p.id, grupo:'rio', nome:p.nome, sub:'Coleção Rio', nota:p.nota, c:p.c, padrao:'niveis', lateral:'dk', manga:'c1' }; }));
-  var GRUPOS = [['montanhas','Montanhas'],['rio','Rio'],['todos','Todos']];
+  var GRUPOS = [['montanhas','Montanhas'],['brasil','Brasil'],['rio','Rio'],['lisas','Lisas'],['todos','Todos']];
   var grupo = 'montanhas', atual = null, pecaSel = 'curta', tamSel = 'M', vista = 'F', pose = 'pe', carrinho = [];
   function g(id){ return document.getElementById(id); }
   function moeda(v){ return 'R$ ' + v.toFixed(2).replace('.', ','); }
@@ -598,7 +618,7 @@
     return v.length ? 'a partir de ' + moeda(Math.min.apply(null, v)) : 'Sob consulta';
   }
   function banner(){
-    var rio = grupo === 'rio', v = g('heroVid'), i = g('heroImg');
+    var rio = !(grupo === 'montanhas' || grupo === 'todos'), v = g('heroVid'), i = g('heroImg');
     v.parentNode.className = rio ? 'hero' : 'hero sovideo';
     v.style.display = rio ? 'none' : 'block'; i.style.display = rio ? 'block' : 'none';
     try{ if(rio) v.pause(); else v.play().catch(function(){}); }catch(e){}
