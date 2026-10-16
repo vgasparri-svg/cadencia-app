@@ -82,7 +82,7 @@
   <button class="fechar" id="fechar">← Voltar</button>
   <div><div class="palco"><img id="fotoImg" alt="Modelo vestindo a camisa" style="display:none;width:100%;height:auto;border-radius:6px"><svg id="vestido" viewBox="0 0 400 800" aria-label="Modelo vestido"></svg></div>
     <div class="vista"><button class="chip" id="vF" aria-pressed="true">Frente</button><button class="chip" id="vB" aria-pressed="false">Costas</button><span id="peles"></span></div>
-    <div class="vista"><button class="chip" id="poFoto" aria-pressed="true">Foto</button><button class="chip" id="poPe" aria-pressed="false">Em pé</button><button class="chip" id="poBike" aria-pressed="false">Na bike</button><span style="width:10px"></span><button class="chip" id="sxM" aria-pressed="true">Masculino</button><button class="chip" id="sxF" aria-pressed="false">Feminino</button></div></div>
+    <div class="vista"><button class="chip" id="poPe" aria-pressed="true">Em pé</button><button class="chip" id="poBike" aria-pressed="false">Na bike</button><span style="width:10px"></span><button class="chip" id="sxM" aria-pressed="true">Masculino</button><button class="chip" id="sxF" aria-pressed="false">Feminino</button></div></div>
   <div class="info"><h2 id="pNome"></h2><p class="sub" id="pSub"></p><p class="nota" id="pNota"></p>
     <label>Peça</label><div class="chips" id="pModelo"></div>
     <label>Tamanho</label><div class="chips" id="pTam"></div>
@@ -563,7 +563,7 @@
   var PRODS = COLECAO.map(function(c){ return { id:c.id, grupo:'montanhas', nome:c.nome, sub:c.sub, nota:c.nota, c:c.c, padrao:c.padrao, lateral:c.lateral, manga:c.manga }; })
     .concat(PALETAS.map(function(p){ return { id:p.id, grupo:'rio', nome:p.nome, sub:'Coleção Rio', nota:p.nota, c:p.c, padrao:'niveis', lateral:'dk', manga:'c1' }; }));
   var GRUPOS = [['montanhas','Montanhas'],['rio','Rio'],['todos','Todos']];
-  var grupo = 'montanhas', atual = null, pecaSel = 'curta', tamSel = 'M', vista = 'F', pose = 'foto', carrinho = [];
+  var grupo = 'montanhas', atual = null, pecaSel = 'curta', tamSel = 'M', vista = 'F', pose = 'pe', carrinho = [];
   function g(id){ return document.getElementById(id); }
   function moeda(v){ return 'R$ ' + v.toFixed(2).replace('.', ','); }
   function precoDe(peca){ var v = PRECOS[peca]; return (typeof v === 'number' && v > 0) ? v : null; }
@@ -602,11 +602,10 @@
   }
   function pintar(){
     aplicarProd(atual, pecaSel);
-    var temFoto = (pecaSel === 'curta' || pecaSel === 'kit'), emFoto = (pose === 'foto' && temFoto);
+    var emFoto = false;
     g('fotoImg').style.display = emFoto ? 'block' : 'none'; g('vestido').style.display = emFoto ? 'none' : 'block';
     if(emFoto) g('fotoImg').src = 'fotos/' + atual.id + '.jpg';
     ['vF','vB','sxM','sxF','peles'].forEach(function(i){ g(i).style.display = emFoto ? 'none' : ''; });
-    g('poFoto').setAttribute('aria-pressed', String(pose === 'foto'));
     g('vestido').innerHTML = pose === 'bike' ? corpoBike(vista === 'F', 'lj') : corpoSvg(vista === 'F', 'lj');
     g('vestido').setAttribute('viewBox', pose === 'bike' ? '40 90 320 700' : '0 0 400 800');
     g('poPe').setAttribute('aria-pressed', String(pose === 'pe')); g('poBike').setAttribute('aria-pressed', String(pose === 'bike'));
@@ -625,14 +624,13 @@
     });
   }
   function abrir(p){
-    atual = p; pecaSel = 'curta'; tamSel = 'M'; vista = 'F'; pose = 'foto'; g('pQtd').value = 1;
+    atual = p; pecaSel = 'curta'; tamSel = 'M'; vista = 'F'; pose = 'pe'; g('pQtd').value = 1;
     g('pNome').textContent = p.nome; g('pSub').innerHTML = sw(p) + esc(p.sub); g('pNota').textContent = p.nota || '';
     peles(); pintar(); g('modal').classList.add('on'); g('modal').scrollTop = 0;
   }
   g('fechar').addEventListener('click', function(){ g('modal').classList.remove('on'); });
   g('vF').addEventListener('click', function(){ vista = 'F'; pintar(); });
   g('vB').addEventListener('click', function(){ vista = 'B'; pintar(); });
-  g('poFoto').addEventListener('click', function(){ pose = 'foto'; pintar(); });
   g('poPe').addEventListener('click', function(){ pose = 'pe'; pintar(); });
   g('poBike').addEventListener('click', function(){ pose = 'bike'; pintar(); });
   g('sxM').addEventListener('click', function(){ SEXO = 'm'; pintar(); });
