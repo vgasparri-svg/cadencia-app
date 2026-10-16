@@ -44,12 +44,16 @@ self.addEventListener('fetch', (event) => {
   // dados do usuário (login e banco): nunca guardar, sempre pela rede
   if (url.hostname.endsWith('supabase.co')) return;
 
-  // abrir o app: rede primeiro (pega sempre a versão nova); sem sinal, usa a guardada
+  // abrir uma página: rede primeiro (pega sempre a versão nova); sem sinal, usa a guardada.
+  // O app (raiz ou index.html) fica guardado como './index.html'; outras páginas
+  // (ex.: loja.html) ficam guardadas com o próprio endereço.
   if (req.mode === 'navigate') {
+    const ehApp = /\/(index\.html)?$/.test(url.pathname);
+    const chave = ehApp ? new Request('./index.html') : req;
     event.respondWith(
       fetch(req)
-        .then((res) => guardar(new Request('./index.html'), res))
-        .catch(() => caches.match('./index.html').then((c) => c || caches.match(req)))
+        .then((res) => guardar(chave, res))
+        .catch(() => caches.match(chave).then((c) => c || caches.match(req)).then((c) => c || caches.match('./index.html')))
     );
     return;
   }
