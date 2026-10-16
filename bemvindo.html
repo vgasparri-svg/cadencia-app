@@ -50,6 +50,9 @@
   .texto blockquote{margin:34px 0;padding:4px 0 4px 22px;border-left:3px solid var(--ouro);font:italic 400 clamp(22px,3.2vw,28px)/1.35 var(--serif);color:var(--giz);max-width:30ch}
   .assina{color:var(--névoa);font-size:15px;margin-top:8px}
 
+  /* rolagem automática */
+  .auto{position:fixed;right:16px;bottom:16px;z-index:10;border:1px solid var(--linha);background:rgba(11,14,20,.82);color:var(--giz);border-radius:999px;padding:10px 16px;font:600 14px var(--sans);cursor:pointer;backdrop-filter:blur(6px)}
+  .auto:hover{border-color:var(--giz)}
   /* galeria: rola sozinha, pausa ao passar o mouse ou tocar */
   .galeria{overflow:hidden;padding:30px 0 50px}
   .trilho{display:flex;gap:14px;width:max-content;animation:rola 55s linear infinite}
@@ -155,5 +158,41 @@
 </main>
 
 <footer><div class="wrap"><span>Cadência · feito no Rio de Janeiro</span><span>Pelotão carioca</span></div></footer>
+<button class="auto" id="auto" type="button" aria-pressed="true">Pausar rolagem</button>
+<script>
+(function(){
+  var VEL = 38;                 // pixels por segundo (menor = mais devagar)
+  var ATRASO = 2500;            // espera antes de começar, em ms
+  var btn = document.getElementById('auto');
+  var reduz = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var rodando = false, y = 0, t0 = 0, timer = null;
+  function fim(){ return document.documentElement.scrollHeight - innerHeight - 2; }
+  function passo(t){
+    if(!rodando) return;
+    var dt = Math.min(t - t0, 64) / 1000; t0 = t;
+    y += VEL * dt;
+    if(y >= fim()){ parar(); return; }
+    window.scrollTo({ top: y, behavior: 'instant' });
+    requestAnimationFrame(passo);
+  }
+  function iniciar(){
+    if(rodando) return;
+    y = window.scrollY; rodando = true; t0 = performance.now();
+    btn.textContent = 'Pausar rolagem'; btn.setAttribute('aria-pressed', 'true');
+    requestAnimationFrame(passo);
+  }
+  function parar(){
+    rodando = false; clearTimeout(timer);
+    btn.textContent = 'Rolar sozinho'; btn.setAttribute('aria-pressed', 'false');
+  }
+  // qualquer gesto da pessoa assume o controle
+  ['wheel','touchstart','keydown','mousedown'].forEach(function(ev){
+    window.addEventListener(ev, function(e){ if(e.target !== btn && rodando) parar(); clearTimeout(timer); }, { passive:true });
+  });
+  btn.addEventListener('click', function(){ if(rodando) parar(); else { if(fim() - window.scrollY < 40) window.scrollTo({top:0,behavior:'instant'}); iniciar(); } });
+  if(reduz){ parar(); }
+  else { btn.textContent = 'Pausar rolagem'; timer = setTimeout(iniciar, ATRASO); }
+})();
+</script>
 </body>
 </html>
