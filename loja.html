@@ -17,6 +17,7 @@
   .teste{background:#35210F;color:#FFB98A;font-size:12.5px;padding:8px 16px;text-align:center}
   main{max-width:1100px;margin:0 auto;padding:8px 16px 110px}
   .hero{padding:0;position:relative;border-radius:14px;overflow:hidden;margin:14px 0 6px;min-height:200px;background:#10131a}
+  .hero.sovideo .txt{display:none}
   .hero video{display:block;width:100%;height:100%;min-height:200px;max-height:380px;object-fit:cover}
   .hero img{display:block;width:100%;height:100%;min-height:200px;max-height:380px;object-fit:cover;object-position:60% 30%}
   .hero .txt{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:18px 20px;background:linear-gradient(0deg,rgba(8,10,14,.88) 0%,rgba(8,10,14,.35) 55%,rgba(8,10,14,0) 100%)}
@@ -582,6 +583,7 @@
   }
   function banner(){
     var rio = grupo === 'rio', v = g('heroVid'), i = g('heroImg');
+    v.parentNode.className = rio ? 'hero' : 'hero sovideo';
     v.style.display = rio ? 'none' : 'block'; i.style.display = rio ? 'block' : 'none';
     try{ if(rio) v.pause(); else v.play().catch(function(){}); }catch(e){}
   }
