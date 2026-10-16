@@ -1541,6 +1541,15 @@
         <div class="section-head"><h2 style="font-size:14px;">Resumo de treino</h2></div>
         <div id="perfilResumoTreino"></div>
       </div>
+      <div class="section" style="padding-top:0;" id="recadosSec">
+        <div class="section-head"><h2 style="font-size:14px;">Recados</h2></div>
+        <div style="padding:0 16px;">
+          <p class="intervals-desc" style="margin:0 0 10px;">Mande um texto para outro ciclista. Chega como notificação no celular dele e aparece no relógio (Garmin) se ele estiver com as notificações liberadas.</p>
+          <input type="search" id="recBusca" maxlength="40" placeholder="Buscar ciclista pelo nome…" autocomplete="off" style="width:100%;font:14px var(--font-body);color:var(--text);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;box-sizing:border-box;">
+          <div id="recLista" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
       <div class="section" style="padding-top:0;" id="tagNfcSec">
         <div class="section-head"><h2 style="font-size:14px;">Minha tag NFC</h2></div>
         <div style="padding:0 16px;">
@@ -6510,6 +6519,44 @@ if ('serviceWorker' in navigator) {
   document.querySelector('.nav-btn[data-view="bikes"]').addEventListener('click', carregar);
   document.addEventListener('cadencia:auth', carregar);
   if(APP.user) carregar();
+})();
+</script>
+<script>
+/* Recados: escolher um ciclista pelo nome e mandar um aviso (usa o mesmo fluxo do botão Avisar) */
+(function(){
+  var APP = window.cadenciaApp; if(!APP) return;
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  var CH = 'pelotao_recados_recentes', tmr = null;
+  function recentes(){ try{ return JSON.parse(localStorage.getItem(CH) || '[]'); } catch(e){ return []; } }
+  function guardar(u){
+    try{ var l = recentes().filter(function(x){ return x.id !== u.id; }); l.unshift(u); localStorage.setItem(CH, JSON.stringify(l.slice(0, 6))); } catch(e){}
+  }
+  function linhas(lista, titulo){
+    if(!lista.length){ return titulo ? '' : '<p class="intervals-desc" style="margin:4px 0;">Nenhum ciclista encontrado.</p>'; }
+    return (titulo ? '<p class="intervals-desc" style="margin:6px 0 4px;">' + titulo + '</p>' : '') + lista.map(function(u){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);"><span style="font-size:14px;">' + esc(u.nome || 'Ciclista') + '</span>'
+        + '<button type="button" class="bk-mini" data-id="' + esc(u.id) + '" data-nome="' + esc(u.nome || 'Ciclista') + '" style="font-size:12px;padding:7px 12px;border:1px solid var(--line);border-radius:100px;">📩 Enviar</button></div>';
+    }).join('');
+  }
+  function mostrarRecentes(){ $('recLista').innerHTML = linhas(recentes(), 'Recentes'); }
+  async function buscar(){
+    var q = $('recBusca').value.trim().replace(/[%_\\]/g, '');
+    if(q.length < 2){ mostrarRecentes(); return; }
+    if(!APP.user){ $('recLista').innerHTML = '<p class="intervals-desc">Entre com seu e-mail para mandar recados.</p>'; return; }
+    var r = await APP.sb.from('usuarios').select('id,nome').ilike('nome', '%' + q + '%').neq('id', APP.user.id).limit(8);
+    if(r.error){ $('recLista').innerHTML = '<p class="intervals-desc">Não deu pra buscar agora.</p>'; return; }
+    $('recLista').innerHTML = linhas(r.data || [], '');
+  }
+  $('recBusca').addEventListener('input', function(){ clearTimeout(tmr); tmr = setTimeout(buscar, 300); });
+  $('recLista').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-id]'); if(!b) return;
+    guardar({ id: b.dataset.id, nome: b.dataset.nome });
+    // reaproveita o fluxo do botão "Avisar": o app abre a janela de mensagem
+    var t = document.createElement('button'); t.className = 'btn-avisar-ciclista'; t.dataset.usuarioId = b.dataset.id; t.dataset.nome = b.dataset.nome; t.style.display = 'none';
+    document.body.appendChild(t); t.click(); t.remove();
+  });
+  mostrarRecentes();
 })();
 </script>
 </body>
