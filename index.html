@@ -1711,6 +1711,7 @@
         <button class="btn-secondary" id="bkCancelar">Cancelar</button>
         <button class="btn-primary" id="bkSalvar" style="background:var(--safety); color:#141A0A;">Salvar</button>
       </div>
+      <button class="btn-logout" id="bkLink" style="margin-top:10px;" hidden>🔗 Link para o vendedor preencher</button>
       <button class="btn-logout" id="bkApagar" style="margin-top:10px; border-color:var(--alert); color:var(--alert);" hidden>Apagar bike</button>
     </div>
   </div>
@@ -6353,7 +6354,7 @@ if ('serviceWorker' in navigator) {
     renderMan();
     $('bkPublica').checked = b ? !!b.publica : true;
     FOTO = b ? (b.foto || null) : null; fotoPreview();
-    $('bkApagar').hidden = !b;
+    $('bkApagar').hidden = !b; $('bkLink').hidden = !b;
     $('modalBikeBackdrop').classList.add('open');
   }
   function fechar(){ $('modalBikeBackdrop').classList.remove('open'); }
@@ -6443,6 +6444,58 @@ if ('serviceWorker' in navigator) {
     if(b.dataset.a === 'feito') MAN[i].ultimo = +$('bkKm').value || 0;
     renderMan();
   });
+  // ---- link para o vendedor preencher (abre sem login: #vendedor=<token>) ----
+  var UUIDR = /^[0-9a-fA-F-]{36}$/;
+  async function gerarLink(){
+    if(!ATUAL || !APP.user) return;
+    var token = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : null; if(!token){ APP.toast('Navegador sem suporte'); return; }
+    await APP.sb.from('bike_links').delete().eq('bike_id', ATUAL.id);
+    var r = await APP.sb.from('bike_links').insert({ token: token, bike_id: ATUAL.id, user_id: APP.user.id, expira: new Date(Date.now() + 7 * 864e5).toISOString() });
+    if(r.error){ APP.toast('Falta rodar o SQL bikes-vendedor.sql'); return; }
+    var url = location.origin + location.pathname + '#vendedor=' + token;
+    var texto = 'Oi! Pode preencher os dados da bike pra mim neste link? (vale 7 dias)\n' + url;
+    if(navigator.share){ try{ await navigator.share({ text: texto }); return; } catch(e){ if(e && e.name === 'AbortError') return; } }
+    try{ await navigator.clipboard.writeText(texto); APP.toast('Link copiado — cole no WhatsApp'); } catch(e){ prompt('Copie o link:', url); }
+  }
+  function paginaVendedor(token){
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#14181B;color:#EDEFEE;overflow:auto;padding:20px 16px 40px;font-family:inherit';
+    ov.innerHTML = '<div style="max-width:460px;margin:0 auto"><h2 style="font-size:20px;margin-bottom:6px">Dados da bike</h2><p id="vdMsg" style="font-size:13px;color:#8B939A;margin-bottom:14px">Carregando…</p><div id="vdForm" hidden>'
+      + '<div class="bk-2"><div><label class="vdl">MARCA</label><input class="bk-in" id="vdMarca" maxlength="40"></div><div><label class="vdl">MODELO</label><input class="bk-in" id="vdModelo" maxlength="40"></div>'
+      + '<div><label class="vdl">ANO</label><input class="bk-in" id="vdAno" type="number" inputmode="numeric"></div><div><label class="vdl">TAMANHO</label><input class="bk-in" id="vdTam" maxlength="10"></div></div>'
+      + '<label class="vdl">Nº DE SÉRIE DO QUADRO</label><input class="bk-in" id="vdSerie" maxlength="60">'
+      + '<label class="vdl">COMPONENTES</label><div class="bk-2"><input class="bk-in" id="vdGrupo" maxlength="60" placeholder="Grupo"><input class="bk-in" id="vdRodas" maxlength="60" placeholder="Rodas"><input class="bk-in" id="vdPneus" maxlength="60" placeholder="Pneus"><input class="bk-in" id="vdPedais" maxlength="60" placeholder="Pedais"><input class="bk-in" id="vdSelim" maxlength="60" placeholder="Selim"><input class="bk-in" id="vdQuadro" maxlength="60" placeholder="Quadro (material)"></div>'
+      + '<input class="bk-in" id="vdOutros" maxlength="160" placeholder="Outros detalhes" style="margin-top:8px">'
+      + '<label class="vdl">FOTO (opcional)</label><input type="file" id="vdFoto" accept="image/*" style="font-size:12px">'
+      + '<button id="vdSalvar" style="width:100%;margin-top:18px;padding:14px;border-radius:100px;background:#C9FF3D;color:#141A0A;font-weight:700">Enviar</button></div></div>';
+    var st = document.createElement('style'); st.textContent = '.vdl{display:block;font-family:monospace;font-size:10px;color:#8B939A;margin:10px 0 4px;letter-spacing:.04em}';
+    document.body.appendChild(st); document.body.appendChild(ov);
+    var f = function(i){ return ov.querySelector('#' + i); }, foto = null;
+    function msg(t){ f('vdMsg').textContent = t; }
+    APP.sb.rpc('bike_vendedor_ler', { t: token }).then(function(r){
+      if(r.error || !r.data){ msg('Este link não é válido ou já expirou. Peça um novo ao dono da bike.'); return; }
+      var d = r.data, c = d.componentes || {};
+      msg('Preencha o que souber sobre a bike “' + d.nome + '”.'); f('vdForm').hidden = false;
+      f('vdMarca').value = d.marca || ''; f('vdModelo').value = d.modelo || ''; f('vdAno').value = d.ano || ''; f('vdTam').value = d.tamanho || '';
+      f('vdSerie').value = c.serie || ''; f('vdGrupo').value = c.grupo || ''; f('vdRodas').value = c.rodas || ''; f('vdPneus').value = c.pneus || '';
+      f('vdPedais').value = c.pedais || ''; f('vdSelim').value = c.selim || ''; f('vdQuadro').value = c.quadro || ''; f('vdOutros').value = c.outros || '';
+    });
+    f('vdFoto').addEventListener('change', async function(){ var a = this.files && this.files[0]; if(!a) return; try{ foto = await reduzir(a); msg('Foto anexada.'); } catch(e){ msg('Não consegui ler a foto.'); } });
+    f('vdSalvar').addEventListener('click', async function(){
+      this.disabled = true;
+      var p = { marca: f('vdMarca').value, modelo: f('vdModelo').value, ano: f('vdAno').value, tamanho: f('vdTam').value, foto: foto,
+        componentes: { serie: f('vdSerie').value, grupo: f('vdGrupo').value, rodas: f('vdRodas').value, pneus: f('vdPneus').value, pedais: f('vdPedais').value, selim: f('vdSelim').value, quadro: f('vdQuadro').value, outros: f('vdOutros').value } };
+      var r = await APP.sb.rpc('bike_vendedor_salvar', { t: token, p: p });
+      if(r.error || r.data !== true){ this.disabled = false; msg('Não foi possível enviar. O link pode ter expirado.'); return; }
+      f('vdForm').hidden = true; msg('Pronto! Dados enviados. Pode fechar esta página. Obrigado!');
+    });
+  }
+  function checarVendedor(){
+    var m = /^#vendedor=([0-9a-fA-F-]{36})$/.exec(location.hash);
+    if(m && !document.getElementById('vdMsg')) paginaVendedor(m[1]);
+  }
+  checarVendedor(); window.addEventListener('hashchange', checarVendedor);
+  $('bkLink').addEventListener('click', gerarLink);
   document.querySelector('.nav-btn[data-view="bikes"]').addEventListener('click', carregar);
   document.addEventListener('cadencia:auth', carregar);
   if(APP.user) carregar();
