@@ -698,6 +698,32 @@
   .nav-btn span{font-size:9.5px; font-family:var(--font-mono);}
   .nav-btn.active{color:var(--safety);}
 
+  /* ---------- BIKES ---------- */
+  .navbar{overflow-x:auto; scrollbar-width:none;}
+  .navbar::-webkit-scrollbar{display:none;}
+  .nav-btn{flex:1 0 auto; padding:4px 10px;}
+  .bk-card{display:flex; gap:12px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); padding:12px; margin-bottom:10px; cursor:pointer; text-align:left; width:100%;}
+  .bk-foto{width:84px; height:84px; flex:0 0 84px; border-radius:var(--radius-sm); background:var(--surface-2) center/cover no-repeat; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:30px;}
+  .bk-info{min-width:0; flex:1;}
+  .bk-info h3{font-family:var(--font-display); font-size:15px; margin:0 0 2px;}
+  .bk-sub{font-size:11.5px; color:var(--text-muted); font-family:var(--font-mono); margin:0 0 6px;}
+  .bk-chips{display:flex; flex-wrap:wrap; gap:5px;}
+  .bk-chip{font-family:var(--font-mono); font-size:10px; padding:3px 8px; border-radius:100px; border:1px solid var(--line); color:var(--text-muted);}
+  .bk-chip.ok{border-color:var(--safety-dim); color:var(--safety);}
+  .bk-chip.soon{border-color:var(--gold); color:var(--gold);}
+  .bk-chip.late{border-color:var(--alert); color:var(--alert);}
+  .bk-vazio{padding:28px 16px; text-align:center; color:var(--text-muted); font-size:13px;}
+  .bk-form{max-height:78vh; overflow-y:auto; padding-bottom:4px;}
+  .bk-form label{display:block; font-family:var(--font-mono); font-size:10px; color:var(--text-muted); margin:10px 0 4px; letter-spacing:.04em;}
+  .bk-in{width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:10px; color:var(--text); font-family:var(--font-body); font-size:13px;}
+  .bk-2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .bk-man{display:grid; grid-template-columns:1fr 70px 70px auto auto; gap:5px; align-items:center; margin-bottom:6px;}
+  .bk-man .bk-in{padding:8px 6px; font-size:12px;}
+  .bk-mini{font-size:11px; padding:7px 9px; border:1px solid var(--line); border-radius:100px; color:var(--text);}
+  .bk-pub{display:flex; align-items:center; gap:8px; margin:14px 0 4px; font-size:13px;}
+  .bk-pubcard{display:flex; gap:10px; align-items:center; margin-bottom:8px; padding:8px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface-2);}
+  .bk-pubcard .bk-foto{width:56px; height:56px; flex-basis:56px; font-size:22px;}
+
   /* ---------- TELA DE LOGIN (gate em tela cheia) ---------- */
   #authGate{
     position:absolute; inset:0; z-index:40;
@@ -1337,6 +1363,17 @@
     </section>
 
     <!-- ===================== TREINO ===================== -->
+    <section class="view" id="view-bikes">
+      <div class="section" style="padding-top:20px;">
+        <div class="section-head"><h2>Bikes</h2><span class="count" id="bkCount">—</span></div>
+      </div>
+      <div style="padding:0 16px 24px;">
+        <button class="btn-primary" id="bkNova" style="width:100%; margin-bottom:14px; background:var(--safety); color:#141A0A;">+ Nova bike</button>
+        <p class="sub" id="bkAviso" hidden style="color:var(--gold); font-size:12px; margin-bottom:10px;"></p>
+        <div id="bkLista"></div>
+      </div>
+    </section>
+
     <section class="view" id="view-treino">
       <div class="section" style="padding-top:20px;">
         <div class="section-head"><h2>Treino</h2><span class="count" id="statPedaisMes">— pedais este mês</span></div>
@@ -1594,6 +1631,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3 3 6l2 5 3-1v11h8V10l3 1 2-5-5-3a4 4 0 0 1-8 0Z" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span>Jersey</span>
     </button>
+    <button class="nav-btn" data-view="bikes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h2l1.5 11.5M5.5 17.5 9 8h6l-3.5 9.5M9 8H7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Bikes</span>
+    </button>
     <button class="nav-btn" data-view="treino">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9-6-18-3 9H2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span>Treino</span>
@@ -1621,6 +1662,56 @@
         <button class="btn-secondary" id="btnCancelReport">Cancelar</button>
         <button class="btn-primary" id="btnSendReport">Enviar e gerar B.O.</button>
       </div>
+    </div>
+  </div>
+
+  <!-- modal: bike -->
+  <div class="modal-backdrop" id="modalBikeBackdrop">
+    <div class="modal">
+      <div class="modal-grab"></div>
+      <h3 id="bkTitulo">Nova bike</h3>
+      <div class="bk-form">
+        <div id="bkFotoBox" class="bk-foto" style="width:100%; height:150px; margin-top:8px;">🚲</div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button type="button" class="bk-mini" id="bkFotoBtn">📷 Foto</button>
+          <button type="button" class="bk-mini" id="bkFotoDel">Remover foto</button>
+          <input type="file" id="bkFotoIn" accept="image/*" hidden>
+        </div>
+        <label>NOME DA BIKE</label><input class="bk-in" id="bkNome" maxlength="60" placeholder="ex.: Minha speed">
+        <div class="bk-2">
+          <div><label>MARCA</label><input class="bk-in" id="bkMarca" maxlength="40"></div>
+          <div><label>MODELO</label><input class="bk-in" id="bkModelo" maxlength="40"></div>
+          <div><label>ANO</label><input class="bk-in" id="bkAno" type="number" min="1980" max="2100" inputmode="numeric"></div>
+          <div><label>TAMANHO</label><input class="bk-in" id="bkTamanho" maxlength="10" placeholder="ex.: 54, M"></div>
+        </div>
+        <label>TIPO</label>
+        <select class="bk-in" id="bkTipo"><option>Speed / estrada</option><option>MTB</option><option>Gravel</option><option>Triathlon / TT</option><option>Urbana</option><option>Elétrica</option><option>Outra</option></select>
+        <label>COMPONENTES</label>
+        <div class="bk-2">
+          <input class="bk-in" id="bkGrupo" maxlength="40" placeholder="Grupo (ex.: 105 12v)">
+          <input class="bk-in" id="bkRodas" maxlength="40" placeholder="Rodas">
+          <input class="bk-in" id="bkPneus" maxlength="40" placeholder="Pneus">
+          <input class="bk-in" id="bkPedais" maxlength="40" placeholder="Pedais">
+          <input class="bk-in" id="bkSelim" maxlength="40" placeholder="Selim">
+          <input class="bk-in" id="bkQuadro" maxlength="40" placeholder="Quadro (material)">
+        </div>
+        <input class="bk-in" id="bkOutros" maxlength="120" placeholder="Outros (ex.: ciclocomputador, power meter)" style="margin-top:8px;">
+        <label>KM RODADOS NESTA BIKE</label>
+        <div style="display:flex; gap:8px;">
+          <input class="bk-in" id="bkKm" type="number" min="0" step="1" inputmode="decimal">
+          <input class="bk-in" id="bkKmSoma" type="number" min="0" step="1" inputmode="decimal" placeholder="+ km do pedal" style="max-width:130px;">
+          <button type="button" class="bk-mini" id="bkKmBtn">Somar</button>
+        </div>
+        <label>MANUTENÇÃO (a cada X km · feito aos Y km)</label>
+        <div id="bkMan"></div>
+        <button type="button" class="bk-mini" id="bkManAdd">+ item</button>
+        <label class="bk-pub" style="font-size:13px; font-family:var(--font-body); color:var(--text);"><input type="checkbox" id="bkPublica"> Visível no meu perfil (outros ciclistas veem)</label>
+      </div>
+      <div class="modal-actions" style="margin-top:12px;">
+        <button class="btn-secondary" id="bkCancelar">Cancelar</button>
+        <button class="btn-primary" id="bkSalvar" style="background:var(--safety); color:#141A0A;">Salvar</button>
+      </div>
+      <button class="btn-logout" id="bkApagar" style="margin-top:10px; border-color:var(--alert); color:var(--alert);" hidden>Apagar bike</button>
     </div>
   </div>
 
@@ -2678,6 +2769,7 @@
             </div>
           </div>
           <div class="resumo-grid" id="perfilPublicoResumo" style="padding:0 0 16px;"></div>
+          <div id="perfilPublicoBikes" style="padding:0 0 16px;"></div>
           <div class="modal-actions">
             <button class="btn-secondary" id="btnFecharPerfilPublico">Fechar</button>
           </div>
@@ -2690,6 +2782,8 @@
     document.getElementById('perfilPublicoNome').textContent = nome;
     document.getElementById('perfilPublicoSub').textContent = 'carregando…';
     document.getElementById('perfilPublicoResumo').innerHTML = '';
+    const boxBikes = document.getElementById('perfilPublicoBikes'); if(boxBikes) boxBikes.innerHTML = '';
+    if(window.cadenciaBikes) window.cadenciaBikes.publicas(usuarioId, boxBikes);
     backdrop.classList.add('open');
 
     const desde90 = new Date(Date.now() - 90*24*60*60*1000).toISOString();
@@ -6181,6 +6275,177 @@ if ('serviceWorker' in navigator) {
   document.addEventListener('cadencia:auth', aoAutenticar);
   window.addEventListener('hashchange', abrirCiclista);
   if(APP.user) aoAutenticar();
+})();
+</script>
+<script>
+/* Aba Bikes: cadastro, componentes, km e manutenção; perfil público mostra as bikes públicas */
+(function(){
+  var APP = window.cadenciaApp; if(!APP) return;
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  var BIKES = [], ATUAL = null, FOTO = null, MAN = [];
+  var PRESETS = [['Corrente', 3000], ['Pneus', 5000], ['Pastilhas / freios', 4000], ['Cabos e fita', 6000], ['Revisão geral', 8000]];
+
+  function aviso(t){ var a = $('bkAviso'); a.textContent = t || ''; a.hidden = !t; }
+  function statusItem(m, km){
+    var rest = (+m.intervalo || 0) - (km - (+m.ultimo || 0));
+    if(!(+m.intervalo > 0)) return null;
+    var cls = rest <= 0 ? 'late' : (rest <= m.intervalo * 0.15 ? 'soon' : 'ok');
+    var txt = rest <= 0 ? m.item + ': trocar (' + Math.abs(Math.round(rest)) + ' km além)' : m.item + ': faltam ' + Math.round(rest) + ' km';
+    return { cls: cls, txt: txt, rest: rest };
+  }
+  function fotoStyle(b){ return b.foto ? ' style="background-image:url(\'' + b.foto.replace(/'/g, '') + '\')"' : ''; }
+  function renderLista(){
+    $('bkCount').textContent = BIKES.length + (BIKES.length === 1 ? ' bike' : ' bikes');
+    if(!BIKES.length){ $('bkLista').innerHTML = '<div class="bk-vazio">Nenhuma bike ainda. Toque em “+ Nova bike”.</div>'; return; }
+    $('bkLista').innerHTML = BIKES.map(function(b, i){
+      var sub = [b.marca, b.modelo, b.ano].filter(Boolean).join(' · ') || (b.tipo || '');
+      var chips = '<span class="bk-chip">' + Math.round(b.km_total || 0) + ' km</span>';
+      if(b.tipo) chips += '<span class="bk-chip">' + esc(b.tipo) + '</span>';
+      chips += '<span class="bk-chip">' + (b.publica ? 'pública' : 'privada') + '</span>';
+      var st = (b.manutencao || []).map(function(m){ return statusItem(m, +b.km_total || 0); }).filter(Boolean)
+        .sort(function(a, c){ return a.rest - c.rest; }).slice(0, 3);
+      st.forEach(function(s){ chips += '<span class="bk-chip ' + s.cls + '">' + esc(s.txt) + '</span>'; });
+      return '<button class="bk-card" data-i="' + i + '"><div class="bk-foto"' + fotoStyle(b) + '>' + (b.foto ? '' : '🚲') + '</div>'
+        + '<div class="bk-info"><h3>' + esc(b.nome) + '</h3><p class="bk-sub">' + esc(sub) + '</p><div class="bk-chips">' + chips + '</div></div></button>';
+    }).join('');
+  }
+  async function carregar(){
+    if(!APP.user) return;
+    var r = await APP.sb.from('bikes').select('*').eq('user_id', APP.user.id).order('criado_em', { ascending: true });
+    if(r.error){ aviso('Falta rodar o SQL bikes.sql no Supabase para usar esta aba.'); BIKES = []; renderLista(); return; }
+    aviso(''); BIKES = r.data || []; renderLista();
+  }
+
+  // ---- editor ----
+  function fotoPreview(){
+    var box = $('bkFotoBox');
+    box.style.backgroundImage = FOTO ? 'url("' + FOTO.replace(/"/g, '') + '")' : '';
+    box.textContent = FOTO ? '' : '🚲';
+  }
+  function renderMan(){
+    $('bkMan').innerHTML = MAN.map(function(m, i){
+      return '<div class="bk-man" data-i="' + i + '"><input class="bk-in" data-k="item" value="' + esc(m.item) + '" maxlength="30">'
+        + '<input class="bk-in" data-k="intervalo" type="number" min="0" inputmode="numeric" value="' + (m.intervalo || '') + '" title="a cada (km)">'
+        + '<input class="bk-in" data-k="ultimo" type="number" min="0" inputmode="numeric" value="' + (m.ultimo || 0) + '" title="feito aos (km)">'
+        + '<button type="button" class="bk-mini" data-a="feito">Feito</button><button type="button" class="bk-mini" data-a="del">×</button></div>';
+    }).join('');
+  }
+  function lerMan(){
+    [].forEach.call($('bkMan').querySelectorAll('.bk-man'), function(row){
+      var i = +row.dataset.i; if(!MAN[i]) return;
+      MAN[i].item = row.querySelector('[data-k=item]').value.trim().slice(0, 30);
+      MAN[i].intervalo = +row.querySelector('[data-k=intervalo]').value || 0;
+      MAN[i].ultimo = +row.querySelector('[data-k=ultimo]').value || 0;
+    });
+  }
+  function abrir(b){
+    ATUAL = b || null;
+    $('bkTitulo').textContent = b ? 'Editar bike' : 'Nova bike';
+    var c = (b && b.componentes) || {};
+    $('bkNome').value = b ? b.nome : ''; $('bkMarca').value = b ? (b.marca || '') : ''; $('bkModelo').value = b ? (b.modelo || '') : '';
+    $('bkAno').value = b && b.ano ? b.ano : ''; $('bkTamanho').value = b ? (b.tamanho || '') : '';
+    $('bkTipo').value = b && b.tipo ? b.tipo : 'Speed / estrada';
+    $('bkGrupo').value = c.grupo || ''; $('bkRodas').value = c.rodas || ''; $('bkPneus').value = c.pneus || '';
+    $('bkPedais').value = c.pedais || ''; $('bkSelim').value = c.selim || ''; $('bkQuadro').value = c.quadro || ''; $('bkOutros').value = c.outros || '';
+    $('bkKm').value = b ? (b.km_total || 0) : 0; $('bkKmSoma').value = '';
+    MAN = b ? JSON.parse(JSON.stringify(b.manutencao || [])) : PRESETS.map(function(p){ return { item: p[0], intervalo: p[1], ultimo: 0 }; });
+    renderMan();
+    $('bkPublica').checked = b ? !!b.publica : true;
+    FOTO = b ? (b.foto || null) : null; fotoPreview();
+    $('bkApagar').hidden = !b;
+    $('modalBikeBackdrop').classList.add('open');
+  }
+  function fechar(){ $('modalBikeBackdrop').classList.remove('open'); }
+  function reduzir(file){
+    return new Promise(function(ok, no){
+      var rd = new FileReader();
+      rd.onerror = no;
+      rd.onload = function(){
+        var im = new Image();
+        im.onerror = no;
+        im.onload = function(){
+          var m = 640, s = Math.min(1, m / Math.max(im.width, im.height));
+          var cv = document.createElement('canvas'); cv.width = Math.round(im.width * s); cv.height = Math.round(im.height * s);
+          cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+          ok(cv.toDataURL('image/jpeg', 0.72));
+        };
+        im.src = rd.result;
+      };
+      rd.readAsDataURL(file);
+    });
+  }
+  async function salvar(){
+    if(!APP.user) return;
+    lerMan();
+    var nome = $('bkNome').value.trim();
+    if(!nome){ APP.toast('Dê um nome para a bike'); return; }
+    var row = {
+      user_id: APP.user.id, nome: nome.slice(0, 60),
+      marca: $('bkMarca').value.trim() || null, modelo: $('bkModelo').value.trim() || null,
+      ano: +$('bkAno').value || null, tipo: $('bkTipo').value, tamanho: $('bkTamanho').value.trim() || null,
+      foto: FOTO || null,
+      componentes: { grupo: $('bkGrupo').value.trim(), rodas: $('bkRodas').value.trim(), pneus: $('bkPneus').value.trim(),
+        pedais: $('bkPedais').value.trim(), selim: $('bkSelim').value.trim(), quadro: $('bkQuadro').value.trim(), outros: $('bkOutros').value.trim() },
+      km_total: Math.max(0, +$('bkKm').value || 0),
+      manutencao: MAN.filter(function(m){ return m.item; }),
+      publica: $('bkPublica').checked
+    };
+    var q = ATUAL ? APP.sb.from('bikes').update(row).eq('id', ATUAL.id).eq('user_id', APP.user.id) : APP.sb.from('bikes').insert(row);
+    var r = await q;
+    if(r.error){ APP.toast('Não deu pra salvar a bike. Falta rodar o SQL?'); return; }
+    fechar(); APP.toast('Bike salva'); carregar();
+  }
+  async function apagar(){
+    if(!ATUAL || !confirm('Apagar esta bike?')) return;
+    var r = await APP.sb.from('bikes').delete().eq('id', ATUAL.id).eq('user_id', APP.user.id);
+    if(r.error){ APP.toast('Não deu pra apagar'); return; }
+    fechar(); APP.toast('Bike apagada'); carregar();
+  }
+
+  // ---- bikes públicas no perfil de outro ciclista ----
+  async function publicas(userId, el){
+    if(!el) return; el.innerHTML = '';
+    var r = await APP.sb.from('bikes').select('nome,marca,modelo,ano,tipo,foto,componentes,km_total').eq('user_id', userId).eq('publica', true).order('criado_em', { ascending: true });
+    if(r.error || !r.data || !r.data.length) return;
+    el.innerHTML = '<p class="sub" style="margin:0 0 8px;">Garagem</p>' + r.data.map(function(b){
+      var c = b.componentes || {}, sub = [b.marca, b.modelo, b.ano].filter(Boolean).join(' · ');
+      var comp = [c.grupo, c.rodas, c.pneus].filter(Boolean).join(' · ');
+      return '<div class="bk-pubcard"><div class="bk-foto"' + fotoStyle(b) + '>' + (b.foto ? '' : '🚲') + '</div><div class="bk-info"><h3 style="font-size:13px;">' + esc(b.nome) + '</h3>'
+        + '<p class="bk-sub" style="margin:0;">' + esc(sub) + (sub ? ' · ' : '') + Math.round(b.km_total || 0) + ' km</p>'
+        + (comp ? '<p class="bk-sub" style="margin:2px 0 0;">' + esc(comp) + '</p>' : '') + '</div></div>';
+    }).join('');
+  }
+  window.cadenciaBikes = { carregar: carregar, publicas: publicas };
+
+  $('bkNova').addEventListener('click', function(){ abrir(null); });
+  $('bkLista').addEventListener('click', function(e){ var c = e.target.closest('.bk-card'); if(c) abrir(BIKES[+c.dataset.i]); });
+  $('bkCancelar').addEventListener('click', fechar);
+  $('bkSalvar').addEventListener('click', salvar);
+  $('bkApagar').addEventListener('click', apagar);
+  $('modalBikeBackdrop').addEventListener('click', function(e){ if(e.target === this) fechar(); });
+  $('bkFotoBtn').addEventListener('click', function(){ $('bkFotoIn').click(); });
+  $('bkFotoDel').addEventListener('click', function(){ FOTO = null; fotoPreview(); });
+  $('bkFotoIn').addEventListener('change', async function(){
+    var f = this.files && this.files[0]; this.value = '';
+    if(!f) return;
+    try{ FOTO = await reduzir(f); fotoPreview(); } catch(e){ APP.toast('Não consegui ler a foto'); }
+  });
+  $('bkKmBtn').addEventListener('click', function(){
+    var s = +$('bkKmSoma').value; if(!(s > 0)) return;
+    $('bkKm').value = Math.round(((+$('bkKm').value || 0) + s) * 10) / 10; $('bkKmSoma').value = '';
+  });
+  $('bkManAdd').addEventListener('click', function(){ lerMan(); MAN.push({ item: '', intervalo: 3000, ultimo: +$('bkKm').value || 0 }); renderMan(); });
+  $('bkMan').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    lerMan(); var i = +b.parentNode.dataset.i;
+    if(b.dataset.a === 'del') MAN.splice(i, 1);
+    if(b.dataset.a === 'feito') MAN[i].ultimo = +$('bkKm').value || 0;
+    renderMan();
+  });
+  document.querySelector('.nav-btn[data-view="bikes"]').addEventListener('click', carregar);
+  document.addEventListener('cadencia:auth', carregar);
+  if(APP.user) carregar();
 })();
 </script>
 </body>
