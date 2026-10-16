@@ -81,7 +81,8 @@
 <div class="modal" id="modal"><div class="mw">
   <button class="fechar" id="fechar">← Voltar</button>
   <div><div class="palco"><svg id="vestido" viewBox="0 0 400 800" aria-label="Modelo vestido"></svg></div>
-    <div class="vista"><button class="chip" id="vF" aria-pressed="true">Frente</button><button class="chip" id="vB" aria-pressed="false">Costas</button><span id="peles"></span></div></div>
+    <div class="vista"><button class="chip" id="vF" aria-pressed="true">Frente</button><button class="chip" id="vB" aria-pressed="false">Costas</button><span id="peles"></span></div>
+    <div class="vista"><button class="chip" id="poPe" aria-pressed="true">Em pé</button><button class="chip" id="poBike" aria-pressed="false">Na bike</button><span style="width:10px"></span><button class="chip" id="sxM" aria-pressed="true">Masculino</button><button class="chip" id="sxF" aria-pressed="false">Feminino</button></div></div>
   <div class="info"><h2 id="pNome"></h2><p class="sub" id="pSub"></p><p class="nota" id="pNota"></p>
     <label>Peça</label><div class="chips" id="pModelo"></div>
     <label>Tamanho</label><div class="chips" id="pTam"></div>
@@ -436,14 +437,18 @@
       o += '<rect x="'+(v[0] - 3)+'" y="'+v[1]+'" width="6" height="22" rx="3" fill="rgba(0,0,0,.55)" transform="rotate('+v[2]+' '+v[0]+' '+(v[1] + 11)+')"/>';
     });
     if(!frente) o += '<rect x="193" y="82" width="14" height="9" rx="3" fill="rgba(0,0,0,.45)" stroke="'+t3+'" stroke-width="1"/>';
+    if(SEXO === 'f'){
+      if(frente) o += '<path d="M174 78 C170 100 174 122 180 134" fill="none" stroke="'+HAIR+'" stroke-width="5" stroke-linecap="round"/><path d="M226 78 C230 100 226 122 220 134" fill="none" stroke="'+HAIR+'" stroke-width="5" stroke-linecap="round"/>';
+      else o += '<path d="M200 60 C220 62 226 96 220 140 C216 168 206 176 200 160 C194 176 184 168 180 140 C174 96 180 62 200 60 Z" fill="'+HAIR+'" transform="translate(0 6)"/>';
+    }
     // bretelle (sempre embaixo) e jersey (por cima)
     var bm = pre + 'B' + (frente ? 'F' : 'B');
     var cj = S.modelo !== 'bretelle';
     if(cj) o += '<clipPath id="'+pre+'clip'+(frente ? 'F' : 'B')+'"><rect x="0" y="260" width="400" height="540"/></clipPath>';
-    o += '<g'+(cj ? ' clip-path="url(#'+pre+'clip'+(frente ? 'F' : 'B')+')"' : '')+'><g transform="translate(48 105) scale(.95 1.45)">' + comModelo('bretelle', bm) + '</g></g>';
+    o += '<g'+(cj ? ' clip-path="url(#'+pre+'clip'+(frente ? 'F' : 'B')+')"' : '')+'><g transform="translate('+(200 - 152 * (SEXO === 'f' ? .9 : 1))+' 105) scale('+(.95 * (SEXO === 'f' ? .9 : 1))+' 1.45)">' + comModelo('bretelle', bm) + '</g></g>';
     if(cj){
       var jid = pre + 'J' + (frente ? 'F' : 'B');
-      o += '<g transform="translate(40 100)">' + comModelo(S.modelo, jid) + '</g>';
+      o += '<g transform="translate('+(200 - 160 * (SEXO === 'f' ? .9 : 1))+' 100) scale('+(SEXO === 'f' ? .9 : 1)+' 1)">' + comModelo(S.modelo, jid) + '</g>';
     }
     return o;
   }
@@ -467,6 +472,88 @@
   }
 
 
+  // ====== CORPO v2: camisa ajustada, masculino/feminino e pose na bike ======
+  var SEXO = 'm', HAIR = '#3B2A20';
+  var comModeloOrig = comModelo;
+  function sobreposicao(m, id){
+    var ant = S.modelo; S.modelo = m;
+    try{
+      var gm = geom(), cp = '<path d="'+TORSO+'"/>' + (gm.tem ? '<path d="'+gm.E+'"/><path d="'+gm.D+'"/>' : '');
+      return '<defs><clipPath id="ovc'+id+'">'+cp+'</clipPath><linearGradient id="ovg'+id+'" x1="0" x2="1" y1="0" y2="0">'
+        + '<stop offset="0" stop-color="#000" stop-opacity=".38"/><stop offset=".3" stop-color="#000" stop-opacity=".24"/><stop offset=".42" stop-color="#000" stop-opacity="0"/>'
+        + '<stop offset=".58" stop-color="#000" stop-opacity="0"/><stop offset=".7" stop-color="#000" stop-opacity=".24"/><stop offset="1" stop-color="#000" stop-opacity=".38"/></linearGradient></defs>'
+        + '<g clip-path="url(#ovc'+id+')" style="pointer-events:none"><rect width="320" height="380" fill="url(#ovg'+id+')"/>'
+        + '<path d="M100 138 Q132 176 118 218" fill="none" stroke="#000" stroke-opacity=".22" stroke-width="2.2"/><path d="M220 138 Q188 176 202 218" fill="none" stroke="#000" stroke-opacity=".22" stroke-width="2.2"/>'
+        + '<path d="M104 146 Q134 182 122 222" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1.6"/><path d="M216 146 Q186 182 198 222" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1.6"/>'
+        + '<path d="M108 296 Q160 310 212 296" fill="none" stroke="#000" stroke-opacity=".2" stroke-width="2"/><path d="M114 312 Q160 324 206 312" fill="none" stroke="#000" stroke-opacity=".16" stroke-width="1.6"/>'
+        + '<path d="M150 70 Q160 130 156 200" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="10"/></g>';
+    } finally { S.modelo = ant; }
+  }
+  comModelo = function(m, id){ var s = comModeloOrig(m, id); return m === 'bretelle' ? s : s + sobreposicao(m, id); };
+
+  function perna(x, y0, kx, ky, fx, fy, w, cor1, pele, sg){
+    // coxa (bretelle) do quadril ao joelho, panturrilha (pele) do joelho ao pé, meia e sapatilha
+    var o = '<path d="M'+kx+' '+ky+' L'+fx+' '+(fy - 40)+'" stroke="'+pele+'" stroke-width="'+(w * .66)+'" stroke-linecap="round" fill="none"/>';
+    o += '<path d="M'+fx+' '+(fy - 46)+' L'+fx+' '+(fy - 16)+'" stroke="#F2F3F5" stroke-width="'+(w * .55)+'" fill="none"/>';
+    o += '<path d="M'+x+' '+y0+' L'+kx+' '+ky+'" stroke="'+cor1+'" stroke-width="'+w+'" stroke-linecap="round" fill="none"/>';
+    o += '<path d="M'+x+' '+y0+' L'+kx+' '+ky+'" stroke="rgba(255,255,255,.10)" stroke-width="'+(w * .3)+'" stroke-linecap="round" fill="none" transform="translate(-'+(w * .18)+' 0)"/>';
+    o += '<path d="M'+(kx - 0)+' '+(ky + 2)+' L'+(kx + 0)+' '+(ky + 2)+'" stroke="rgba(0,0,0,.25)" stroke-width="'+(w * .9)+'" stroke-linecap="round" opacity=".0"/>';
+    o += '<ellipse cx="'+fx+'" cy="'+fy+'" rx="'+(w * .46)+'" ry="'+(w * .3)+'" fill="#1B1D22"/><ellipse cx="'+fx+'" cy="'+(fy - 3)+'" rx="'+(w * .34)+'" ry="'+(w * .12)+'" fill="rgba(255,255,255,.2)"/>';
+    return o;
+  }
+  function corpoBike(frente, pre){
+    var f = SEXO === 'f', sk = PELE, sd = escurece(PELE, .72), sl = escurece(PELE, 1.08), cap = cor('dk'), t3 = S.c3, sg = pre + 'sg' + (frente ? 'F' : 'B');
+    var shorts = S.c1, luva = '#2E323B', k = f ? .9 : 1, wl = f ? 50 : 54;
+    var o = '<defs>'
+      + '<linearGradient id="'+sg+'" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="'+sd+'"/><stop offset=".35" stop-color="'+sl+'"/><stop offset=".65" stop-color="'+sk+'"/><stop offset="1" stop-color="'+sd+'"/></linearGradient>'
+      + '<radialGradient id="'+sg+'c" cx=".5" cy=".4" r=".6"><stop offset="0" stop-color="'+sl+'"/><stop offset="1" stop-color="'+sk+'"/></radialGradient>'
+      + '<linearGradient id="'+sg+'h" x1="0" x2="1"><stop offset="0" stop-color="'+escurece(cap, 1.35)+'"/><stop offset=".5" stop-color="'+cap+'"/><stop offset="1" stop-color="'+escurece(cap, .6)+'"/></linearGradient></defs>';
+    o += '<ellipse cx="200" cy="772" rx="90" ry="7" fill="rgba(0,0,0,.35)"/>';
+    var roda = '<rect x="192" y="470" width="16" height="304" rx="8" fill="#15171B"/><rect x="198.5" y="470" width="3" height="304" rx="1.5" fill="#6C727C"/>';
+    var tubo = '<rect x="197" y="440" width="6" height="40" fill="#2A2E36"/>';
+    if(!frente){ o += roda + '<rect x="196" y="446" width="8" height="40" fill="#2A2E36"/><ellipse cx="200" cy="441" rx="25" ry="9" fill="#1B1D22"/><ellipse cx="200" cy="438" rx="20" ry="4" fill="rgba(255,255,255,.12)"/>'; }
+    // pernas: a perna estendida fica à esquerda na vista de trás (e à direita na frente)
+    var E = frente ? 232 : 168, B = frente ? 168 : 232, dir = frente ? 1 : -1;
+    o += perna(E, 452, E - (frente ? -2 : 2), 560, E + (frente ? 2 : -2), 722, wl, shorts, sk, sg);
+    o += perna(B, 452, B + (frente ? -22 : 22), 505, B + (frente ? -6 : 6), 606, wl, shorts, sk, sg);
+    // cabeça (inclinada para frente) e pescoço
+    o += '<path d="M186 176 L186 214 C192 220 208 220 214 214 L214 176 Z" fill="url(#'+sg+')"/>';
+    if(f && !frente) o += '<path d="M200 150 C218 150 226 176 218 216 C214 240 204 250 200 232 C196 250 186 240 182 216 C174 176 182 150 200 150 Z" fill="'+HAIR+'"/>';
+    o += '<ellipse cx="174" cy="160" rx="5" ry="9" fill="'+sd+'"/><ellipse cx="226" cy="160" rx="5" ry="9" fill="'+sd+'"/>';
+    o += '<path d="M176 146 C176 126 186 120 200 120 C214 120 224 126 224 146 L224 164 C224 182 212 192 200 192 C188 192 176 182 176 164 Z" fill="url(#'+sg+'c)"/>';
+    if(frente){
+      o += '<path d="M178 154 C178 148 190 146 200 148 C210 146 222 148 222 154 C222 164 214 168 208 166 C204 164 202 160 200 160 C198 160 196 164 192 166 C186 168 178 164 178 154 Z" fill="#14161B"/>';
+      o += '<path d="M182 152 L196 151" stroke="rgba(255,255,255,.4)" stroke-width="2" stroke-linecap="round"/>';
+      o += '<path d="M192 184 C197 187 203 187 208 184" fill="none" stroke="'+(f ? '#B8625A' : sd)+'" stroke-width="'+(f ? 2.6 : 1.8)+'" stroke-linecap="round"/>';
+      if(f) o += '<path d="M176 156 C174 176 178 196 184 206" fill="none" stroke="'+HAIR+'" stroke-width="5" stroke-linecap="round"/><path d="M224 156 C226 176 222 196 216 206" fill="none" stroke="'+HAIR+'" stroke-width="5" stroke-linecap="round"/>';
+    }
+    o += '<path d="M172 154 C166 114 186 100 200 100 C214 100 234 114 228 154 C216 140 184 140 172 154 Z" fill="url(#'+sg+'h)"/>';
+    o += '<path d="M172 154 C184 142 216 142 228 154" fill="none" stroke="'+t3+'" stroke-width="2.4"/>';
+    [[186, 114, -14], [200, 110, 0], [214, 114, 14]].forEach(function(v){ o += '<rect x="'+(v[0] - 3)+'" y="'+v[1]+'" width="6" height="20" rx="3" fill="rgba(0,0,0,.55)" transform="rotate('+v[2]+' '+v[0]+' '+(v[1] + 10)+')"/>'; });
+    if(!frente) o += '<rect x="193" y="156" width="14" height="9" rx="3" fill="rgba(0,0,0,.35)"/>';
+    // quadril/bretelle
+    o += '<path d="M150 410 C150 470 160 490 200 492 C240 490 250 470 250 410 Z" fill="'+shorts+'"/>';
+    // antebraços até o guidão (aparecem abaixo das mangas)
+    [[-1, 112], [1, 288]].forEach(function(a){
+      var hx = 200 + a[0] * 88;
+      o += '<path d="M'+(hx + a[0] * 6)+' 300 L'+hx+' 436" stroke="'+sk+'" stroke-width="'+(f ? 24 : 27)+'" stroke-linecap="round" fill="none"/>';
+    });
+    // camisa (encurtada pela inclinação do corpo) — bretelle sozinho mostra o tronco
+    var jid = pre + 'J' + (frente ? 'F' : 'B'), sx = k;
+    if(S.modelo === 'bretelle'){
+      o += '<path d="M150 214 L250 214 L250 420 L150 420 Z" fill="url(#'+sg+')"/>';
+      o += '<g transform="translate('+(200 - 160 * sx)+' 196) scale('+sx+' .74)">' + comModelo('bretelle', pre + 'B' + (frente ? 'F' : 'B')) + '</g>';
+    } else {
+      o += '<g transform="translate('+(200 - 160 * sx)+' 196) scale('+sx+' .74)">' + comModelo(S.modelo, jid) + '</g>';
+    }
+    // guidão, mãos e frente da bike
+    o += '<path d="M104 438 C98 430 96 446 106 462" stroke="#2A2E36" stroke-width="7" stroke-linecap="round" fill="none"/><path d="M296 438 C302 430 304 446 294 462" stroke="#2A2E36" stroke-width="7" stroke-linecap="round" fill="none"/>';
+    o += '<path d="M104 440 L296 440" stroke="#2A2E36" stroke-width="8" stroke-linecap="round"/><path d="M104 438 L296 438" stroke="rgba(255,255,255,.18)" stroke-width="2"/>';
+    [112, 288].forEach(function(hx){ o += '<ellipse cx="'+hx+'" cy="440" rx="15" ry="13" fill="'+luva+'"/><ellipse cx="'+(hx + (hx < 200 ? 4 : -4))+'" cy="436" rx="8" ry="4" fill="rgba(255,255,255,.14)"/>'; });
+    if(frente) o += roda + tubo + '<rect x="196" y="440" width="8" height="10" rx="2" fill="#3A3F48"/>';
+    return o;
+  }
+
   // ====== LOJA ======
   var PECAS = [
     { id:'curta', nome:'Jersey manga curta' }, { id:'longa', nome:'Jersey manga longa' }, { id:'colete', nome:'Colete' },
@@ -476,7 +563,7 @@
   var PRODS = COLECAO.map(function(c){ return { id:c.id, grupo:'montanhas', nome:c.nome, sub:c.sub, nota:c.nota, c:c.c, padrao:c.padrao, lateral:c.lateral, manga:c.manga }; })
     .concat(PALETAS.map(function(p){ return { id:p.id, grupo:'rio', nome:p.nome, sub:'Coleção Rio', nota:p.nota, c:p.c, padrao:'niveis', lateral:'dk', manga:'c1' }; }));
   var GRUPOS = [['montanhas','Montanhas'],['rio','Rio'],['todos','Todos']];
-  var grupo = 'montanhas', atual = null, pecaSel = 'curta', tamSel = 'M', vista = 'F', carrinho = [];
+  var grupo = 'montanhas', atual = null, pecaSel = 'curta', tamSel = 'M', vista = 'F', pose = 'pe', carrinho = [];
   function g(id){ return document.getElementById(id); }
   function moeda(v){ return 'R$ ' + v.toFixed(2).replace('.', ','); }
   function precoDe(peca){ var v = PRECOS[peca]; return (typeof v === 'number' && v > 0) ? v : null; }
@@ -515,7 +602,10 @@
   }
   function pintar(){
     aplicarProd(atual, pecaSel);
-    g('vestido').innerHTML = corpoSvg(vista === 'F', 'lj');
+    g('vestido').innerHTML = pose === 'bike' ? corpoBike(vista === 'F', 'lj') : corpoSvg(vista === 'F', 'lj');
+    g('vestido').setAttribute('viewBox', pose === 'bike' ? '40 90 320 700' : '0 0 400 800');
+    g('poPe').setAttribute('aria-pressed', String(pose === 'pe')); g('poBike').setAttribute('aria-pressed', String(pose === 'bike'));
+    g('sxM').setAttribute('aria-pressed', String(SEXO === 'm')); g('sxF').setAttribute('aria-pressed', String(SEXO === 'f'));
     g('vF').setAttribute('aria-pressed', String(vista === 'F')); g('vB').setAttribute('aria-pressed', String(vista === 'B'));
     var pc = precoDe(pecaSel);
     g('pPreco').textContent = pc ? moeda(pc) : 'Preço sob consulta';
@@ -537,6 +627,10 @@
   g('fechar').addEventListener('click', function(){ g('modal').classList.remove('on'); });
   g('vF').addEventListener('click', function(){ vista = 'F'; pintar(); });
   g('vB').addEventListener('click', function(){ vista = 'B'; pintar(); });
+  g('poPe').addEventListener('click', function(){ pose = 'pe'; pintar(); });
+  g('poBike').addEventListener('click', function(){ pose = 'bike'; pintar(); });
+  g('sxM').addEventListener('click', function(){ SEXO = 'm'; pintar(); });
+  g('sxF').addEventListener('click', function(){ SEXO = 'f'; pintar(); });
   g('pAdd').addEventListener('click', function(){
     var q = Math.max(1, Math.min(50, parseInt(g('pQtd').value, 10) || 1));
     carrinho.push({ prod: atual, peca: pecaSel, tam: tamSel, qtd: q });
