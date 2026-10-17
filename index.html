@@ -1005,6 +1005,31 @@
   .compra{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
   .compra select,.compra input{width:auto;padding:6px 8px}
   .compra input{width:64px}
+
+  /* ---------- TABLET / iPAD (a partir de 700px) ---------- */
+  @media (min-width:700px){
+    body{padding:14px 18px;}
+    .phone{max-width:1100px; height:calc(100vh - 28px); height:calc(100dvh - 28px); min-height:620px; border-radius:26px;}
+    .statusbar{padding:14px 32px 6px; font-size:13px;}
+    .brand{padding:2px 32px 16px;}
+    .brand-name{font-size:22px;}
+    .screen{padding:0 0 18px;}
+    /* mapa ocupa a largura, mais alto */
+    .map-hero{margin:0 28px 20px; height:clamp(380px, 52vh, 620px);}
+    /* demais telas: coluna legível, centralizada, com respiro lateral */
+    .view:not(#view-mapa){max-width:860px; margin-left:auto; margin-right:auto; padding-left:12px; padding-right:12px;}
+    .navbar{justify-content:center; gap:8px; padding:12px 18px calc(16px + env(safe-area-inset-bottom));}
+    .nav-btn{flex:0 1 110px; padding:6px 12px;}
+    .nav-btn svg{width:24px; height:24px;}
+    .nav-btn span{font-size:11px;}
+    #authGate{padding-left:0; padding-right:0;}
+  }
+  /* iPad deitado: duas colunas no mapa quando houver espaço */
+  @media (min-width:1000px) and (orientation:landscape){
+    .view:not(#view-mapa){max-width:980px;}
+    #view-mapa{display:none;}
+    #view-mapa.active{display:block;}
+  }
 </style>
 </head>
 <body>
