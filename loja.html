@@ -138,7 +138,8 @@
   var PIX_NOME = 'Vinicius Gasparri Silva';   // nome do recebedor que aparece para o cliente (opcional)
   var SB_URL = 'https://lnjpykjrqgsxstpdatwk.supabase.co', SB_KEY = 'sb_publishable_xVvIljWR6Ytp4nF8RQMVWg_zMZsph6T';
   var WHATSAPP = '5521988028923';   // número com DDI e DDD, só dígitos. Ex.: '5521999999999'. Vazio = só copiar o pedido.
-  var PRECOS = { curta: null, longa: null, colete: null, bretelle: null, kit: null };  // em reais. null = "Sob consulta". Ex.: curta: 289.90
+  var PRECOS = { curta: 389.90, longa: 439.90, colete: 349.90, bretelle: 479.90, kit: 779.90 };
+  var ACRESCIMO_PERSONALIZADA = 0.12;  // a personalizada custa 12% a mais (arredondada para terminar em ,90)  // em reais. null = "Sob consulta". Ex.: curta: 289.90
   // =======================================
 
   var PALETAS = [
@@ -618,15 +619,19 @@
   var GRUPOS = [['montanhas','Montanhas'],['brasil','Brasil'],['rio','Rio'],['lisas','Lisas'],['custom','Personalizada'],['todos','Todos']];
   var grupo = 'montanhas', atual = null, pecaSel = 'curta', tamSel = 'M', vista = 'F', pose = 'pe', carrinho = [];
   function g(id){ return document.getElementById(id); }
-  function moeda(v){ return 'R$ ' + v.toFixed(2).replace('.', ','); }
-  function precoDe(peca){ var v = PRECOS[peca]; return (typeof v === 'number' && v > 0) ? v : null; }
+  function moeda(v){ return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function precoDe(peca, prod){
+    var v = PRECOS[peca]; if(!(typeof v === 'number' && v > 0)) return null;
+    if(prod && prod.custom) v = Math.round(v * (1 + ACRESCIMO_PERSONALIZADA) / 10) * 10 - 0.1;
+    return v;
+  }
   function aplicarProd(p, peca){
     S.c1 = p.c[0]; S.c2 = p.c[1]; S.c3 = p.c[2]; S.padrao = p.padrao; S.lateral = p.lateral; S.manga = p.manga;
     S.escala = 100; S.nfc = 'nao'; S.modelo = (peca === 'kit') ? 'curta' : peca;
   }
   function sw(p){ return '<span class="sw">' + p.c.map(function(c){ return '<i style="background:' + c + '"></i>'; }).join('') + '</span>'; }
   function aPartirDe(){
-    var v = ['curta','longa','colete','bretelle','kit'].map(precoDe).filter(function(x){ return x; });
+    var v = ['curta','longa','colete','bretelle','kit'].map(function(x){ return precoDe(x); }).filter(function(x){ return x; });
     return v.length ? 'a partir de ' + moeda(Math.min.apply(null, v)) : 'Sob consulta';
   }
   function banner(){
@@ -673,7 +678,7 @@
     g('poPe').setAttribute('aria-pressed', String(pose === 'pe')); g('poBike').setAttribute('aria-pressed', String(pose === 'bike'));
     g('sxM').setAttribute('aria-pressed', String(SEXO === 'm')); g('sxF').setAttribute('aria-pressed', String(SEXO === 'f'));
     g('vF').setAttribute('aria-pressed', String(vista === 'F')); g('vB').setAttribute('aria-pressed', String(vista === 'B'));
-    var pc = precoDe(pecaSel);
+    var pc = precoDe(pecaSel, atual);
     g('pPreco').textContent = pc ? moeda(pc) : 'Preço sob consulta';
     chips('pModelo', PECAS, pecaSel, function(id){ pecaSel = id; pintar(); });
     chips('pTam', TAMS.map(function(t){ return { id:t, nome:t }; }), tamSel, function(id){ tamSel = id; pintar(); });
@@ -729,7 +734,7 @@
   function resumo(){
     var linhas = ['Olá! Quero fazer um pedido de pré-venda da Cadência:', ''], total = 0, todos = true;
     carrinho.forEach(function(i){
-      var pc = precoDe(i.peca); if(pc) total += pc * i.qtd; else todos = false;
+      var pc = precoDe(i.peca, i.prod); if(pc) total += pc * i.qtd; else todos = false;
       linhas.push(i.qtd + 'x ' + nomePeca(i.peca) + ' · ' + i.prod.nome + ' · tam ' + i.tam + (pc ? ' · ' + moeda(pc * i.qtd) : ''));
       linhas.push('   cores: ' + i.prod.c.join(' / ').toUpperCase());
       if(i.prod.custom) linhas.push('   personalizada: estampa ' + nomeDe(PADROES, i.prod.padrao) + ' · laterais ' + nomeDe(LATERAIS, i.prod.lateral) + ' · mangas ' + nomeDe(MANGAS, i.prod.manga));
@@ -748,7 +753,7 @@
       box.appendChild(d);
     });
   }
-  function totalCarrinho(){ var t = 0, ok = true; carrinho.forEach(function(i){ var pc = precoDe(i.peca); if(pc) t += pc * i.qtd; else ok = false; }); return (carrinho.length && ok) ? t : null; }
+  function totalCarrinho(){ var t = 0, ok = true; carrinho.forEach(function(i){ var pc = precoDe(i.peca, i.prod); if(pc) t += pc * i.qtd; else ok = false; }); return (carrinho.length && ok) ? t : null; }
   function rpc(fn, args){
     return fetch(SB_URL + '/rest/v1/rpc/' + fn, { method:'POST', headers:{ 'apikey':SB_KEY, 'Authorization':'Bearer ' + SB_KEY, 'Content-Type':'application/json' }, body: JSON.stringify(args) })
       .then(function(r){ if(!r.ok) throw new Error('http ' + r.status); return r.json(); });
@@ -773,7 +778,7 @@
     if(!carrinho.length){ m.textContent = 'Seu pedido está vazio.'; return; }
     if(nome.length < 2){ m.textContent = 'Escreva seu nome.'; g('cNome').focus(); return; }
     if(contato.length < 5){ m.textContent = 'Informe um WhatsApp ou e-mail para contato.'; g('cContato').focus(); return; }
-    var itens = carrinho.map(function(i){ return { peca:i.peca, nomePeca:nomePeca(i.peca), desenho:i.prod.nome, tam:i.tam, qtd:i.qtd, cores:i.prod.c, preco:precoDe(i.peca), personalizada: i.prod.custom ? { padrao:i.prod.padrao, lateral:i.prod.lateral, manga:i.prod.manga } : null }; });
+    var itens = carrinho.map(function(i){ return { peca:i.peca, nomePeca:nomePeca(i.peca), desenho:i.prod.nome, tam:i.tam, qtd:i.qtd, cores:i.prod.c, preco:precoDe(i.peca, i.prod), personalizada: i.prod.custom ? { padrao:i.prod.padrao, lateral:i.prod.lateral, manga:i.prod.manga } : null }; });
     var total = totalCarrinho(), btn = g('finalizar'); btn.disabled = true; m.textContent = 'Registrando pedido…';
     rpc('loja_criar_pedido', { p_nome:nome, p_contato:contato, p_envio:g('cEnvio').value.trim(), p_itens:itens, p_total:total })
       .then(function(r){
