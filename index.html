@@ -873,6 +873,13 @@
     background:var(--surface-2); border:1px solid var(--line); color:var(--route);
     text-decoration:none;
   }
+  .camp{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:none;flex-direction:column;padding:12px;}
+  .camp.on{display:flex;}
+  .camp-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#fff;font-family:var(--font-display);font-weight:700;font-size:14px;}
+  .camp-top span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .camp-top a,.camp-top button{font:inherit;font-size:12px;color:var(--route);background:var(--surface-2);border:1px solid var(--line);border-radius:100px;padding:7px 12px;text-decoration:none;cursor:pointer;}
+  .camp iframe{flex:1;width:100%;border:0;border-radius:10px;background:#000;}
+  .camp-nota{font-size:11px;color:#bbb;text-align:center;margin-top:8px;}
   /* aba Provas */
   .provas-vazio{ font-size:12px; color:var(--text-muted); padding:18px 0; text-align:center; line-height:1.5; }
   .prova-mes-titulo{
@@ -2075,6 +2082,23 @@
   // de terceiros. Se o CamerasRJ autorizar incorporar as câmeras,
   // este é o lugar de trocar o link pelo embed.
   // ============================================================
+  function abrirCamera(titulo, url){
+    let m = document.getElementById('campModal');
+    if(!m){
+      m = document.createElement('div'); m.id = 'campModal'; m.className = 'camp';
+      m.innerHTML = '<div class="camp-top"><span id="campTit"></span><a id="campSite" target="_blank" rel="noopener noreferrer">Abrir no site</a><button type="button" id="campX">Fechar</button></div>'
+        + '<iframe id="campFr" title="Câmera ao vivo" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer"></iframe>'
+        + '<div class="camp-nota">Imagem do CamerasRJ. Se ficar em branco, toque em "Abrir no site".</div>';
+      document.body.appendChild(m);
+      const fechar = function(){ m.classList.remove('on'); document.getElementById('campFr').src = 'about:blank'; };
+      document.getElementById('campX').addEventListener('click', fechar);
+      document.addEventListener('keydown', function(e){ if(e.key === 'Escape') fechar(); });
+    }
+    document.getElementById('campTit').textContent = '📹 ' + titulo;
+    document.getElementById('campSite').href = url;
+    document.getElementById('campFr').src = url;
+    m.classList.add('on');
+  }
   const PONTOS_TEMPO = [
     { nome: 'Aterro do Flamengo', sub: 'Flamengo',        lat: -22.9318, lng: -43.1730, cam: null },
     { nome: 'Lagoa',              sub: 'Lagoa Rod. de Freitas', lat: -22.9715, lng: -43.2110, cam: null },
@@ -2314,6 +2338,11 @@
           a.target = '_blank';
           a.rel = 'noopener noreferrer';
           a.textContent = p.cam.rotulo || '📹 Ver câmera';
+          // abre o player dentro do app; ctrl/cmd+clique ou clique do meio abre o site
+          a.addEventListener('click', function(ev){
+            if(ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button) return;
+            ev.preventDefault(); abrirCamera(p.nome, p.cam.url);
+          });
           card.appendChild(a);
         }
         lista.appendChild(card);
