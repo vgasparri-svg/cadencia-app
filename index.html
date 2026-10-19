@@ -6688,7 +6688,7 @@ if ('serviceWorker' in navigator) {
       var w = zap(p.contato), dt = new Date(p.criado_em).toLocaleDateString('pt-BR');
       return '<div data-id="' + p.id + '" style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;">'
         + '<div style="display:flex;justify-content:space-between;gap:8px;font-size:14px;"><b>#' + p.numero + ' · ' + esc(p.nome) + '</b><span style="color:var(--text-dim,#9aa);font-size:12px;">' + dt + '</span></div>'
-        + '<div style="font-size:13px;margin:6px 0;">' + (p.itens||[]).map(function(i){ return esc(i.qtd + 'x ' + i.nomePeca + ' · ' + i.desenho + ' · tam ' + i.tam); }).join('<br>') + '</div>'
+        + '<div style="font-size:13px;margin:6px 0;">' + (p.itens||[]).map(function(i){ return esc(i.qtd + 'x ' + i.nomePeca + ' · ' + i.desenho + ' · tam ' + i.tam) + (i.personalizada ? '<br><small>' + esc('cores ' + (i.cores||[]).join(' / ') + ' · estampa ' + i.personalizada.padrao + ' · laterais ' + i.personalizada.lateral + ' · mangas ' + i.personalizada.manga) + '</small>' : ''); }).join('<br>') + '</div>'
         + '<div style="font-size:13px;margin-bottom:4px;">Total: ' + moeda(p.total) + '</div>'
         + '<div style="font-size:13px;margin-bottom:4px;">Contato: ' + (w ? '<a href="' + w + '" target="_blank" rel="noopener">' + esc(p.contato) + '</a>' : esc(p.contato)) + '</div>'
         + (p.envio ? '<div style="font-size:13px;margin-bottom:6px;">Entrega: ' + esc(p.envio) + '</div>' : '')
