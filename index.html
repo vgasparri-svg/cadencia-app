@@ -2082,6 +2082,9 @@
   // de terceiros. Se o CamerasRJ autorizar incorporar as câmeras,
   // este é o lugar de trocar o link pelo embed.
   // ============================================================
+  // false = o botão abre o site da câmera em outra aba (o CamerasRJ não deixa exibir dentro do app).
+  // Se achar uma câmera que permita embed, ponha true.
+  const CAM_EMBED = false;
   function abrirCamera(titulo, url){
     let m = document.getElementById('campModal');
     if(!m){
@@ -2340,7 +2343,7 @@
           a.textContent = p.cam.rotulo || '📹 Ver câmera';
           // abre o player dentro do app; ctrl/cmd+clique ou clique do meio abre o site
           a.addEventListener('click', function(ev){
-            if(ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button) return;
+            if(!CAM_EMBED || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button) return;
             ev.preventDefault(); abrirCamera(p.nome, p.cam.url);
           });
           card.appendChild(a);
