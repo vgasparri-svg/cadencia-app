@@ -53,6 +53,15 @@
   .chips{display:flex;flex-wrap:wrap;gap:6px}
   .chip{border:1px solid var(--line);border-radius:4px;padding:8px 13px;font-size:13px}
   .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
+  .cust{display:none;margin:4px 0 6px;padding:12px;border:1px solid var(--line);border-radius:6px}
+  .cust.on{display:block}
+  .cust .cores{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 10px}
+  .cust .cores label{display:flex;flex-direction:column;gap:4px;font-size:12px;margin:0}
+  .cust input[type=color]{width:56px;height:40px;padding:0;border:1px solid var(--line);border-radius:4px;background:none;cursor:pointer}
+  .cust .pre-sw{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px}
+  .cust .pre-sw button{padding:0;border:0;background:none;cursor:pointer;line-height:0}
+  .cust .pre-sw .sw{margin:0;border-radius:4px}
+  .cust .pre-sw .sw i{width:12px;height:26px}
   .sw{display:inline-flex;border-radius:3px;overflow:hidden;border:1px solid rgba(255,255,255,.2);vertical-align:middle;margin-right:6px}
   .sw i{display:block;width:14px;height:18px}
   .preco{font-size:24px;font-weight:700;color:var(--accent);margin:14px 0 4px}
@@ -90,6 +99,7 @@
     <div class="vista"><button class="chip" id="vF" aria-pressed="true">Frente</button><button class="chip" id="vB" aria-pressed="false">Costas</button><span id="peles"></span></div>
     <div class="vista"><button class="chip" id="poPe" aria-pressed="true">Em pé</button><button class="chip" id="poBike" aria-pressed="false">Na bike</button><span style="width:10px"></span><button class="chip" id="sxM" aria-pressed="true">Masculino</button><button class="chip" id="sxF" aria-pressed="false">Feminino</button></div></div>
   <div class="info"><h2 id="pNome"></h2><p class="sub" id="pSub"></p><p class="nota" id="pNota"></p>
+    <div class="cust" id="pCust"><label>Comece por uma base</label><div class="pre-sw" id="cuBase"></div><label>Suas cores</label><div class="cores"><label>Principal<input type="color" id="cuC0"></label><label>Secundária<input type="color" id="cuC1"></label><label>Detalhe<input type="color" id="cuC2"></label></div><label>Estampa</label><div class="chips" id="cuPad"></div><label>Laterais</label><div class="chips" id="cuLat"></div><label>Mangas</label><div class="chips" id="cuMan"></div></div>
     <label>Peça</label><div class="chips" id="pModelo"></div>
     <label>Tamanho</label><div class="chips" id="pTam"></div>
     <label>Quantidade</label><input class="qtd" id="pQtd" type="number" min="1" max="50" value="1" inputmode="numeric">
@@ -604,7 +614,8 @@
     .concat(BRASIL.map(function(c){ return { id:c.id, grupo:'brasil', nome:c.nome, sub:c.sub, nota:c.nota, c:c.c, padrao:c.padrao, lateral:c.lateral, manga:c.manga }; }))
     .concat(LISAS.map(function(c){ return { id:c.id, grupo:'lisas', nome:c.nome, sub:'Lisa · sem estampa', nota:c.nota, c:c.c, padrao:'solido', lateral:'c1', manga:'c1' }; }))
     .concat(PALETAS.map(function(p){ return { id:p.id, grupo:'rio', nome:p.nome, sub:'Coleção Rio', nota:p.nota, c:p.c, padrao:'niveis', lateral:'dk', manga:'c1' }; }));
-  var GRUPOS = [['montanhas','Montanhas'],['brasil','Brasil'],['rio','Rio'],['lisas','Lisas'],['todos','Todos']];
+  PRODS.push({ id:'custom', grupo:'custom', custom:true, nome:'Monte a sua', sub:'Personalizada · você escolhe', nota:'Escolha as cores, a estampa e onde cada cor entra. Produzimos exatamente o que você montar.', c:['#0A2A43','#2F8FA3','#E9D8A6'], padrao:'niveis', lateral:'dk', manga:'c1' });
+  var GRUPOS = [['montanhas','Montanhas'],['brasil','Brasil'],['rio','Rio'],['lisas','Lisas'],['custom','Personalizada'],['todos','Todos']];
   var grupo = 'montanhas', atual = null, pecaSel = 'curta', tamSel = 'M', vista = 'F', pose = 'pe', carrinho = [];
   function g(id){ return document.getElementById(id); }
   function moeda(v){ return 'R$ ' + v.toFixed(2).replace('.', ','); }
@@ -636,7 +647,7 @@
   }
   function grade(){
     g('grid').innerHTML = '';
-    PRODS.filter(function(p){ return grupo === 'todos' || p.grupo === grupo; }).forEach(function(p, i){
+    PRODS.filter(function(p){ return grupo === 'todos' ? !p.custom : p.grupo === grupo; }).forEach(function(p, i){
       aplicarProd(p, 'curta');
       var b = document.createElement('button'); b.className = 'card';
       b.innerHTML = '<div class="vit"><svg viewBox="0 0 320 380" aria-hidden="true">' + jersey('k' + p.grupo + i + 'F') + '</svg></div>'
@@ -674,9 +685,26 @@
       b.addEventListener('click', function(){ PELE = c; peles(); pintar(); }); box.appendChild(b);
     });
   }
+  function cust(){
+    var p = atual;
+    ['cuC0','cuC1','cuC2'].forEach(function(id, k){ g(id).value = p.c[k]; });
+    chips('cuPad', PADROES, p.padrao, function(id){ p.padrao = id; cust(); pintar(); });
+    chips('cuLat', LATERAIS, p.lateral, function(id){ p.lateral = id; cust(); pintar(); });
+    chips('cuMan', MANGAS, p.manga, function(id){ p.manga = id; cust(); pintar(); });
+    var box = g('cuBase'); box.innerHTML = '';
+    LISAS.concat(COLECAO.slice(0,4)).forEach(function(b){
+      var bt = document.createElement('button'); bt.setAttribute('aria-label', 'Base ' + b.nome); bt.title = b.nome; bt.innerHTML = sw(b);
+      bt.addEventListener('click', function(){ p.c = b.c.slice(); cust(); pintar(); }); box.appendChild(bt);
+    });
+    g('pSub').innerHTML = sw(p) + esc(p.sub);
+  }
+  ['cuC0','cuC1','cuC2'].forEach(function(id, k){
+    g(id).addEventListener('input', function(){ if(atual && atual.custom){ atual.c[k] = g(id).value.toUpperCase(); g('pSub').innerHTML = sw(atual) + esc(atual.sub); pintar(); } });
+  });
   function abrir(p){
     atual = p; pecaSel = 'curta'; tamSel = 'M'; vista = 'F'; pose = 'pe'; g('pQtd').value = 1;
     g('pNome').textContent = p.nome; g('pSub').innerHTML = sw(p) + esc(p.sub); g('pNota').textContent = p.nota || '';
+    g('pCust').classList.toggle('on', !!p.custom); if(p.custom) cust();
     peles(); pintar(); g('modal').classList.add('on'); g('modal').scrollTop = 0;
   }
   g('fechar').addEventListener('click', function(){ g('modal').classList.remove('on'); });
@@ -688,9 +716,10 @@
   g('sxF').addEventListener('click', function(){ SEXO = 'f'; pintar(); });
   g('pAdd').addEventListener('click', function(){
     var q = Math.max(1, Math.min(50, parseInt(g('pQtd').value, 10) || 1));
-    carrinho.push({ prod: atual, peca: pecaSel, tam: tamSel, qtd: q });
+    carrinho.push({ prod: atual.custom ? JSON.parse(JSON.stringify(atual)) : atual, peca: pecaSel, tam: tamSel, qtd: q });
     g('modal').classList.remove('on'); barra();
   });
+  function nomeDe(lista, id){ return lista.filter(function(x){ return x.id === id; })[0].nome.toLowerCase(); }
   function nomePeca(id){ return PECAS.filter(function(p){ return p.id === id; })[0].nome; }
   function barra(){
     var n = carrinho.reduce(function(s, i){ return s + i.qtd; }, 0);
@@ -703,6 +732,7 @@
       var pc = precoDe(i.peca); if(pc) total += pc * i.qtd; else todos = false;
       linhas.push(i.qtd + 'x ' + nomePeca(i.peca) + ' · ' + i.prod.nome + ' · tam ' + i.tam + (pc ? ' · ' + moeda(pc * i.qtd) : ''));
       linhas.push('   cores: ' + i.prod.c.join(' / ').toUpperCase());
+      if(i.prod.custom) linhas.push('   personalizada: estampa ' + nomeDe(PADROES, i.prod.padrao) + ' · laterais ' + nomeDe(LATERAIS, i.prod.lateral) + ' · mangas ' + nomeDe(MANGAS, i.prod.manga));
     });
     if(carrinho.length && todos) linhas.push('', 'Total: ' + moeda(total));
     var nm = g('cNome').value.trim(); linhas.push('', 'Nome: ' + (nm || '(preencher)'));
@@ -743,7 +773,7 @@
     if(!carrinho.length){ m.textContent = 'Seu pedido está vazio.'; return; }
     if(nome.length < 2){ m.textContent = 'Escreva seu nome.'; g('cNome').focus(); return; }
     if(contato.length < 5){ m.textContent = 'Informe um WhatsApp ou e-mail para contato.'; g('cContato').focus(); return; }
-    var itens = carrinho.map(function(i){ return { peca:i.peca, nomePeca:nomePeca(i.peca), desenho:i.prod.nome, tam:i.tam, qtd:i.qtd, cores:i.prod.c, preco:precoDe(i.peca) }; });
+    var itens = carrinho.map(function(i){ return { peca:i.peca, nomePeca:nomePeca(i.peca), desenho:i.prod.nome, tam:i.tam, qtd:i.qtd, cores:i.prod.c, preco:precoDe(i.peca), personalizada: i.prod.custom ? { padrao:i.prod.padrao, lateral:i.prod.lateral, manga:i.prod.manga } : null }; });
     var total = totalCarrinho(), btn = g('finalizar'); btn.disabled = true; m.textContent = 'Registrando pedido…';
     rpc('loja_criar_pedido', { p_nome:nome, p_contato:contato, p_envio:g('cEnvio').value.trim(), p_itens:itens, p_total:total })
       .then(function(r){
