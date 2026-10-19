@@ -96,6 +96,8 @@
     .hero .wrap{padding-bottom:40px}
   }
   @media(prefers-reduced-motion:reduce){.galeria{overflow-x:auto}.trilho{animation:none}.rpm i{animation:none}html{scroll-behavior:auto}}
+  .mus{position:fixed;left:16px;bottom:16px;z-index:10;display:none;border:1px solid var(--linha);background:rgba(11,14,20,.82);color:var(--giz);border-radius:999px;padding:10px 16px;font:600 14px var(--sans);cursor:pointer}
+  .mus.ok{display:block}
 </style>
 </head>
 <body>
@@ -165,6 +167,8 @@
   Array.prototype.slice.call(t.children).forEach(function(i){ var c = i.cloneNode(true); c.alt = ''; c.setAttribute('aria-hidden','true'); t.appendChild(c); });
 })();
 </script>
+<audio id="musAudio" src="musica.mp3" loop preload="none"></audio>
+<button class="mus" id="mus" type="button" aria-pressed="false">♪ Música</button>
 <button class="auto" id="auto" type="button" aria-pressed="true">Pausar rolagem</button>
 <script>
 (function(){
@@ -199,6 +203,31 @@
   btn.addEventListener('click', function(){ if(rodando) parar(); else { if(fim() - window.scrollY < 40) window.scrollTo({top:0,behavior:'instant'}); iniciar(); } });
   if(reduz){ parar(); }
   else { btn.textContent = 'Pausar rolagem'; timer = setTimeout(iniciar, ATRASO); }
+})();
+</script>
+<script>
+(function(){
+  var a = document.getElementById('musAudio'), b = document.getElementById('mus');
+  var quis = false, tocando = false, tentou = false, VOL = 0.5;
+  function rotulo(){ b.textContent = tocando ? '♪ Música: ligada' : '♪ Música: desligada'; b.setAttribute('aria-pressed', String(tocando)); }
+  function fade(para){
+    var passo = para > a.volume ? 0.05 : -0.05;
+    (function f(){ var v = a.volume + passo; if((passo > 0 && v >= para) || (passo < 0 && v <= para)){ a.volume = para; if(para === 0) a.pause(); return; } a.volume = v; setTimeout(f, 60); })();
+  }
+  function ligar(){ a.volume = 0; var p = a.play(); if(p && p.then) p.then(function(){ tocando = true; rotulo(); fade(VOL); }).catch(function(){ tocando = false; rotulo(); }); }
+  function desligar(){ tocando = false; rotulo(); fade(0); }
+  // só mostra o botão se o arquivo existir
+  a.addEventListener('canplaythrough', function(){ b.classList.add('ok'); rotulo(); }, { once:true });
+  a.addEventListener('error', function(){ b.classList.remove('ok'); });
+  a.preload = 'auto'; a.load();
+  b.addEventListener('click', function(ev){ ev.stopPropagation(); quis = true; if(tocando) desligar(); else ligar(); });
+  // navegadores só liberam som depois de um toque: o primeiro toque na página liga a música (a menos que a pessoa tenha desligado)
+  function primeiro(ev){
+    if(tentou || quis || (ev.target && ev.target.closest && ev.target.closest('#mus'))) return;
+    tentou = true; if(a.readyState >= 3) ligar();
+  }
+  ['pointerdown','keydown','touchend'].forEach(function(t){ document.addEventListener(t, primeiro, { once:false, passive:true }); });
+  document.addEventListener('visibilitychange', function(){ if(document.hidden && tocando) a.pause(); else if(!document.hidden && tocando) a.play().catch(function(){}); });
 })();
 </script>
 </body>
