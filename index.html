@@ -830,6 +830,12 @@
     text-decoration:underline; text-underline-offset:2px;
   }
 
+  /* modo visitante: só olhar, sem conta */
+  #btnVisitante{ background:none; border:0; font-family:inherit; cursor:pointer; }
+  #pillVisitante{ display:none; position:absolute; bottom:74px; right:12px; z-index:50; font-family:var(--font-display); font-weight:700; font-size:11.5px; padding:6px 12px; border-radius:100px; background:var(--safety); color:#0b0f14; border:0; cursor:pointer; }
+  body.visitante #pillVisitante{ display:block; }
+  body.visitante .nav-btn[data-view="treino"], body.visitante .nav-btn[data-view="bikes"], body.visitante .nav-btn[data-view="perfil"]{ display:none; }
+
   /* botão de sair, usado dentro do Perfil */
   .btn-logout{
     display:flex; align-items:center; justify-content:center; gap:8px;
@@ -1068,7 +1074,9 @@
     </div>
 
     <p class="gate-status" id="gateStatus"></p>
+    <button class="gate-skip" id="btnVisitante" type="button">Ver sem entrar</button>
   </div>
+  <button id="pillVisitante" type="button">Modo visitante · Entrar</button>
 
   <div class="statusbar">
     <span id="relogioAtual">--:--</span>
@@ -2458,6 +2466,11 @@
 
   let emailPendente = null;
 
+  let visitante = false;
+  function entrarVisitante(){ visitante = true; document.body.classList.add('visitante'); hideGate(); }
+  function sairVisitante(){ visitante = false; document.body.classList.remove('visitante'); renderGateState(); }
+  document.getElementById('btnVisitante').addEventListener('click', entrarVisitante);
+  document.getElementById('pillVisitante').addEventListener('click', sairVisitante);
   function showGate(){ authGate.classList.remove('hidden'); }
   function hideGate(){ authGate.classList.add('hidden'); }
 
@@ -2523,6 +2536,9 @@
       return;
     }
     if(currentUser){
+      visitante = false; document.body.classList.remove('visitante');
+      hideGate();
+    } else if(visitante){
       hideGate();
     } else {
       showGate();
@@ -2594,6 +2610,7 @@
     const { data: { session } } = await sb.auth.getSession();
     if(session?.user){ currentUser = { id: session.user.id, email: session.user.email, phone: session.user.phone }; }
     renderGateState();
+    if(!currentUser && /[?&]visitante(=|&|$)/.test(location.search)) entrarVisitante();
     atualizarPerfilLogout();
     document.dispatchEvent(new CustomEvent('cadencia:auth'));
     if(currentUser){ renderEstadoIntervals(); renderEstadoStrava(); carregarPedaisDoBanco(); garantirInscricaoPush(true); carregarFtpPeso(); mostrarOnboardingSeNovo(); }
