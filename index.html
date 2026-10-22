@@ -830,6 +830,14 @@
     text-decoration:underline; text-underline-offset:2px;
   }
 
+  /* podcasts */
+  .pod-item{ border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:8px; background:var(--surface-2); }
+  .pod-nome{ font-family:var(--font-display); font-weight:700; font-size:14px; }
+  .pod-sub{ font-size:12px; color:var(--text-muted); margin:3px 0 8px; line-height:1.4; }
+  .pod-tag{ display:inline-block; font-family:var(--font-mono); font-size:10px; letter-spacing:.3px; text-transform:uppercase; padding:2px 7px; border-radius:100px; border:1px solid var(--line); color:var(--text-muted); margin-left:6px; vertical-align:middle; }
+  .pod-acoes{ display:flex; gap:8px; flex-wrap:wrap; }
+  .pod-acoes a, .pod-acoes button{ font-family:var(--font-display); font-weight:700; font-size:12px; padding:7px 12px; border-radius:100px; background:var(--surface); border:1px solid var(--line); color:var(--route); text-decoration:none; cursor:pointer; }
+  .pod-item iframe{ width:100%; height:152px; border:0; border-radius:12px; margin-top:10px; }
   /* modo visitante: só olhar, sem conta */
   #btnVisitante{ background:none; border:0; font-family:inherit; cursor:pointer; }
   #pillVisitante{ display:none; position:absolute; bottom:74px; right:12px; z-index:50; font-family:var(--font-display); font-weight:700; font-size:11.5px; padding:6px 12px; border-radius:100px; background:var(--safety); color:#0b0f14; border:0; cursor:pointer; }
@@ -1440,6 +1448,15 @@
         </div>
 
         <div class="zones" id="zonesList"></div>
+
+        <div class="intervals-box" id="podcastsBox" style="margin:10px 0; padding:14px;">
+          <div class="intervals-head">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h4>Podcasts para pedalar</h4>
+          </div>
+          <p class="intervals-desc">Uma seleção de podcasts de ciclismo. Toque em "Ouvir aqui" ou abra no app.</p>
+          <div id="podcastsLista"></div>
+        </div>
 
         <div class="music-box" id="musicBox">
           <div class="intervals-head">
@@ -6760,6 +6777,41 @@ if ('serviceWorker' in navigator) {
   $('lojaPedAtualizar').addEventListener('click', carregar);
   document.addEventListener('cadencia:auth', carregar);
   if(APP.user) carregar();
+})();
+</script>
+<script>
+(function(){
+  // ============================================================
+  // PODCASTS — pra acrescentar ou tirar um, edite esta lista.
+  // spotify: id do programa (open.spotify.com/show/<id>) permite o player embutido.
+  // url: link do programa (Spotify, Apple Podcasts etc.), abre em outra aba.
+  // ============================================================
+  var PODCASTS = [
+    { nome:'Pedal Podcast', tag:'Brasil', sub:'Conversa leve sobre ciclismo, com convidados que contam ideias e experiências de ciclistas amadores e profissionais do Brasil.', spotify:'5vNdtdoZdFPyzw5Awpf98C', url:'https://open.spotify.com/show/5vNdtdoZdFPyzw5Awpf98C' },
+    { nome:'Gregario Cycling', tag:'Brasil', sub:'Notícias, entrevistas e treino: do World Tour ao mercado de transferências, com episódios várias vezes por semana.', url:'https://podcasts.apple.com/br/podcast/gregario-cycling/id1515194665' },
+    { nome:'Bike Podcast', tag:'Brasil', sub:'Ciclismo com um enfoque diferente, apresentado por Rafael Alves de Andrade.', spotify:'4QsFwPYQWu7cobrPEsQhCg', url:'https://open.spotify.com/show/4QsFwPYQWu7cobrPEsQhCg' },
+    { nome:'Rádio FUGA', tag:'Portugal', sub:'Notícias do ciclismo, treino, nutrição e tecnologia de bike. Português de Portugal.', spotify:'1mMHE8gL8ln1wC5x7f5pZE', url:'https://open.spotify.com/show/1mMHE8gL8ln1wC5x7f5pZE' }
+  ];
+  var box = document.getElementById('podcastsLista'); if(!box) return;
+  function el(t, c, txt){ var e = document.createElement(t); if(c) e.className = c; if(txt != null) e.textContent = txt; return e; }
+  PODCASTS.forEach(function(p){
+    var it = el('div', 'pod-item'), nm = el('div', 'pod-nome', p.nome);
+    nm.appendChild(el('span', 'pod-tag', p.tag)); it.appendChild(nm); it.appendChild(el('div', 'pod-sub', p.sub));
+    var ac = el('div', 'pod-acoes');
+    if(p.spotify){
+      var b = el('button', null, '▶ Ouvir aqui'); b.type = 'button';
+      b.addEventListener('click', function(){
+        var f = it.querySelector('iframe');
+        if(f){ f.remove(); b.textContent = '▶ Ouvir aqui'; return; }
+        f = document.createElement('iframe'); f.title = p.nome; f.loading = 'lazy';
+        f.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+        f.src = 'https://open.spotify.com/embed/show/' + p.spotify; it.appendChild(f); b.textContent = '✕ Fechar player';
+      });
+      ac.appendChild(b);
+    }
+    var a = el('a', null, 'Abrir no app'); a.href = p.url; a.target = '_blank'; a.rel = 'noopener noreferrer'; ac.appendChild(a);
+    it.appendChild(ac); box.appendChild(it);
+  });
 })();
 </script>
 </body>
