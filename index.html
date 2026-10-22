@@ -5124,7 +5124,7 @@
       const { data, error } = await sb.functions.invoke('strava-sync');
       if(error){ setStravaStatus('Erro ao sincronizar: ' + error.message, 'error'); btnStravaSincronizar.disabled = false; return; }
       if(data?.error){ setStravaStatus('Erro: ' + data.error, 'error'); btnStravaSincronizar.disabled = false; return; }
-      setStravaStatus(`${data.importados} pedal(is) sincronizado(s) dos últimos 90 dias.`, 'success');
+      setStravaStatus(`${data.importados} pedal(is) sincronizado(s) dos últimos 90 dias.` + (data.ignorados && data.ignorados.length ? ' Não contaram como pedal: ' + data.ignorados.map(x => `${x.nome} (${x.tipo}, ${x.data})`).join('; ') + '.' : ''), 'success');
       carregarPedaisDoBanco();
     } catch(e){
       setStravaStatus('Não foi possível sincronizar. Confira se a Edge Function foi publicada.', 'error');
