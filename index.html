@@ -7000,21 +7000,27 @@ if ('serviceWorker' in navigator) {
     for(var t=0;t<T;t++){
       var i0=Math.round(t*(n-1)/T), i1=Math.round((t+1)*(n-1)/T);
       var dist=total/T*1000, dh=sm[i1]-sm[i0], gr=dh/dist*100;
-      var z=zonaPorGrade(gr), P=ftp*z.f, v=velocidade(P*0.97,gr/100), seg=dist/v;
+      var z=zonaPorGrade(gr), ov=(st.pot&&st.pot[st.rota]&&st.pot[st.rota][t])||0, P=ov||ftp*z.f, v=velocidade(P*0.97,gr/100), seg=dist/v;
       tempoTot+=seg; trab+=P*seg; somaPesada+=Math.pow(P,4)*seg;
-      linhas.push({de:total/T*t,ate:total/T*(t+1),gr:gr,z:z.z,P:P,v:v*3.6,seg:seg});
+      linhas.push({i:t,custom:!!ov,de:total/T*t,ate:total/T*(t+1),gr:gr,z:z.z,P:P,v:v*3.6,seg:seg});
     }
     var np=Math.pow(somaPesada/tempoTot,0.25), media=trab/tempoTot, h=Math.floor(tempoTot/3600), m=Math.round((tempoTot%3600)/60);
     var html='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">'+
       '<div class="stat-box" style="flex:1 1 90px;"><div class="label">TEMPO ESTIMADO</div><div class="value" style="font-size:18px;">'+h+'h'+String(m).padStart(2,'0')+'</div></div>'+
       '<div class="stat-box" style="flex:1 1 90px;"><div class="label">POTÊNCIA MÉDIA</div><div class="value" style="font-size:18px;">'+Math.round(media)+'<small> W</small></div></div>'+
       '<div class="stat-box" style="flex:1 1 90px;"><div class="label">ENERGIA</div><div class="value" style="font-size:18px;">≈'+Math.round(trab/1000)+'<small> kcal</small></div></div></div>';
-    html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;"><tr style="color:var(--text-muted);text-align:left;"><th>Trecho (km)</th><th>Inclin.</th><th>Zona</th><th>Alvo</th><th>Vel.</th></tr>';
+    html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;"><tr style="color:var(--text-muted);text-align:left;"><th>Trecho (km)</th><th>Inclin.</th><th>Zona</th><th>Potência (W)</th><th>Vel.</th><th>Tempo</th></tr>';
     linhas.forEach(function(l){
-      html+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px 0;">'+l.de.toFixed(0)+'–'+l.ate.toFixed(0)+'</td><td>'+(l.gr>0?'+':'')+l.gr.toFixed(1)+'%</td><td>'+l.z+'</td><td><b>'+Math.round(l.P)+' W</b> <span style="color:var(--text-muted);">('+(l.P/peso).toFixed(1)+' W/kg)</span></td><td>'+l.v.toFixed(0)+' km/h</td></tr>';
+      var min=Math.round(l.seg/60);
+      html+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px 0;">'+l.de.toFixed(0)+'–'+l.ate.toFixed(0)+'</td><td>'+(l.gr>0?'+':'')+l.gr.toFixed(1)+'%</td><td>'+l.z+'</td><td><input type="number" class="tourPot" data-i="'+l.i+'" value="'+Math.round(l.P)+'" min="40" max="600" style="width:62px;padding:4px;border-radius:8px;background:var(--surface);color:var(--text);border:1px solid '+(l.custom?'var(--gold)':'var(--border)')+';"> <span style="color:var(--text-muted);">'+(l.P/peso).toFixed(1)+' W/kg</span></td><td>'+l.v.toFixed(0)+' km/h</td><td>'+Math.floor(min/60)+'h'+String(min%60).padStart(2,'0')+'</td></tr>';
     });
-    html+='</table></div><p style="color:var(--text-muted);margin-top:8px;">Baseado no seu FTP de <b>'+ftp+' W</b> e peso de <b>'+peso+' kg</b> (+9 kg de bike). Em rotas longas, comece 5% abaixo do alvo. Acima de 1h30, consuma cerca de 40–60 g de carboidrato por hora. É uma estimativa: vento, calor e pavimento mudam o resultado.</p>';
+    html+='</table></div><button id="tourPotReset" style="font-size:12px;background:none;border:0;color:var(--gold);padding:6px 0;">↺ Voltar às potências sugeridas</button><p style="color:var(--text-muted);margin-top:2px;">Digite a potência que quer em cada trecho e confira a velocidade e o tempo. Baseado no seu FTP de <b>'+ftp+' W</b> e peso de <b>'+peso+' kg</b> (+9 kg de bike). Em rotas longas, comece 5% abaixo do alvo. Acima de 1h30, consuma cerca de 40–60 g de carboidrato por hora. É uma estimativa: vento, calor e pavimento mudam o resultado.</p>';
     box.innerHTML=html;
+    box.querySelectorAll('.tourPot').forEach(function(inp){inp.addEventListener('change',function(){
+      var w=parseFloat(inp.value); st.pot=st.pot||{}; st.pot[st.rota]=st.pot[st.rota]||{};
+      if(isFinite(w)&&w>=40&&w<=600) st.pot[st.rota][inp.dataset.i]=Math.round(w); else delete st.pot[st.rota][inp.dataset.i];
+      gravar(st); desenharGuia();});});
+    var rs=document.getElementById('tourPotReset'); if(rs) rs.addEventListener('click',function(){ if(st.pot) delete st.pot[st.rota]; gravar(st); desenharGuia(); });
   }
   ['ftpValue','pesoValue'].forEach(function(id){var el=document.getElementById(id); if(el) el.addEventListener('input',desenharGuia);});
   // ---- selos ----
