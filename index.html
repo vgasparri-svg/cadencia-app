@@ -6864,8 +6864,8 @@ if ('serviceWorker' in navigator) {
   var TOUR_ROTAS = [
     {id:'paris-ams', vids:['7eKpStVqqdc','96UZGias2no','U5KkfNEK7A8','Iu4oeKSSVWc','FOwVP4c3TtA'], nome:'Paris → Amsterdã', pts:[['Paris',2.3522,48.8566],['Amiens',2.2957,49.8941],['Lille',3.0573,50.6292],['Bruxelas',4.3517,50.8503],['Antuérpia',4.4025,51.2194],['Roterdã',4.4777,51.9244],['Amsterdã',4.9041,52.3676]]},
     {id:'amalfi', vids:['IrEMmgCtkK8','1UxoHtG2qas','NFnpf6LPOhA','LtceTTnUbfI','pRm0fYLP_p4'], nome:'Costa Amalfitana (Nápoles → Salerno)', pts:[['Nápoles',14.2681,40.8518],['Sorrento',14.3761,40.6263],['Positano',14.4849,40.6280],['Amalfi',14.6027,40.6340],['Salerno',14.7681,40.6824]]},
-    {id:'alpe', vids:['cRkeR_CcqQA','c1f2eIremrw','TEyzbfwiDd4','XlwjMjyU410','7YToQUZN5Is'], nome:'Alpe d\'Huez (subida)', pts:[['Le Bourg-d\'Oisans',6.0310,45.0553],['Alpe d\'Huez',6.0700,45.0917]]},
-    {id:'ventoux', vids:['-BgQ7mjTQpM','E7UPLd1bxyc','geQowb8cRc4','kXH2AgflpO0','M8J69xWs2Cw'], nome:'Mont Ventoux (subida)', pts:[['Bédoin',5.1786,44.1264],['Mont Ventoux',5.2786,44.1739]]},
+    {id:'alpe', vids:['cRkeR_CcqQA','c1f2eIremrw','TEyzbfwiDd4','XlwjMjyU410','7YToQUZN5Is'], nome:'Grenoble → Alpe d\'Huez', pts:[['Grenoble',5.7245,45.1885],['Vizille',5.7714,45.0783],['Le Bourg-d\'Oisans',6.0310,45.0553],['Alpe d\'Huez',6.0700,45.0917]]},
+    {id:'ventoux', vids:['-BgQ7mjTQpM','E7UPLd1bxyc','geQowb8cRc4','kXH2AgflpO0','M8J69xWs2Cw'], nome:'Avignon → Mont Ventoux', pts:[['Avignon',4.8055,43.9493],['Carpentras',5.0480,44.0554],['Bédoin',5.1786,44.1264],['Mont Ventoux',5.2786,44.1739]]},
     {id:'suica', vids:['rE6PFp1GKwM','_GnjT6lWHUA','tiZxMmFxzCY','QRm1ZLUiUYY','4cXwwsoUAj8'], nome:'Suíça (Zurique → Grindelwald)', pts:[['Zurique',8.5417,47.3769],['Lucerna',8.3093,47.0502],['Interlaken',7.8632,46.6863],['Lauterbrunnen',7.9086,46.5936],['Grindelwald',8.0413,46.6244]]},
     {id:'sella', vids:['3sw2_N5eqNw','D3S_kDvLJ8c','IXLhiBNo85Y'], nome:'Dolomitas – Sella Ronda (circuito)', pts:[['Corvara',11.8730,46.5522],['Arabba',11.8714,46.4985],['Passo Pordoi',11.8147,46.4880],['Canazei',11.7717,46.4746],['Passo Sella',11.7667,46.5100],['Selva Val Gardena',11.7650,46.5560],['Passo Gardena',11.8010,46.5500],['Corvara',11.8730,46.5522]]}
 ];
@@ -6883,7 +6883,7 @@ if ('serviceWorker' in navigator) {
   function hav(a,b){var R=6371,t=Math.PI/180,dl=(b[1]-a[1])*t,dn=(b[0]-a[0])*t;
     var x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a[1]*t)*Math.cos(b[1]*t)*Math.sin(dn/2)*Math.sin(dn/2);return 2*R*Math.asin(Math.sqrt(x));}
   async function tracado(r){
-    var ck='tourGeo_'+r.id+'_v1';
+    var ck='tourGeo_'+r.id+'_'+JSON.stringify(r.pts).length;
     try{var c=localStorage.getItem(ck); if(c) return JSON.parse(c);}catch(e){}
     var coords=[], ok=true;
     for(var i=0;i<r.pts.length-1;i++){
@@ -6933,7 +6933,8 @@ if ('serviceWorker' in navigator) {
     barra.style.width=pct.toFixed(1)+'%';
     var prox=null,ult=rota.pts[0][0];
     rota.pts.forEach(function(c){var at=kmAteCidade(coords,c); if(at<=km+0.5) ult=c[0]; else if(!prox) prox={n:c[0],falta:at-km};});
-    var txt='<b>'+km.toFixed(1)+' km</b> de '+total.toFixed(0)+' km ('+pct.toFixed(0)+'%)<br>';
+    var hh=total/25, h=Math.floor(hh), mm=Math.round((hh-h)*60);
+    var txt='<b>'+km.toFixed(1)+' km</b> de '+total.toFixed(0)+' km ('+pct.toFixed(0)+'%) · ≈ '+h+'h'+String(mm).padStart(2,'0')+' de pedal a 25 km/h<br>';
     if(feitos>=total) txt+='🏁 Você completou '+rota.nome+'! Escolha outra rota ou mude a data de início.';
     else txt+='Passou por: '+ult+(prox?' · Próxima: <b>'+prox.n+'</b> em '+prox.falta.toFixed(1)+' km':'');
     info.innerHTML=txt;
