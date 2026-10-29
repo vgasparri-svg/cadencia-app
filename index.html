@@ -1613,6 +1613,10 @@
             <div id="tourPerfil" style="background:var(--surface); border-radius:12px; padding:8px;"></div>
             <div id="tourPerfilInfo" style="font-size:12px; color:var(--text-muted); margin-top:4px;"></div>
           </div>
+          <div id="tourGuiaBox" style="margin-top:14px;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:4px;">⚡ Guia de potência</div>
+            <div id="tourGuia" style="font-size:12px; line-height:1.5;"></div>
+          </div>
           <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
             <div style="font-size:13px; font-weight:600; margin-bottom:8px;">🏅 Selos</div>
             <div id="tourSelos" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
@@ -6968,7 +6972,51 @@ if ('serviceWorker' in navigator) {
       '<polyline points="'+pts.join(' ')+'" fill="none" stroke="#c9a24a" stroke-width="1.6"/>'+
       '<line x1="'+x+'" x2="'+x+'" y1="0" y2="'+H+'" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 2"/></svg>';
     inf.textContent='Altitude de '+mn+' m a '+mx+' m · subida acumulada ≈ '+Math.round(ganho)+' m';
+    desenharGuia();
   }
+
+  // ---- guia de potência (estimativa pela física + seu FTP e peso da aba Treino) ----
+  function lerNum(id,def){var v=parseFloat((document.getElementById(id)||{}).value);return isFinite(v)&&v>0?v:def;}
+  function velocidade(P,grade){ // P em W na roda; retorna m/s
+    var m=lerNum('pesoValue',0)+9, g=9.81, crr=0.005, cda=0.36, rho=1.2;
+    var lo=0.5, hi=16.7; // até 60 km/h
+    for(var i=0;i<40;i++){var v=(lo+hi)/2; var F=m*g*(grade+crr)+0.5*rho*cda*v*v; if(F*v>P) hi=v; else lo=v;}
+    return (lo+hi)/2;
+  }
+  function zonaPorGrade(gr){ // gr em %
+    if(gr<-2) return {z:'Z1 solte',f:0.45};
+    if(gr<1.5) return {z:'Z2',f:0.68};
+    if(gr<4)   return {z:'Z3',f:0.80};
+    if(gr<7)   return {z:'Z4 baixo',f:0.88};
+    return {z:'Z4',f:0.93};
+  }
+  function desenharGuia(){
+    var box=document.getElementById('tourGuia');
+    if(!perfilDados||!rotaAtual||perfilDados.id!==rotaAtual.id){box.innerHTML='';return;}
+    var peso=lerNum('pesoValue',0), ftp=lerNum('ftpValue',220);
+    if(!peso){box.innerHTML='<p style="color:var(--text-muted);">Informe seu <b>peso</b> na aba Treino para calcular o guia.</p>';return;}
+    var e=perfilDados.ele, n=e.length, total=perfilDados.total, T=8, sm=e.map(function(v,i){var a=e[Math.max(0,i-2)],b=e[Math.min(n-1,i+2)];return (a+v+b)/3;});
+    var linhas=[], tempoTot=0, trab=0, somaPesada=0;
+    for(var t=0;t<T;t++){
+      var i0=Math.round(t*(n-1)/T), i1=Math.round((t+1)*(n-1)/T);
+      var dist=total/T*1000, dh=sm[i1]-sm[i0], gr=dh/dist*100;
+      var z=zonaPorGrade(gr), P=ftp*z.f, v=velocidade(P*0.97,gr/100), seg=dist/v;
+      tempoTot+=seg; trab+=P*seg; somaPesada+=Math.pow(P,4)*seg;
+      linhas.push({de:total/T*t,ate:total/T*(t+1),gr:gr,z:z.z,P:P,v:v*3.6,seg:seg});
+    }
+    var np=Math.pow(somaPesada/tempoTot,0.25), media=trab/tempoTot, h=Math.floor(tempoTot/3600), m=Math.round((tempoTot%3600)/60);
+    var html='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">'+
+      '<div class="stat-box" style="flex:1 1 90px;"><div class="label">TEMPO ESTIMADO</div><div class="value" style="font-size:18px;">'+h+'h'+String(m).padStart(2,'0')+'</div></div>'+
+      '<div class="stat-box" style="flex:1 1 90px;"><div class="label">POTÊNCIA MÉDIA</div><div class="value" style="font-size:18px;">'+Math.round(media)+'<small> W</small></div></div>'+
+      '<div class="stat-box" style="flex:1 1 90px;"><div class="label">ENERGIA</div><div class="value" style="font-size:18px;">≈'+Math.round(trab/1000)+'<small> kcal</small></div></div></div>';
+    html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;"><tr style="color:var(--text-muted);text-align:left;"><th>Trecho (km)</th><th>Inclin.</th><th>Zona</th><th>Alvo</th><th>Vel.</th></tr>';
+    linhas.forEach(function(l){
+      html+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px 0;">'+l.de.toFixed(0)+'–'+l.ate.toFixed(0)+'</td><td>'+(l.gr>0?'+':'')+l.gr.toFixed(1)+'%</td><td>'+l.z+'</td><td><b>'+Math.round(l.P)+' W</b> <span style="color:var(--text-muted);">('+(l.P/peso).toFixed(1)+' W/kg)</span></td><td>'+l.v.toFixed(0)+' km/h</td></tr>';
+    });
+    html+='</table></div><p style="color:var(--text-muted);margin-top:8px;">Baseado no seu FTP de <b>'+ftp+' W</b> e peso de <b>'+peso+' kg</b> (+9 kg de bike). Em rotas longas, comece 5% abaixo do alvo. Acima de 1h30, consuma cerca de 40–60 g de carboidrato por hora. É uma estimativa: vento, calor e pavimento mudam o resultado.</p>';
+    box.innerHTML=html;
+  }
+  ['ftpValue','pesoValue'].forEach(function(id){var el=document.getElementById(id); if(el) el.addEventListener('input',desenharGuia);});
   // ---- selos ----
   function desenharSelos(){
     var box=document.getElementById('tourSelos'); box.innerHTML='';
