@@ -1449,6 +1449,22 @@
 
         <div class="zones" id="zonesList"></div>
 
+        <div class="intervals-box" id="tourBox" style="margin:10px 0; padding:14px;">
+          <div class="intervals-head">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" stroke-linecap="round"/></svg>
+            <h4>Tour virtual</h4>
+          </div>
+          <p class="intervals-desc">Escolha uma rota na Europa. Os km dos seus pedais (inclusive os da academia) fazem você avançar no mapa.</p>
+          <select id="tourRota" style="width:100%; padding:10px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border); margin-bottom:8px;"></select>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+            <label style="font-size:12px; color:var(--text-muted);">Começar a contar em</label>
+            <input type="date" id="tourInicio" style="flex:1; padding:8px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border);">
+          </div>
+          <div id="tourMapa" style="height:230px; border-radius:12px; overflow:hidden; background:#111;"></div>
+          <div style="height:8px; background:var(--surface); border-radius:6px; margin:12px 0 6px; overflow:hidden;"><div id="tourBarra" style="height:100%; width:0; background:var(--gold);"></div></div>
+          <div id="tourInfo" style="font-size:13px; line-height:1.5;">Carregando…</div>
+        </div>
+
         <div class="intervals-box" id="podcastsBox" style="margin:10px 0; padding:14px;">
           <div class="intervals-head">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -6812,6 +6828,108 @@ if ('serviceWorker' in navigator) {
     var a = el('a', null, 'Abrir no app'); a.href = p.url; a.target = '_blank'; a.rel = 'noopener noreferrer'; ac.appendChild(a);
     it.appendChild(ac); box.appendChild(it);
   });
+})();
+</script>
+
+<script>
+// TOUR VIRTUAL — para acrescentar rota, adicione um item em TOUR_ROTAS (cidades em ordem: [nome, lon, lat]).
+(function(){
+  var TOUR_ROTAS = [
+    {id:'paris-ams', nome:'Paris → Amsterdã', pts:[['Paris',2.3522,48.8566],['Amiens',2.2957,49.8941],['Lille',3.0573,50.6292],['Bruxelas',4.3517,50.8503],['Antuérpia',4.4025,51.2194],['Roterdã',4.4777,51.9244],['Amsterdã',4.9041,52.3676]]},
+    {id:'amalfi', nome:'Costa Amalfitana (Nápoles → Salerno)', pts:[['Nápoles',14.2681,40.8518],['Sorrento',14.3761,40.6263],['Positano',14.4849,40.6280],['Amalfi',14.6027,40.6340],['Salerno',14.7681,40.6824]]},
+    {id:'alpe', nome:'Alpe d\'Huez (subida)', pts:[['Le Bourg-d\'Oisans',6.0310,45.0553],['Alpe d\'Huez',6.0700,45.0917]]},
+    {id:'ventoux', nome:'Mont Ventoux (subida)', pts:[['Bédoin',5.1786,44.1264],['Mont Ventoux',5.2786,44.1739]]},
+    {id:'suica', nome:'Suíça (Zurique → Grindelwald)', pts:[['Zurique',8.5417,47.3769],['Lucerna',8.3093,47.0502],['Interlaken',7.8632,46.6863],['Lauterbrunnen',7.9086,46.5936],['Grindelwald',8.0413,46.6244]]}
+  ];
+  var K='tourVirtual';
+  function ler(){ try{return JSON.parse(localStorage.getItem(K)||'{}');}catch(e){return {};} }
+  function gravar(o){ try{localStorage.setItem(K,JSON.stringify(o));}catch(e){} }
+  var selRota=document.getElementById('tourRota'), inIni=document.getElementById('tourInicio');
+  if(!selRota) return;
+  TOUR_ROTAS.forEach(function(r){var o=document.createElement('option');o.value=r.id;o.textContent=r.nome;selRota.appendChild(o);});
+  var st=ler();
+  if(!st.rota) st.rota=TOUR_ROTAS[0].id;
+  if(!st.inicio) st.inicio=new Date().toISOString().slice(0,10);
+  gravar(st); selRota.value=st.rota; inIni.value=st.inicio;
+
+  function hav(a,b){var R=6371,t=Math.PI/180,dl=(b[1]-a[1])*t,dn=(b[0]-a[0])*t;
+    var x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a[1]*t)*Math.cos(b[1]*t)*Math.sin(dn/2)*Math.sin(dn/2);return 2*R*Math.asin(Math.sqrt(x));}
+  async function tracado(r){
+    var ck='tourGeo_'+r.id+'_v1';
+    try{var c=localStorage.getItem(ck); if(c) return JSON.parse(c);}catch(e){}
+    var coords=[], ok=true;
+    for(var i=0;i<r.pts.length-1;i++){
+      var a=r.pts[i], b=r.pts[i+1], seg=null;
+      try{
+        var u='https://api.mapbox.com/directions/v5/mapbox/cycling/'+a[1]+','+a[2]+';'+b[1]+','+b[2]+'?geometries=geojson&overview=full&access_token='+MAPBOX_TOKEN;
+        var j=await (await fetch(u)).json();
+        if(j.routes&&j.routes[0]) seg=j.routes[0].geometry.coordinates;
+      }catch(e){}
+      if(!seg){ok=false; seg=[[a[1],a[2]],[b[1],b[2]]];}
+      coords=coords.concat(coords.length?seg.slice(1):seg);
+    }
+    if(ok){ try{localStorage.setItem(ck,JSON.stringify(coords));}catch(e){} }
+    return coords;
+  }
+  function pontoEm(coords,km){
+    var acc=0;
+    for(var i=1;i<coords.length;i++){var d=hav(coords[i-1],coords[i]);
+      if(acc+d>=km){var f=d?(km-acc)/d:0;return [coords[i-1][0]+(coords[i][0]-coords[i-1][0])*f, coords[i-1][1]+(coords[i][1]-coords[i-1][1])*f];}
+      acc+=d;}
+    return coords[coords.length-1];
+  }
+  function kmAteCidade(coords,pt){ // km acumulado no ponto da trilha mais próximo da cidade
+    var best=1e9,bi=0;for(var i=0;i<coords.length;i++){var d=hav(coords[i],[pt[1],pt[2]]);if(d<best){best=d;bi=i;}}
+    var acc=0;for(var k=1;k<=bi;k++)acc+=hav(coords[k-1],coords[k]);return acc;
+  }
+  var tmap=null, marker=null, ultimaCoords=null;
+  async function kmPercorridos(){
+    if(typeof sb==='undefined'||typeof currentUser==='undefined'||!currentUser) return null;
+    var r=await sb.from('pedais').select('distancia_km').eq('usuario_id',currentUser.id).gte('realizado_em',st.inicio+'T00:00:00-03:00');
+    if(r.error||!r.data) return null;
+    return r.data.reduce(function(t,p){return t+(Number(p.distancia_km)||0);},0);
+  }
+  async function atualizar(){
+    var info=document.getElementById('tourInfo'), barra=document.getElementById('tourBarra');
+    var rota=TOUR_ROTAS.filter(function(r){return r.id===st.rota;})[0];
+    info.textContent='Carregando rota…';
+    var coords=await tracado(rota); ultimaCoords=coords;
+    var total=0;for(var i=1;i<coords.length;i++)total+=hav(coords[i-1],coords[i]);
+    var feitos=await kmPercorridos();
+    if(feitos===null){info.textContent='Entre na sua conta para ver o progresso.';feitos=0;}
+    var km=Math.min(feitos,total), pct=total?km/total*100:0;
+    barra.style.width=pct.toFixed(1)+'%';
+    var prox=null,ult=rota.pts[0][0];
+    rota.pts.forEach(function(c){var at=kmAteCidade(coords,c); if(at<=km+0.5) ult=c[0]; else if(!prox) prox={n:c[0],falta:at-km};});
+    var txt='<b>'+km.toFixed(1)+' km</b> de '+total.toFixed(0)+' km ('+pct.toFixed(0)+'%)<br>';
+    if(feitos>=total) txt+='🏁 Você completou '+rota.nome+'! Escolha outra rota ou mude a data de início.';
+    else txt+='Passou por: '+ult+(prox?' · Próxima: <b>'+prox.n+'</b> em '+prox.falta.toFixed(1)+' km':'');
+    info.innerHTML=txt;
+    desenhar(coords,pontoEm(coords,km),rota);
+  }
+  function desenhar(coords,pos,rota){
+    if(typeof mapboxgl==='undefined'||!MAPBOX_TOKEN) return;
+    if(!tmap){
+      mapboxgl.accessToken=MAPBOX_TOKEN;
+      tmap=new mapboxgl.Map({container:'tourMapa',style:'mapbox://styles/mapbox/dark-v11',center:pos,zoom:6});
+      tmap.on('load',function(){tmap.addSource('tr',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:coords}}});
+        tmap.addLayer({id:'tr',type:'line',source:'tr',paint:{'line-color':'#c9a24a','line-width':4}});
+        tmap._ok=true; ajustar(coords,pos);});
+      var el=document.createElement('div');el.style.cssText='width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid #c9a24a;box-shadow:0 0 0 4px rgba(201,162,74,.3)';
+      marker=new mapboxgl.Marker(el).setLngLat(pos).addTo(tmap);
+    } else {
+      marker.setLngLat(pos);
+      if(tmap._ok){tmap.getSource('tr').setData({type:'Feature',geometry:{type:'LineString',coordinates:coords}});ajustar(coords,pos);}
+    }
+  }
+  function ajustar(coords,pos){
+    var b=new mapboxgl.LngLatBounds(coords[0],coords[0]);coords.forEach(function(c){b.extend(c);});
+    tmap.resize(); tmap.fitBounds(b,{padding:30,duration:0});
+  }
+  selRota.addEventListener('change',function(){st.rota=selRota.value;gravar(st);atualizar();});
+  inIni.addEventListener('change',function(){if(inIni.value){st.inicio=inIni.value;gravar(st);atualizar();}});
+  // carrega ao abrir a aba Treino (o mapa precisa estar visível pra ter tamanho)
+  document.querySelectorAll('[data-view="treino"]').forEach(function(b){b.addEventListener('click',function(){setTimeout(atualizar,400);});});
 })();
 </script>
 </body>
