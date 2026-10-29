@@ -1605,8 +1605,18 @@
             <input type="date" id="tourInicio" style="flex:1; padding:8px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border);">
           </div>
           <div id="tourMapa" style="height:230px; border-radius:12px; overflow:hidden; background:#111;"></div>
+          <div style="display:flex; gap:14px; margin-top:6px;"><button id="tour3d" style="font-size:12px; background:none; border:0; color:var(--gold); padding:0;">🏔️ Vista 3D</button></div>
           <div style="height:8px; background:var(--surface); border-radius:6px; margin:12px 0 6px; overflow:hidden;"><div id="tourBarra" style="height:100%; width:0; background:var(--gold);"></div></div>
           <div id="tourInfo" style="font-size:13px; line-height:1.5;">Carregando…</div>
+          <div id="tourPerfilBox" style="margin-top:12px;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:4px;">⛰️ Perfil da rota</div>
+            <div id="tourPerfil" style="background:var(--surface); border-radius:12px; padding:8px;"></div>
+            <div id="tourPerfilInfo" style="font-size:12px; color:var(--text-muted); margin-top:4px;"></div>
+          </div>
+          <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:8px;">🏅 Selos</div>
+            <div id="tourSelos" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+          </div>
                   <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
             <div style="font-size:13px; font-weight:600; margin-bottom:6px;">🎥 Vídeo do percurso</div>
             <div id="tourVideo"></div>
@@ -6911,6 +6921,73 @@ if ('serviceWorker' in navigator) {
     var acc=0;for(var k=1;k<=bi;k++)acc+=hav(coords[k-1],coords[k]);return acc;
   }
   var tmap=null, marker=null, ultimaCoords=null;
+  // ---- cidades marcadas no mapa (douradas = já passou) ----
+  var kmAtual=0, rotaAtual=null, coordsAtual=null;
+  function desenharCidades(){
+    if(!tmap||!tmap._ok||!rotaAtual||!coordsAtual) return;
+    cidadeMarkers.forEach(function(m){m.remove();}); cidadeMarkers=[];
+    rotaAtual.pts.forEach(function(c){
+      var at=kmAteCidade(coordsAtual,c), passou=at<=kmAtual+0.5;
+      var el=document.createElement('div');
+      el.style.cssText='width:10px;height:10px;border-radius:50%;border:2px solid #c9a24a;background:'+(passou?'#c9a24a':'#111');
+      var m=new mapboxgl.Marker(el).setLngLat([c[1],c[2]]).setPopup(new mapboxgl.Popup({offset:10}).setText(c[0]+' · km '+at.toFixed(0))).addTo(tmap);
+      cidadeMarkers.push(m);
+    });
+  }
+  // ---- perfil de elevação ----
+  function calcularPerfil(pp){
+    var ck='tourEle_'+pp.id+'_'+pp.n;
+    var ele=null; try{ele=JSON.parse(localStorage.getItem(ck)||'null');}catch(e){}
+    if(!ele){
+      ele=[]; var nulos=0;
+      for(var i=0;i<pp.n;i++){
+        var pt=pontoEm(pp.coords,pp.total*i/(pp.n-1));
+        var v=null; try{v=tmap.queryTerrainElevation({lng:pt[0],lat:pt[1]},{exaggerated:false});}catch(e){}
+        if(v===null||v===undefined){nulos++;ele.push(null);} else ele.push(Math.round(v));
+      }
+      if(nulos>pp.n*0.3){ document.getElementById('tourPerfil').innerHTML='<p style="font-size:12px;color:var(--text-muted);padding:6px;">Perfil indisponível agora.</p>'; return; }
+      // preenche buracos
+      for(var j=0;j<ele.length;j++){ if(ele[j]===null){ ele[j]=(j>0?ele[j-1]:null); } }
+      for(var k=ele.length-1;k>=0;k--){ if(ele[k]===null){ ele[k]=ele[k+1]; } }
+      try{localStorage.setItem(ck,JSON.stringify(ele));}catch(e){}
+    }
+    perfilDados={id:pp.id,ele:ele,total:pp.total};
+    desenharPerfil();
+  }
+  function desenharPerfil(){
+    var box=document.getElementById('tourPerfil'), inf=document.getElementById('tourPerfilInfo');
+    if(!perfilDados||!rotaAtual||perfilDados.id!==rotaAtual.id){return;}
+    var e=perfilDados.ele, n=e.length, W=300,H=80,pad=4;
+    var mn=Math.min.apply(null,e), mx=Math.max.apply(null,e), rg=Math.max(mx-mn,1);
+    var sm=e.map(function(v,i){var a=e[Math.max(0,i-2)],b=e[Math.min(n-1,i+2)];return (a+v+b)/3;});
+    var ganho=0;for(var i=1;i<n;i++){var d=sm[i]-sm[i-1]; if(d>0) ganho+=d;}
+    var pts=e.map(function(v,i){return (i/(n-1)*W).toFixed(1)+','+(H-pad-(v-mn)/rg*(H-2*pad)).toFixed(1);});
+    var x=Math.min(kmAtual/perfilDados.total,1)*W;
+    box.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:90px;display:block;">'+
+      '<polygon points="0,'+H+' '+pts.join(' ')+' '+W+','+H+'" fill="rgba(201,162,74,.25)"/>'+
+      '<polyline points="'+pts.join(' ')+'" fill="none" stroke="#c9a24a" stroke-width="1.6"/>'+
+      '<line x1="'+x+'" x2="'+x+'" y1="0" y2="'+H+'" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 2"/></svg>';
+    inf.textContent='Altitude de '+mn+' m a '+mx+' m · subida acumulada ≈ '+Math.round(ganho)+' m';
+  }
+  // ---- selos ----
+  function desenharSelos(){
+    var box=document.getElementById('tourSelos'); box.innerHTML='';
+    var c=st.concluidas||{};
+    TOUR_ROTAS.forEach(function(r){
+      var ok=!!c[r.id], d=document.createElement('div');
+      d.style.cssText='flex:1 1 90px;min-width:90px;text-align:center;padding:8px 4px;border-radius:12px;background:var(--surface);'+(ok?'':'opacity:.35;');
+      d.innerHTML='<div style="font-size:22px;">'+(ok?'🏅':'🔒')+'</div><div style="font-size:10px;line-height:1.2;margin-top:2px;">'+r.nome.replace(/\(.*\)/,'')+'</div>'+(ok?'<div style="font-size:9px;color:var(--text-muted);">'+c[r.id]+'</div>':'');
+      box.appendChild(d);
+    });
+  }
+  document.getElementById('tour3d').addEventListener('click',function(){
+    if(!tmap||!tmap._ok) return;
+    modo3d=!modo3d;
+    try{ tmap.setTerrain({source:'mapbox-dem',exaggeration:modo3d?1.8:1}); }catch(e){}
+    tmap.easeTo({pitch:modo3d?65:0,bearing:modo3d?20:0,duration:900});
+    this.textContent=modo3d?'🗺️ Vista plana':'🏔️ Vista 3D';
+  });
+
   async function kmPercorridos(){
     var cad=window.__cad; if(!cad||!cad.user||!cad.sb) return null;
     var r=await cad.sb.from('pedais').select('distancia_km').eq('usuario_id',cad.user.id).gte('realizado_em',st.inicio+'T00:00:00-03:00');
@@ -6938,9 +7015,16 @@ if ('serviceWorker' in navigator) {
     if(feitos>=total) txt+='🏁 Você completou '+rota.nome+'! Escolha outra rota ou mude a data de início.';
     else txt+='Passou por: '+ult+(prox?' · Próxima: <b>'+prox.n+'</b> em '+prox.falta.toFixed(1)+' km':'');
     info.innerHTML=txt;
+    kmAtual=km; rotaAtual=rota; coordsAtual=coords;
+    if(feitos>=total && !(st.concluidas&&st.concluidas[rota.id])){ st.concluidas=st.concluidas||{}; st.concluidas[rota.id]=new Date().toLocaleDateString('pt-BR'); gravar(st); }
+    desenharSelos();
+    var jaTem=perfilDados&&perfilDados.id===rota.id;
+    if(!jaTem){ document.getElementById('tourPerfil').innerHTML='<p style="font-size:12px;color:var(--text-muted);padding:6px;">Calculando perfil…</p>'; document.getElementById('tourPerfilInfo').textContent=''; }
+    if(!jaTem) perfilPendente={id:rota.id,coords:coords,total:total,n:90};
     desenhar(coords,pontoEm(coords,km),rota);
+    desenharCidades(); desenharPerfil();
   }
-  var ultimoDesenho=null;
+  var ultimoDesenho=null, cidadeMarkers=[], perfilPendente=null, perfilDados=null, modo3d=false;
   function desenhar(coords,pos,rota){
     if(typeof mapboxgl==='undefined'||!(window.__cad&&window.__cad.token)){document.getElementById('tourMapa').innerHTML='<p style="padding:14px;font-size:12px;color:var(--text-muted);">Mapa indisponível.</p>';return;}
     ultimoDesenho={coords:coords,pos:pos};
@@ -6952,13 +7036,15 @@ if ('serviceWorker' in navigator) {
       tmap.on('load',function(){
         tmap.addSource('tr',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:ultimoDesenho.coords}}});
         tmap.addLayer({id:'tr',type:'line',source:'tr',paint:{'line-color':'#c9a24a','line-width':4}});
-        tmap._ok=true; marker.setLngLat(ultimoDesenho.pos); ajustar(ultimoDesenho.coords);
+        try{ tmap.addSource('mapbox-dem',{type:'raster-dem',url:'mapbox://mapbox.mapbox-terrain-dem-v1',tileSize:512,maxzoom:14}); tmap.setTerrain({source:'mapbox-dem',exaggeration:1}); }catch(e){}
+        tmap._ok=true; marker.setLngLat(ultimoDesenho.pos); ajustar(ultimoDesenho.coords); desenharCidades();
       });
+      tmap.on('idle',function(){ if(perfilPendente&&tmap._ok){ var pp=perfilPendente; perfilPendente=null; calcularPerfil(pp); } });
       tmap.on('error',function(e){console.warn('tour map',e&&e.error&&e.error.message);});
       if(window.ResizeObserver) new ResizeObserver(function(){ if(tmap){tmap.resize();} }).observe(document.getElementById('tourMapa'));
     } else {
       marker.setLngLat(pos);
-      if(tmap._ok){tmap.getSource('tr').setData({type:'Feature',geometry:{type:'LineString',coordinates:coords}});ajustar(coords);}
+      if(tmap._ok){tmap.getSource('tr').setData({type:'Feature',geometry:{type:'LineString',coordinates:coords}});ajustar(coords);desenharCidades();}
     }
   }
   function ajustar(coords){
