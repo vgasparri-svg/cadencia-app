@@ -1610,6 +1610,10 @@
                   <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
             <div style="font-size:13px; font-weight:600; margin-bottom:6px;">🎥 Vídeo do percurso</div>
             <div id="tourVideo"></div>
+            <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:6px;">
+              <button id="tourOutro" style="font-size:12px; background:none; border:0; color:var(--gold); padding:0;">Outro vídeo ↻</button>
+              <a id="tourAbrirYt" target="_blank" rel="noopener" style="font-size:12px; color:var(--gold);">Abrir no YouTube ↗</a>
+            </div>
             <a id="tourBuscaVideo" target="_blank" rel="noopener" style="display:inline-block; font-size:12px; color:var(--gold); margin:6px 0;">Buscar vídeos desta rota no YouTube ↗</a>
             <div style="display:flex; gap:8px;">
               <input type="text" id="tourVideoLink" placeholder="Cole aqui o link do vídeo do YouTube" style="flex:1; padding:8px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border); font-size:12px;">
@@ -6856,11 +6860,11 @@ if ('serviceWorker' in navigator) {
 // TOUR VIRTUAL — para acrescentar rota, adicione um item em TOUR_ROTAS (cidades em ordem: [nome, lon, lat]).
 (function(){
   var TOUR_ROTAS = [
-    {id:'paris-ams', nome:'Paris → Amsterdã', pts:[['Paris',2.3522,48.8566],['Amiens',2.2957,49.8941],['Lille',3.0573,50.6292],['Bruxelas',4.3517,50.8503],['Antuérpia',4.4025,51.2194],['Roterdã',4.4777,51.9244],['Amsterdã',4.9041,52.3676]]},
-    {id:'amalfi', nome:'Costa Amalfitana (Nápoles → Salerno)', pts:[['Nápoles',14.2681,40.8518],['Sorrento',14.3761,40.6263],['Positano',14.4849,40.6280],['Amalfi',14.6027,40.6340],['Salerno',14.7681,40.6824]]},
-    {id:'alpe', nome:'Alpe d\'Huez (subida)', pts:[['Le Bourg-d\'Oisans',6.0310,45.0553],['Alpe d\'Huez',6.0700,45.0917]]},
-    {id:'ventoux', nome:'Mont Ventoux (subida)', pts:[['Bédoin',5.1786,44.1264],['Mont Ventoux',5.2786,44.1739]]},
-    {id:'suica', nome:'Suíça (Zurique → Grindelwald)', pts:[['Zurique',8.5417,47.3769],['Lucerna',8.3093,47.0502],['Interlaken',7.8632,46.6863],['Lauterbrunnen',7.9086,46.5936],['Grindelwald',8.0413,46.6244]]}
+    {id:'paris-ams', vids:['7eKpStVqqdc','96UZGias2no'], nome:'Paris → Amsterdã', pts:[['Paris',2.3522,48.8566],['Amiens',2.2957,49.8941],['Lille',3.0573,50.6292],['Bruxelas',4.3517,50.8503],['Antuérpia',4.4025,51.2194],['Roterdã',4.4777,51.9244],['Amsterdã',4.9041,52.3676]]},
+    {id:'amalfi', vids:['1UxoHtG2qas','LtceTTnUbfI'], nome:'Costa Amalfitana (Nápoles → Salerno)', pts:[['Nápoles',14.2681,40.8518],['Sorrento',14.3761,40.6263],['Positano',14.4849,40.6280],['Amalfi',14.6027,40.6340],['Salerno',14.7681,40.6824]]},
+    {id:'alpe', vids:['XlwjMjyU410','7YToQUZN5Is'], nome:'Alpe d\'Huez (subida)', pts:[['Le Bourg-d\'Oisans',6.0310,45.0553],['Alpe d\'Huez',6.0700,45.0917]]},
+    {id:'ventoux', vids:['E7UPLd1bxyc','geQowb8cRc4'], nome:'Mont Ventoux (subida)', pts:[['Bédoin',5.1786,44.1264],['Mont Ventoux',5.2786,44.1739]]},
+    {id:'suica', vids:['tiZxMmFxzCY','QRm1ZLUiUYY'], nome:'Suíça (Zurique → Grindelwald)', pts:[['Zurique',8.5417,47.3769],['Lucerna',8.3093,47.0502],['Interlaken',7.8632,46.6863],['Lauterbrunnen',7.9086,46.5936],['Grindelwald',8.0413,46.6244]]}
   ];
   var K='tourVirtual';
   function ler(){ try{return JSON.parse(localStorage.getItem(K)||'{}');}catch(e){return {};} }
@@ -6952,8 +6956,12 @@ if ('serviceWorker' in navigator) {
   function ytId(u){var m=(u||'').match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/);return m?m[1]:'';}
   function mostrarVideo(){
     var rota=TOUR_ROTAS.filter(function(r){return r.id===st.rota;})[0];
-    var id=(st.videos&&st.videos[st.rota])||'';
+    var lista=(st.videos&&st.videos[st.rota])?[st.videos[st.rota]]:(rota.vids||[]);
+    st.vi=((st.vi||0)%Math.max(lista.length,1));
+    var id=lista[st.vi]||'';
     document.getElementById('tourVideo').innerHTML=id?'<div style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;background:#000;"><iframe src="https://www.youtube-nocookie.com/embed/'+id+'" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe></div>':'<p style="font-size:12px;color:var(--text-muted);">Nenhum vídeo escolhido para esta rota ainda.</p>';
+    document.getElementById('tourAbrirYt').href=id?'https://www.youtube.com/watch?v='+id:'#';
+    document.getElementById('tourOutro').style.display=lista.length>1?'inline-block':'none';
     document.getElementById('tourBuscaVideo').href='https://www.youtube.com/results?search_query='+encodeURIComponent(rota.nome.replace(/\(.*\)/,'')+' cycling POV virtual ride');
   }
   document.getElementById('tourVideoSalvar').addEventListener('click',function(){
@@ -6961,8 +6969,9 @@ if ('serviceWorker' in navigator) {
     if(!id){alert('Link inválido. Cole o endereço de um vídeo do YouTube.');return;}
     st.videos=st.videos||{};st.videos[st.rota]=id;gravar(st);document.getElementById('tourVideoLink').value='';mostrarVideo();
   });
+  document.getElementById('tourOutro').addEventListener('click',function(){st.vi=(st.vi||0)+1;gravar(st);mostrarVideo();});
   mostrarVideo();
-  selRota.addEventListener('change',function(){st.rota=selRota.value;gravar(st);mostrarVideo();atualizar();});
+  selRota.addEventListener('change',function(){st.rota=selRota.value;st.vi=0;gravar(st);mostrarVideo();atualizar();});
   inIni.addEventListener('change',function(){if(inIni.value){st.inicio=inIni.value;gravar(st);atualizar();}});
   // carrega ao abrir a aba Treino (o mapa precisa estar visível pra ter tamanho)
   document.querySelectorAll('.nav-btn[data-view="tour"]').forEach(function(b){b.addEventListener('click',function(){setTimeout(atualizar,400);});});
