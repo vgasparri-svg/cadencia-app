@@ -6915,13 +6915,17 @@ if ('serviceWorker' in navigator) {
     if(r.error||!r.data) return null;
     return r.data.reduce(function(t,p){return t+(Number(p.distancia_km)||0);},0);
   }
+  var atualizarSeq=0;
   async function atualizar(){
+    var meuSeq=++atualizarSeq;
     var info=document.getElementById('tourInfo'), barra=document.getElementById('tourBarra');
     var rota=TOUR_ROTAS.filter(function(r){return r.id===st.rota;})[0];
     info.textContent='Carregando rota…';
     var coords=await tracado(rota); ultimaCoords=coords;
     var total=0;for(var i=1;i<coords.length;i++)total+=hav(coords[i-1],coords[i]);
+    if(meuSeq!==atualizarSeq) return;
     var feitos=await kmPercorridos();
+    if(meuSeq!==atualizarSeq) return;
     if(feitos===null){info.textContent='Entre na sua conta para ver o progresso.';feitos=0;}
     var km=Math.min(feitos,total), pct=total?km/total*100:0;
     barra.style.width=pct.toFixed(1)+'%';
@@ -6933,24 +6937,32 @@ if ('serviceWorker' in navigator) {
     info.innerHTML=txt;
     desenhar(coords,pontoEm(coords,km),rota);
   }
+  var ultimoDesenho=null;
   function desenhar(coords,pos,rota){
-    if(typeof mapboxgl==='undefined'||!MAPBOX_TOKEN) return;
+    if(typeof mapboxgl==='undefined'||!MAPBOX_TOKEN){document.getElementById('tourMapa').innerHTML='<p style="padding:14px;font-size:12px;color:var(--text-muted);">Mapa indisponível.</p>';return;}
+    ultimoDesenho={coords:coords,pos:pos};
     if(!tmap){
       mapboxgl.accessToken=MAPBOX_TOKEN;
       tmap=new mapboxgl.Map({container:'tourMapa',style:'mapbox://styles/mapbox/dark-v11',center:pos,zoom:6});
-      tmap.on('load',function(){tmap.addSource('tr',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:coords}}});
-        tmap.addLayer({id:'tr',type:'line',source:'tr',paint:{'line-color':'#c9a24a','line-width':4}});
-        tmap._ok=true; ajustar(coords,pos);});
       var el=document.createElement('div');el.style.cssText='width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid #c9a24a;box-shadow:0 0 0 4px rgba(201,162,74,.3)';
       marker=new mapboxgl.Marker(el).setLngLat(pos).addTo(tmap);
+      tmap.on('load',function(){
+        tmap.addSource('tr',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:ultimoDesenho.coords}}});
+        tmap.addLayer({id:'tr',type:'line',source:'tr',paint:{'line-color':'#c9a24a','line-width':4}});
+        tmap._ok=true; marker.setLngLat(ultimoDesenho.pos); ajustar(ultimoDesenho.coords);
+      });
+      tmap.on('error',function(e){console.warn('tour map',e&&e.error&&e.error.message);});
+      if(window.ResizeObserver) new ResizeObserver(function(){ if(tmap){tmap.resize();} }).observe(document.getElementById('tourMapa'));
     } else {
       marker.setLngLat(pos);
-      if(tmap._ok){tmap.getSource('tr').setData({type:'Feature',geometry:{type:'LineString',coordinates:coords}});ajustar(coords,pos);}
+      if(tmap._ok){tmap.getSource('tr').setData({type:'Feature',geometry:{type:'LineString',coordinates:coords}});ajustar(coords);}
     }
   }
-  function ajustar(coords,pos){
-    var b=new mapboxgl.LngLatBounds(coords[0],coords[0]);coords.forEach(function(c){b.extend(c);});
-    tmap.resize(); tmap.fitBounds(b,{padding:30,duration:0});
+  function ajustar(coords){
+    try{
+      var b=new mapboxgl.LngLatBounds(coords[0],coords[0]);coords.forEach(function(c){b.extend(c);});
+      tmap.resize(); tmap.fitBounds(b,{padding:30,duration:0,maxZoom:13});
+    }catch(e){console.warn('tour ajustar',e);}
   }
 
   // vídeo do percurso: cole um link do YouTube; fica salvo neste aparelho, por rota
