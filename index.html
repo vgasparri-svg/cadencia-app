@@ -1610,6 +1610,7 @@
           <div id="tourInfo" style="font-size:13px; line-height:1.5;">Carregando…</div>
           <div id="tourPerfilBox" style="margin-top:12px;">
             <div style="font-size:13px; font-weight:600; margin-bottom:4px;">⛰️ Perfil da rota</div>
+            <div id="tourCategoria" style="margin-bottom:6px;"></div>
             <div id="tourPerfil" style="background:var(--surface); border-radius:12px; padding:8px;"></div>
             <div id="tourPerfilInfo" style="font-size:12px; color:var(--text-muted); margin-top:4px;"></div>
           </div>
@@ -6892,7 +6893,8 @@ if ('serviceWorker' in navigator) {
   var st=ler();
   if(!st.rota) st.rota=TOUR_ROTAS[0].id;
   if(!st.inicio) st.inicio=new Date().toISOString().slice(0,10);
-  gravar(st); selRota.value=st.rota; inIni.value=st.inicio;
+  gravar(st); if(st.cat){ Array.prototype.forEach.call(selRota.options,function(o){ var r=TOUR_ROTAS.filter(function(x){return x.id===o.value;})[0]; if(r&&st.cat[r.id]) o.textContent=st.cat[r.id]+' '+r.nome; }); }
+  selRota.value=st.rota; inIni.value=st.inicio;
 
   function hav(a,b){var R=6371,t=Math.PI/180,dl=(b[1]-a[1])*t,dn=(b[0]-a[0])*t;
     var x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a[1]*t)*Math.cos(b[1]*t)*Math.sin(dn/2)*Math.sin(dn/2);return 2*R*Math.asin(Math.sqrt(x));}
@@ -6972,6 +6974,13 @@ if ('serviceWorker' in navigator) {
       '<polyline points="'+pts.join(' ')+'" fill="none" stroke="#c9a24a" stroke-width="1.6"/>'+
       '<line x1="'+x+'" x2="'+x+'" y1="0" y2="'+H+'" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 2"/></svg>';
     inf.textContent='Altitude de '+mn+' m a '+mx+' m · subida acumulada ≈ '+Math.round(ganho)+' m';
+
+    // categoria do percurso pela subida por km
+    var mpk=ganho/Math.max(perfilDados.total,1), c;
+    if(mpk<6) c={e:'🟢',n:'Plano'}; else if(mpk<12) c={e:'🟡',n:'Ondulado'}; else if(mpk<25) c={e:'🟠',n:'Montanha'}; else c={e:'🔴',n:'Alta montanha'};
+    document.getElementById('tourCategoria').innerHTML='<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:var(--surface);font-size:12px;font-weight:600;">'+c.e+' '+c.n+'</span> <span style="font-size:12px;color:var(--text-muted);">'+mpk.toFixed(1)+' m de subida por km</span>';
+    st.cat=st.cat||{}; if(st.cat[rotaAtual.id]!==c.e){ st.cat[rotaAtual.id]=c.e; gravar(st); }
+    Array.prototype.forEach.call(selRota.options,function(o){ var r=TOUR_ROTAS.filter(function(x){return x.id===o.value;})[0]; if(r&&st.cat[r.id]) o.textContent=st.cat[r.id]+' '+r.nome; });
     desenharGuia();
   }
 
