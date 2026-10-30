@@ -1,0 +1,97 @@
+{
+ "atualizado": "2026-10-30T17:27:00.375Z",
+ "nome": "Threshold Tolerance: 2x20M",
+ "blocos": [
+  {
+   "nome": "Warm up",
+   "int": "aquecimento",
+   "seg": 900,
+   "lo": 154,
+   "hi": 180
+  },
+  {
+   "nome": "Hard",
+   "int": "ativo",
+   "seg": 60,
+   "lo": 244,
+   "hi": 270
+  },
+  {
+   "nome": "Easy",
+   "int": "leve",
+   "seg": 60,
+   "lo": 128,
+   "hi": 154
+  },
+  {
+   "nome": "Hard",
+   "int": "ativo",
+   "seg": 60,
+   "lo": 244,
+   "hi": 270
+  },
+  {
+   "nome": "Easy",
+   "int": "leve",
+   "seg": 60,
+   "lo": 128,
+   "hi": 154
+  },
+  {
+   "nome": "Hard",
+   "int": "ativo",
+   "seg": 60,
+   "lo": 244,
+   "hi": 270
+  },
+  {
+   "nome": "Easy",
+   "int": "leve",
+   "seg": 60,
+   "lo": 128,
+   "hi": 154
+  },
+  {
+   "nome": "Warm up",
+   "int": "aquecimento",
+   "seg": 300,
+   "lo": 154,
+   "hi": 180
+  },
+  {
+   "nome": "Hard",
+   "int": "ativo",
+   "seg": 1200,
+   "lo": 249,
+   "hi": 270
+  },
+  {
+   "nome": "Easy",
+   "int": "leve",
+   "seg": 300,
+   "lo": 77,
+   "hi": 103
+  },
+  {
+   "nome": "Hard",
+   "int": "ativo",
+   "seg": 1200,
+   "lo": 249,
+   "hi": 270
+  },
+  {
+   "nome": "Easy",
+   "int": "leve",
+   "seg": 300,
+   "lo": 77,
+   "hi": 103
+  },
+  {
+   "nome": "Cool Down",
+   "int": "desaquecimento",
+   "seg": 960,
+   "lo": 141,
+   "hi": 167
+  }
+ ]
+}
