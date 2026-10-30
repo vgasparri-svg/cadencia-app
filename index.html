@@ -1647,6 +1647,16 @@
       </div>
       <div style="padding:0 16px 24px;">
         <div class="intervals-box" style="margin:10px 0; padding:14px;">
+          <div id="tpCalBox" style="margin-bottom:16px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+              <button id="tpCalAnt" style="background:none;border:0;color:var(--gold);font-size:18px;padding:4px 10px;">‹</button>
+              <div id="tpCalTitulo" style="font-size:14px;font-weight:600;"></div>
+              <button id="tpCalProx" style="background:none;border:0;color:var(--gold);font-size:18px;padding:4px 10px;">›</button>
+            </div>
+            <div id="tpCal"></div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:6px;">🎯 treino planejado · ✓ pedal feito · dias com borda dourada: terça e quinta (treino estruturado)</div>
+            <div id="tpCalPainel" style="margin-top:10px;"></div>
+          </div>
           <div id="tourTpLista" style="margin-bottom:12px;"></div>
           <div id="tourTpBox" style="margin:0;">
                         <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Guarde aqui os treinos do seu treinador. Digite o treino ou importe o arquivo <b>.FIT</b> exportado do TrainingPeaks. Os treinos ficam salvos neste aparelho.</p>
@@ -7135,6 +7145,78 @@ function expandirTreino(raw,ftp){
   // ---- treino do TrainingPeaks (importado de arquivo .FIT) ----
   function fmtMin(seg){var m=Math.round(seg/60);return m>=60?Math.floor(m/60)+'h'+String(m%60).padStart(2,'0'):m+' min';}
 
+
+  // ---- calendário do mês (treinos planejados por dia) ----
+  var calMes=new Date(); calMes.setDate(1); calMes.setHours(0,0,0,0);
+  var calSel=null, calPedais={}, MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'], DIAS=['dom','seg','ter','qua','qui','sex','sáb'];
+  function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function achaTreino(id){return (st.tps||[]).filter(function(t){return t.id===id;})[0];}
+  async function carregarPedaisMes(){
+    var cad=window.__cad; if(!cad||!cad.user||!cad.sb) return;
+    var ini=new Date(calMes), fim=new Date(calMes.getFullYear(),calMes.getMonth()+1,1), chave=ymd(ini);
+    var r=await cad.sb.from('pedais').select('distancia_km,realizado_em').eq('usuario_id',cad.user.id).gte('realizado_em',ini.toISOString()).lt('realizado_em',fim.toISOString());
+    if(r.error||!r.data) return;
+    var m={}; r.data.forEach(function(p){ if(!p.realizado_em) return; var k=ymd(new Date(p.realizado_em)); m[k]=(m[k]||0)+(Number(p.distancia_km)||0); });
+    calPedais[chave]=m; desenharCal();
+  }
+  function desenharCal(){
+    var box=document.getElementById('tpCal'); if(!box) return;
+    document.getElementById('tpCalTitulo').textContent=MESES[calMes.getMonth()]+' de '+calMes.getFullYear();
+    var feitos=calPedais[ymd(calMes)]||{}, cal=st.cal||{}, hoje=ymd(new Date());
+    var primeiro=calMes.getDay(), diasMes=new Date(calMes.getFullYear(),calMes.getMonth()+1,0).getDate();
+    var h='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:10px;">';
+    DIAS.forEach(function(d){h+='<div style="text-align:center;color:var(--text-muted);padding:2px 0;">'+d+'</div>';});
+    for(var i=0;i<primeiro;i++) h+='<div></div>';
+    for(var d=1;d<=diasMes;d++){
+      var dt=new Date(calMes.getFullYear(),calMes.getMonth(),d), k=ymd(dt), dow=dt.getDay(), est=(dow===2||dow===4);
+      var t=cal[k]?achaTreino(cal[k]):null, km=feitos[k];
+      var borda=k===calSel?'2px solid #fff':(k===hoje?'2px solid var(--gold)':(est?'1px dashed rgba(201,162,74,.7)':'1px solid transparent'));
+      h+='<button data-dia="'+k+'" style="min-height:58px;padding:3px 2px;border-radius:8px;background:var(--surface);border:'+borda+';color:var(--text);text-align:center;font-size:10px;line-height:1.2;overflow:hidden;">'+
+         '<div style="font-size:11px;font-weight:600;">'+d+'</div>'+
+         (t?'<div style="color:var(--gold);">🎯</div><div style="font-size:8.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+t.nome+'</div>':'')+
+         (km?'<div style="color:#5cc98a;">✓ '+Math.round(km)+' km</div>':'')+'</button>';
+    }
+    h+='</div>';
+    box.innerHTML=h;
+    box.querySelectorAll('[data-dia]').forEach(function(b){b.addEventListener('click',function(){calSel=b.dataset.dia;desenharCal();desenharPainel();});});
+    desenharPainel();
+  }
+  function opcoesTreino(sel){
+    return '<option value="">— sem treino —</option>'+(st.tps||[]).map(function(t){return '<option value="'+t.id+'"'+(t.id===sel?' selected':'')+'>'+t.nome+'</option>';}).join('');
+  }
+  function desenharPainel(){
+    var box=document.getElementById('tpCalPainel'); if(!box) return;
+    var h='';
+    var temLib=(st.tps||[]).length>0;
+    if(calSel){
+      var p=calSel.split('-'), dt=new Date(+p[0],+p[1]-1,+p[2]), cal=st.cal||{}, km=(calPedais[ymd(calMes)]||{})[calSel];
+      h+='<div style="background:var(--surface);border-radius:12px;padding:10px;margin-bottom:8px;"><div style="font-size:13px;font-weight:600;margin-bottom:6px;">'+DIAS[dt.getDay()]+', '+p[2]+'/'+p[1]+(km?' · ✓ pedal feito: '+Math.round(km)+' km':'')+'</div>'+
+        (temLib?'<select id="tpDiaSel" style="width:100%;padding:8px;border-radius:10px;background:var(--bg,#000);color:var(--text);border:1px solid var(--border);">'+opcoesTreino(cal[calSel])+'</select>'+
+          (cal[calSel]?'<button id="tpDiaVer" style="margin-top:8px;font-size:12px;background:none;border:0;color:var(--gold);padding:0;">Ver este treino ↓</button>':''):
+          '<p style="font-size:12px;color:var(--text-muted);">Guarde um treino abaixo (digitar ou importar) para marcar neste dia.</p>')+'</div>';
+    }
+    if(temLib){
+      h+='<div style="background:var(--surface);border-radius:12px;padding:10px;"><div style="font-size:12px;font-weight:600;margin-bottom:6px;">Preencher terças e quintas do mês</div>'+
+        '<div style="display:flex;gap:8px;"><select id="tpTQSel" style="flex:1;padding:8px;border-radius:10px;background:var(--bg,#000);color:var(--text);border:1px solid var(--border);">'+opcoesTreino('')+'</select>'+
+        '<button id="tpTQAplicar" style="padding:8px 12px;border-radius:10px;border:0;background:var(--gold);color:#000;font-weight:600;font-size:12px;">Aplicar</button></div>'+
+        '<p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Só preenche os dias que ainda estão sem treino.</p></div>';
+    }
+    box.innerHTML=h;
+    var sel=document.getElementById('tpDiaSel');
+    if(sel) sel.addEventListener('change',function(){ st.cal=st.cal||{}; if(sel.value) st.cal[calSel]=sel.value; else delete st.cal[calSel]; gravar(st); desenharCal(); });
+    var ver=document.getElementById('tpDiaVer');
+    if(ver) ver.addEventListener('click',function(){ var t=achaTreino((st.cal||{})[calSel]); if(!t) return; st.tp={nome:t.nome,blocos:t.blocos}; st.tpEm=t.em; gravar(st); desenharTP(); var el=document.getElementById('tourTp'); if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth'}); });
+    var ap=document.getElementById('tpTQAplicar');
+    if(ap) ap.addEventListener('click',function(){
+      var id=document.getElementById('tpTQSel').value; if(!id) return;
+      st.cal=st.cal||{}; var n=new Date(calMes.getFullYear(),calMes.getMonth()+1,0).getDate();
+      for(var d=1;d<=n;d++){ var dt=new Date(calMes.getFullYear(),calMes.getMonth(),d), w=dt.getDay(), k=ymd(dt); if((w===2||w===4)&&!st.cal[k]) st.cal[k]=id; }
+      gravar(st); desenharCal();
+    });
+  }
+  document.getElementById('tpCalAnt').addEventListener('click',function(){calMes.setMonth(calMes.getMonth()-1);calSel=null;desenharCal();carregarPedaisMes();});
+  document.getElementById('tpCalProx').addEventListener('click',function(){calMes.setMonth(calMes.getMonth()+1);calSel=null;desenharCal();carregarPedaisMes();});
+  document.querySelectorAll('.nav-btn[data-view="tp"]').forEach(function(b){b.addEventListener('click',function(){setTimeout(carregarPedaisMes,300);});});
   // ---- biblioteca de treinos (salvos neste aparelho) ----
   function guardarTP(nome,blocos,quando){
     st.tps=st.tps||[];
@@ -7158,11 +7240,12 @@ function expandirTreino(raw,ftp){
     box.querySelectorAll('[data-apagar]').forEach(function(b){b.addEventListener('click',function(){
       var t=(st.tps||[]).filter(function(x){return x.id===b.dataset.apagar;})[0];
       st.tps=(st.tps||[]).filter(function(x){return x.id!==b.dataset.apagar;});
+      if(st.cal) Object.keys(st.cal).forEach(function(k){ if(st.cal[k]===b.dataset.apagar) delete st.cal[k]; });
       if(t&&st.tp&&st.tp.nome===t.nome&&st.tpEm===t.em){ delete st.tp; }
       gravar(st); desenharTP(); });});
   }
   function desenharTP(){
-    desenharLista();
+    desenharLista(); desenharCal();
     var box=document.getElementById('tourTp');
     var tp=st.tp;
     if(!tp||!tp.blocos||!tp.blocos.length){box.innerHTML='<p style="color:var(--text-muted);">Nenhum treino importado.</p>';return;}
