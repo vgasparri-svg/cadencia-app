@@ -1614,6 +1614,16 @@
             <div id="tourPerfil" style="background:var(--surface); border-radius:12px; padding:8px;"></div>
             <div id="tourPerfilInfo" style="font-size:12px; color:var(--text-muted); margin-top:4px;"></div>
           </div>
+          <div id="tourTpBox" style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:4px;">🎯 Treino do TrainingPeaks</div>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Para as rotas de montanha, siga o treino do seu treinador. No TrainingPeaks, abra o treino, exporte em <b>.FIT</b> e importe aqui.</p>
+            <input type="file" id="tourTpArquivo" accept=".fit" style="display:none;">
+            <div style="display:flex; gap:12px; margin-bottom:8px;">
+              <button id="tourTpEscolher" style="padding:8px 12px; border-radius:10px; border:0; background:var(--gold); color:#000; font-weight:600; font-size:12px;">Importar treino (.FIT)</button>
+              <button id="tourTpRemover" style="font-size:12px; background:none; border:0; color:var(--gold); padding:0; display:none;">Remover</button>
+            </div>
+            <div id="tourTp" style="font-size:12px; line-height:1.5;"></div>
+          </div>
           <div id="tourGuiaBox" style="margin-top:14px;">
             <div style="font-size:13px; font-weight:600; margin-bottom:4px;">⚡ Guia de potência</div>
             <div id="tourGuia" style="font-size:12px; line-height:1.5;"></div>
@@ -6976,7 +6986,7 @@ if ('serviceWorker' in navigator) {
     inf.textContent='Altitude de '+mn+' m a '+mx+' m · subida acumulada ≈ '+Math.round(ganho)+' m';
 
     // categoria do percurso pela subida por km
-    var mpk=ganho/Math.max(perfilDados.total,1), c;
+    var mpk=ganho/Math.max(perfilDados.total,1), c; perfilDados.mpk=mpk;
     if(mpk<6) c={e:'🟢',n:'Plano'}; else if(mpk<12) c={e:'🟡',n:'Ondulado'}; else if(mpk<25) c={e:'🟠',n:'Montanha'}; else c={e:'🔴',n:'Alta montanha'};
     document.getElementById('tourCategoria').innerHTML='<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:var(--surface);font-size:12px;font-weight:600;">'+c.e+' '+c.n+'</span> <span style="font-size:12px;color:var(--text-muted);">'+mpk.toFixed(1)+' m de subida por km</span>';
     st.cat=st.cat||{}; if(st.cat[rotaAtual.id]!==c.e){ st.cat[rotaAtual.id]=c.e; gravar(st); }
@@ -6992,36 +7002,44 @@ if ('serviceWorker' in navigator) {
     for(var i=0;i<40;i++){var v=(lo+hi)/2; var F=m*g*(grade+crr)+0.5*rho*cda*v*v; if(F*v>P) hi=v; else lo=v;}
     return (lo+hi)/2;
   }
-  function zonaPorGrade(gr){ // gr em %
-    if(gr<-2) return {z:'Z1 solte',f:0.45};
-    if(gr<1.5) return {z:'Z2',f:0.68};
-    if(gr<4)   return {z:'Z3',f:0.80};
-    if(gr<7)   return {z:'Z4 baixo',f:0.88};
-    return {z:'Z4',f:0.93};
+  function zonaPorGrade(gr,solto){ // gr em %; solto = rota plana/ondulada (giro solto)
+    if(gr<-2) return {z:'Solte',f:0.40,lo:0.30,hi:0.50};
+    if(solto){
+      if(gr<3) return {z:'Giro solto',f:0.57,lo:0.50,hi:0.65};
+      return {z:'Giro firme',f:0.65,lo:0.58,hi:0.72};
+    }
+    if(gr<1.5) return {z:'Giro solto',f:0.58,lo:0.50,hi:0.65};
+    if(gr<4)   return {z:'Z2 alto',f:0.68,lo:0.62,hi:0.75};
+    if(gr<7)   return {z:'Tempo (Z3)',f:0.80,lo:0.75,hi:0.87};
+    return {z:'Subida (Z3–Z4)',f:0.86,lo:0.80,hi:0.92};
   }
   function desenharGuia(){
     var box=document.getElementById('tourGuia');
     if(!perfilDados||!rotaAtual||perfilDados.id!==rotaAtual.id){box.innerHTML='';return;}
     var peso=lerNum('pesoValue',0), ftp=lerNum('ftpValue',220);
     if(!peso){box.innerHTML='<p style="color:var(--text-muted);">Informe seu <b>peso</b> na aba Treino para calcular o guia.</p>';return;}
+    var solto=(perfilDados.mpk||0)<12;
     var e=perfilDados.ele, n=e.length, total=perfilDados.total, T=8, sm=e.map(function(v,i){var a=e[Math.max(0,i-2)],b=e[Math.min(n-1,i+2)];return (a+v+b)/3;});
     var linhas=[], tempoTot=0, trab=0, somaPesada=0;
     for(var t=0;t<T;t++){
       var i0=Math.round(t*(n-1)/T), i1=Math.round((t+1)*(n-1)/T);
       var dist=total/T*1000, dh=sm[i1]-sm[i0], gr=dh/dist*100;
-      var z=zonaPorGrade(gr), ov=(st.pot&&st.pot[st.rota]&&st.pot[st.rota][t])||0, P=ov||ftp*z.f, v=velocidade(P*0.97,gr/100), seg=dist/v;
+      var z=zonaPorGrade(gr,solto), ov=(st.pot&&st.pot[st.rota]&&st.pot[st.rota][t])||0, P=ov||ftp*z.f, v=velocidade(P*0.97,gr/100), seg=dist/v;
       tempoTot+=seg; trab+=P*seg; somaPesada+=Math.pow(P,4)*seg;
-      linhas.push({i:t,custom:!!ov,de:total/T*t,ate:total/T*(t+1),gr:gr,z:z.z,P:P,v:v*3.6,seg:seg});
+      linhas.push({i:t,lo:ftp*z.lo,hi:ftp*z.hi,custom:!!ov,de:total/T*t,ate:total/T*(t+1),gr:gr,z:z.z,P:P,v:v*3.6,seg:seg});
     }
     var np=Math.pow(somaPesada/tempoTot,0.25), media=trab/tempoTot, h=Math.floor(tempoTot/3600), m=Math.round((tempoTot%3600)/60);
-    var html='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">'+
+    var html='<p style="margin-bottom:8px;">'+(solto
+      ? '🚴 <b>Rota de giro solto:</b> pedale leve, cadência de <b>90–100 rpm</b>, conversando sem esforço. A potência abaixo é uma <b>faixa</b>, não um valor fixo: oscile dentro dela, solte nas descidas e nos trechos a favor do vento.'
+      : '⛰️ <b>Rota de montanha:</b> a base do esforço está nas subidas. Antes e depois delas, pedale solto. Para o treino de montanha, o ideal é seguir o plano do seu treinador (TrainingPeaks); este guia é a referência de ritmo.')+'</p>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">'+
       '<div class="stat-box" style="flex:1 1 90px;"><div class="label">TEMPO ESTIMADO</div><div class="value" style="font-size:18px;">'+h+'h'+String(m).padStart(2,'0')+'</div></div>'+
       '<div class="stat-box" style="flex:1 1 90px;"><div class="label">POTÊNCIA MÉDIA</div><div class="value" style="font-size:18px;">'+Math.round(media)+'<small> W</small></div></div>'+
       '<div class="stat-box" style="flex:1 1 90px;"><div class="label">ENERGIA</div><div class="value" style="font-size:18px;">≈'+Math.round(trab/1000)+'<small> kcal</small></div></div></div>';
     html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;"><tr style="color:var(--text-muted);text-align:left;"><th>Trecho (km)</th><th>Inclin.</th><th>Zona</th><th>Potência (W)</th><th>Vel.</th><th>Tempo</th></tr>';
     linhas.forEach(function(l){
       var min=Math.round(l.seg/60);
-      html+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px 0;">'+l.de.toFixed(0)+'–'+l.ate.toFixed(0)+'</td><td>'+(l.gr>0?'+':'')+l.gr.toFixed(1)+'%</td><td>'+l.z+'</td><td><input type="number" class="tourPot" data-i="'+l.i+'" value="'+Math.round(l.P)+'" min="40" max="600" style="width:62px;padding:4px;border-radius:8px;background:var(--surface);color:var(--text);border:1px solid '+(l.custom?'var(--gold)':'var(--border)')+';"> <span style="color:var(--text-muted);">'+(l.P/peso).toFixed(1)+' W/kg</span></td><td>'+l.v.toFixed(0)+' km/h</td><td>'+Math.floor(min/60)+'h'+String(min%60).padStart(2,'0')+'</td></tr>';
+      html+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px 0;">'+l.de.toFixed(0)+'–'+l.ate.toFixed(0)+'</td><td>'+(l.gr>0?'+':'')+l.gr.toFixed(1)+'%</td><td>'+l.z+'</td><td><input type="number" class="tourPot" data-i="'+l.i+'" value="'+Math.round(l.P)+'" min="40" max="600" style="width:62px;padding:4px;border-radius:8px;background:var(--surface);color:var(--text);border:1px solid '+(l.custom?'var(--gold)':'var(--border)')+';"> <span style="color:var(--text-muted);">faixa '+Math.round(l.lo)+'–'+Math.round(l.hi)+' W</span></td><td>'+l.v.toFixed(0)+' km/h</td><td>'+Math.floor(min/60)+'h'+String(min%60).padStart(2,'0')+'</td></tr>';
     });
     html+='</table></div><button id="tourPotReset" style="font-size:12px;background:none;border:0;color:var(--gold);padding:6px 0;">↺ Voltar às potências sugeridas</button><p style="color:var(--text-muted);margin-top:2px;">Digite a potência que quer em cada trecho e confira a velocidade e o tempo. Baseado no seu FTP de <b>'+ftp+' W</b> e peso de <b>'+peso+' kg</b> (+9 kg de bike). Em rotas longas, comece 5% abaixo do alvo. Acima de 1h30, consuma cerca de 40–60 g de carboidrato por hora. É uma estimativa: vento, calor e pavimento mudam o resultado.</p>';
     box.innerHTML=html;
@@ -7032,6 +7050,101 @@ if ('serviceWorker' in navigator) {
     var rs=document.getElementById('tourPotReset'); if(rs) rs.addEventListener('click',function(){ if(st.pot) delete st.pot[st.rota]; gravar(st); desenharGuia(); });
   }
   ['ftpValue','pesoValue'].forEach(function(id){var el=document.getElementById(id); if(el) el.addEventListener('input',desenharGuia);});
+// Leitor mínimo de arquivo .FIT de treino (workout) — sem dependências
+function parseFitWorkout(buf){
+  var dv=new DataView(buf), hs=dv.getUint8(0), dataEnd=hs+dv.getUint32(4,true);
+  if(String.fromCharCode(dv.getUint8(8),dv.getUint8(9),dv.getUint8(10),dv.getUint8(11))!=='.FIT') throw new Error('Não é um arquivo .FIT');
+  var pos=hs, defs={}, steps=[], nome='';
+  var SZ={0:1,1:1,2:1,3:2,4:2,5:4,6:4,7:1,8:4,9:8,10:1,11:2,12:4,13:1,14:8,15:8,16:8};
+  function rd(le,off,size,bt,sig){
+    if(bt===7){var s='';for(var i=0;i<size;i++){var c=dv.getUint8(off+i);if(!c)break;s+=String.fromCharCode(c);}try{return decodeURIComponent(escape(s));}catch(e){return s;}}
+    if(size===1) return dv.getUint8(off);
+    if(size===2) return dv.getUint16(off,le);
+    if(size===4) return dv.getUint32(off,le);
+    return null;
+  }
+  while(pos<dataEnd){
+    var h=dv.getUint8(pos++), local, isDef=false, devFlag=false;
+    if(h&0x80){ local=(h>>5)&3; }
+    else { local=h&15; isDef=!!(h&0x40); devFlag=!!(h&0x20); }
+    if(isDef){
+      pos++; var le=dv.getUint8(pos++)===0; var mesg=dv.getUint16(pos,le); pos+=2; var nf=dv.getUint8(pos++), fields=[];
+      for(var i=0;i<nf;i++){fields.push({num:dv.getUint8(pos),size:dv.getUint8(pos+1),bt:dv.getUint8(pos+2)&0x1f});pos+=3;}
+      var devSize=0; if(devFlag){var nd=dv.getUint8(pos++);for(var j=0;j<nd;j++){devSize+=dv.getUint8(pos+1);pos+=3;}}
+      defs[local]={le:le,mesg:mesg,fields:fields,devSize:devSize};
+    } else {
+      var d=defs[local]; if(!d) throw new Error('Arquivo .FIT inválido');
+      var rec={};
+      d.fields.forEach(function(f){ rec[f.num]=rd(d.le,pos,f.size,f.bt); pos+=f.size; });
+      pos+=d.devSize;
+      if(d.mesg===27) steps.push(rec);          // workout_step
+      else if(d.mesg===26 && rec[8]) nome=rec[8]; // workout.wkt_name
+    }
+  }
+  return {nome:nome, passos:steps};
+}
+// transforma os passos em lista linear de blocos (já com as repetições expandidas)
+function expandirTreino(raw,ftp){
+  var INT={0:'ativo',1:'leve',2:'aquecimento',3:'desaquecimento',4:'leve',5:'ativo'};
+  var out=[], posAt={};
+  raw.passos.sort(function(a,b){return (a[254]||0)-(b[254]||0);});
+  raw.passos.forEach(function(p){
+    var idx=p[254]||0; posAt[idx]=out.length;
+    var dt=p[1];
+    if(dt===6){ // repetir passos
+      var de=p[2], vezes=p[4]||1, seg=out.slice(posAt[de]||0);
+      for(var k=1;k<vezes;k++) seg.forEach(function(b){out.push(JSON.parse(JSON.stringify(b)));});
+      return;
+    }
+    if(dt!==0) return; // só blocos por tempo
+    var lo=p[5], hi=p[6], w1=null, w2=null;
+    if(p[3]===4 && lo!=null && hi!=null && lo!==4294967295){
+      w1=lo>1000?lo-1000:Math.round(lo/100*ftp);   // >1000 = watts absolutos; senão % do FTP
+      w2=hi>1000?hi-1000:Math.round(hi/100*ftp);
+    }
+    out.push({nome:p[0]||'',int:INT[p[7]]||'ativo',seg:Math.round((p[2]||0)/1000),lo:w1,hi:w2});
+  });
+  return {nome:raw.nome,blocos:out};
+}
+
+
+  // ---- treino do TrainingPeaks (importado de arquivo .FIT) ----
+  function fmtMin(seg){var m=Math.round(seg/60);return m>=60?Math.floor(m/60)+'h'+String(m%60).padStart(2,'0'):m+' min';}
+  function desenharTP(){
+    var box=document.getElementById('tourTp'), rem=document.getElementById('tourTpRemover');
+    var tp=st.tp;
+    rem.style.display=tp?'inline':'none';
+    if(!tp||!tp.blocos||!tp.blocos.length){box.innerHTML='<p style="color:var(--text-muted);">Nenhum treino importado.</p>';return;}
+    var ftp=lerNum('ftpValue',220), tot=0, soma=0, maxW=0, bloco=null;
+    tp.blocos.forEach(function(b){ var mid=(b.lo!=null?(b.lo+b.hi)/2:0); tot+=b.seg; soma+=mid*b.seg; if(b.hi>maxW)maxW=b.hi; if(b.int==='ativo'&&(!bloco||b.seg>bloco.seg)) bloco=b; });
+    var W=300,H=70,x=0, cor={ativo:'#c9a24a',leve:'#6b7a8c',aquecimento:'#8fa3b8',desaquecimento:'#8fa3b8'};
+    var barras=tp.blocos.map(function(b){var w=b.seg/tot*W,h=maxW?((b.lo+b.hi)/2)/maxW*(H-6):10,r='<rect x="'+x.toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+Math.max(w-0.6,0.6).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(cor[b.int]||'#888')+'"/>';x+=w;return r;}).join('');
+    var html='<div style="font-weight:600;margin-bottom:2px;">'+(tp.nome||'Treino importado')+'</div><div style="color:var(--text-muted);margin-bottom:6px;">'+fmtMin(tot)+' · potência média ≈ '+Math.round(soma/tot)+' W</div>'+
+      '<div style="background:var(--surface);border-radius:12px;padding:8px;"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:80px;display:block;">'+barras+'</svg></div>';
+    if(bloco){ var mid=(bloco.lo+bloco.hi)/2, pc=Math.round(mid/ftp*100);
+      if(pc>110||pc<85) html+='<p style="margin-top:6px;color:var(--gold);">⚠️ O bloco principal ('+fmtMin(bloco.seg)+') pede ≈ '+Math.round(mid)+' W, que é '+pc+'% do FTP do app ('+ftp+' W). As potências vêm do seu TrainingPeaks; confirme o FTP na aba Treino.</p>'; }
+    html+='<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;"><tr style="color:var(--text-muted);text-align:left;"><th>#</th><th>Bloco</th><th>Duração</th><th>Potência alvo</th></tr>';
+    var ac=0;
+    tp.blocos.forEach(function(b,i){ html+='<tr style="border-top:1px solid var(--border);"><td style="padding:4px 0;">'+(i+1)+'</td><td>'+(b.nome||b.int)+'</td><td>'+fmtMin(b.seg)+'</td><td><b>'+(b.lo!=null?b.lo+'–'+b.hi+' W':'livre')+'</b></td></tr>'; });
+    html+='</table><p style="color:var(--text-muted);margin-top:6px;">Use este treino na subida; antes e depois, pedale solto. Nas rotas planas, siga a faixa de giro solto.</p>';
+    box.innerHTML=html;
+  }
+  document.getElementById('tourTpEscolher').addEventListener('click',function(){document.getElementById('tourTpArquivo').click();});
+  document.getElementById('tourTpArquivo').addEventListener('change',function(ev){
+    var f=ev.target.files&&ev.target.files[0]; if(!f) return;
+    var rd=new FileReader();
+    rd.onload=function(){
+      try{
+        var bruto=parseFitWorkout(rd.result), t=expandirTreino(bruto,lerNum('ftpValue',220));
+        if(!t.blocos.length) throw new Error('Nenhum bloco de treino encontrado');
+        st.tp={nome:t.nome||f.name.replace(/\.fit$/i,''),blocos:t.blocos}; gravar(st); desenharTP();
+      }catch(e){ alert('Não consegui ler este arquivo: '+e.message); }
+      ev.target.value='';
+    };
+    rd.readAsArrayBuffer(f);
+  });
+  document.getElementById('tourTpRemover').addEventListener('click',function(){ delete st.tp; gravar(st); desenharTP(); });
+  desenharTP();
   // ---- selos ----
   function desenharSelos(){
     var box=document.getElementById('tourSelos'); box.innerHTML='';
