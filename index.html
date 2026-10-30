@@ -842,7 +842,7 @@
   #btnVisitante{ background:none; border:0; font-family:inherit; cursor:pointer; }
   #pillVisitante{ display:none; position:absolute; bottom:74px; right:12px; z-index:50; font-family:var(--font-display); font-weight:700; font-size:11.5px; padding:6px 12px; border-radius:100px; background:var(--safety); color:#0b0f14; border:0; cursor:pointer; }
   body.visitante #pillVisitante{ display:block; }
-  body.visitante .nav-btn[data-view="treino"], body.visitante .nav-btn[data-view="tour"], body.visitante .nav-btn[data-view="bikes"], body.visitante .nav-btn[data-view="perfil"]{ display:none; }
+  body.visitante .nav-btn[data-view="treino"], body.visitante .nav-btn[data-view="tour"], body.visitante .nav-btn[data-view="tp"], body.visitante .nav-btn[data-view="bikes"], body.visitante .nav-btn[data-view="perfil"]{ display:none; }
 
   /* botão de sair, usado dentro do Perfil */
   .btn-logout{
@@ -1614,23 +1614,6 @@
             <div id="tourPerfil" style="background:var(--surface); border-radius:12px; padding:8px;"></div>
             <div id="tourPerfilInfo" style="font-size:12px; color:var(--text-muted); margin-top:4px;"></div>
           </div>
-          <div id="tourTpBox" style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
-            <div style="font-size:13px; font-weight:600; margin-bottom:4px;">🎯 Treino do TrainingPeaks</div>
-            <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Para as rotas de montanha, siga o treino do seu treinador. No TrainingPeaks, abra o treino, exporte em <b>.FIT</b> e importe aqui.</p>
-            <input type="file" id="tourTpArquivo" accept=".fit" style="display:none;">
-            <div style="display:flex; gap:12px; margin-bottom:8px;">
-              <button id="tourTpEscolher" style="padding:8px 12px; border-radius:10px; border:0; background:var(--gold); color:#000; font-weight:600; font-size:12px;">Importar treino (.FIT)</button>
-              <button id="tourTpDigitar" style="padding:8px 12px; border-radius:10px; border:1px solid var(--gold); background:none; color:var(--gold); font-weight:600; font-size:12px;">Digitar treino</button>
-              <button id="tourTpRemover" style="font-size:12px; background:none; border:0; color:var(--gold); padding:0; display:none;">Remover</button>
-            </div>
-            <div id="tourTpForm" style="display:none; margin-bottom:10px;">
-              <input type="text" id="tourTpNome" placeholder="Nome do treino (ex.: 2x20 limiar)" style="width:100%; padding:8px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border); font-size:12px; margin-bottom:6px;">
-              <textarea id="tourTpTexto" rows="7" placeholder="Um bloco por linha: duração e potência&#10;15min 154-180&#10;3x(1min 250-270; 1min 130-150)&#10;5min 154-180&#10;2x(20min 260; 5min 90)&#10;16min 150" style="width:100%; padding:8px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border); font-size:12px; font-family:var(--font-mono);"></textarea>
-              <p style="font-size:11px; color:var(--text-muted); margin:4px 0 8px;">Duração: <b>20min</b>, <b>30s</b> ou <b>1h</b>. Potência: <b>260</b> ou faixa <b>250-270</b> (em watts). Repetição: <b>2x( ... ; ... )</b>.</p>
-              <button id="tourTpUsar" style="padding:8px 12px; border-radius:10px; border:0; background:var(--gold); color:#000; font-weight:600; font-size:12px;">Usar este treino</button>
-            </div>
-            <div id="tourTp" style="font-size:12px; line-height:1.5;"></div>
-          </div>
           <div id="tourGuiaBox" style="margin-top:14px;">
             <div style="font-size:13px; font-weight:600; margin-bottom:4px;">⚡ Guia de potência</div>
             <div id="tourGuia" style="font-size:12px; line-height:1.5;"></div>
@@ -1655,6 +1638,32 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <section class="view" id="view-tp">
+      <div class="section" style="padding-top:20px;">
+        <div class="section-head"><h2>TrainingPeaks</h2><span class="count">treinos</span></div>
+      </div>
+      <div style="padding:0 16px 24px;">
+        <div class="intervals-box" style="margin:10px 0; padding:14px;">
+          <div id="tourTpLista" style="margin-bottom:12px;"></div>
+          <div id="tourTpBox" style="margin:0;">
+                        <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Guarde aqui os treinos do seu treinador. Digite o treino ou importe o arquivo <b>.FIT</b> exportado do TrainingPeaks. Os treinos ficam salvos neste aparelho.</p>
+            <input type="file" id="tourTpArquivo" accept=".fit" style="display:none;">
+            <div style="display:flex; gap:12px; margin-bottom:8px;">
+              <button id="tourTpEscolher" style="padding:8px 12px; border-radius:10px; border:0; background:var(--gold); color:#000; font-weight:600; font-size:12px;">Importar treino (.FIT)</button>
+              <button id="tourTpDigitar" style="padding:8px 12px; border-radius:10px; border:1px solid var(--gold); background:none; color:var(--gold); font-weight:600; font-size:12px;">Digitar treino</button>
+            </div>
+            <div id="tourTpForm" style="display:none; margin-bottom:10px;">
+              <input type="text" id="tourTpNome" placeholder="Nome do treino (ex.: 2x20 limiar)" style="width:100%; padding:8px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border); font-size:12px; margin-bottom:6px;">
+              <textarea id="tourTpTexto" rows="7" placeholder="Um bloco por linha: duração e alvo&#10;15min 154-180&#10;3x(1min 250-270; 1min 130-150)&#10;5min 154-180&#10;2x(20min 260; 5min 90)&#10;16min 150" style="width:100%; padding:8px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border); font-size:12px; font-family:var(--font-mono);"></textarea>
+              <p style="font-size:11px; color:var(--text-muted); margin:4px 0 8px;">Duração: <b>20min</b>, <b>30s</b> ou <b>1h</b>. Alvo: <b>260</b> ou faixa <b>250-270</b> (watts); para frequência cardíaca escreva <b>113-136bpm</b>. Repetição: <b>2x( ... ; ... )</b>.</p>
+              <button id="tourTpUsar" style="padding:8px 12px; border-radius:10px; border:0; background:var(--gold); color:#000; font-weight:600; font-size:12px;">Usar este treino</button>
+            </div>
+            <div id="tourTp" style="font-size:12px; line-height:1.5;"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1794,6 +1803,10 @@
     <button class="nav-btn" data-view="tour">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" stroke-linecap="round"/></svg>
       <span>Tour</span>
+    </button>
+    <button class="nav-btn" data-view="tp">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2" stroke-linecap="round"/></svg>
+      <span>TP</span>
     </button>
     <button class="nav-btn" data-view="perfil">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" stroke-linecap="round"/></svg>
@@ -7038,7 +7051,7 @@ if ('serviceWorker' in navigator) {
     var np=Math.pow(somaPesada/tempoTot,0.25), media=trab/tempoTot, h=Math.floor(tempoTot/3600), m=Math.round((tempoTot%3600)/60);
     var html='<p style="margin-bottom:8px;">'+(solto
       ? '🚴 <b>Rota de giro solto:</b> pedale leve, cadência de <b>90–100 rpm</b>, conversando sem esforço. A potência abaixo é uma <b>faixa</b>, não um valor fixo: oscile dentro dela, solte nas descidas e nos trechos a favor do vento.'
-      : '⛰️ <b>Rota de montanha:</b> a base do esforço está nas subidas. Antes e depois delas, pedale solto. Para o treino de montanha, o ideal é seguir o plano do seu treinador (TrainingPeaks); este guia é a referência de ritmo.')+'</p>'+
+      : '⛰️ <b>Rota de montanha:</b> a base do esforço está nas subidas. Antes e depois delas, pedale solto. Para o treino de montanha, siga o plano do seu treinador na <b>aba TP</b>'+(st.tp?' (treino em uso: <b>'+st.tp.nome+'</b>)':'')+'; este guia é a referência de ritmo.')+'</p>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">'+
       '<div class="stat-box" style="flex:1 1 90px;"><div class="label">TEMPO ESTIMADO</div><div class="value" style="font-size:18px;">'+h+'h'+String(m).padStart(2,'0')+'</div></div>'+
       '<div class="stat-box" style="flex:1 1 90px;"><div class="label">POTÊNCIA MÉDIA</div><div class="value" style="font-size:18px;">'+Math.round(media)+'<small> W</small></div></div>'+
@@ -7104,12 +7117,16 @@ function expandirTreino(raw,ftp){
       return;
     }
     if(dt!==0) return; // só blocos por tempo
-    var lo=p[5], hi=p[6], w1=null, w2=null;
-    if(p[3]===4 && lo!=null && hi!=null && lo!==4294967295){
-      w1=lo>1000?lo-1000:Math.round(lo/100*ftp);   // >1000 = watts absolutos; senão % do FTP
-      w2=hi>1000?hi-1000:Math.round(hi/100*ftp);
+    var lo=p[5], hi=p[6], w1=null, w2=null, f1=null, f2=null;
+    if(lo!=null && hi!=null && lo!==4294967295 && (lo>0||hi>0)){
+      if(p[3]===4){   // alvo de potência: >1000 = watts absolutos; senão % do FTP
+        w1=lo>1000?lo-1000:Math.round(lo/100*ftp);
+        w2=hi>1000?hi-1000:Math.round(hi/100*ftp);
+      } else if(p[3]===1){ // alvo de frequência cardíaca: >100 = bpm + 100; senão % da FC máx (não convertido)
+        if(lo>100&&hi>100){ f1=lo-100; f2=hi-100; }
+      }
     }
-    out.push({nome:p[0]||'',int:INT[p[7]]||'ativo',seg:Math.round((p[2]||0)/1000),lo:w1,hi:w2});
+    out.push({nome:p[0]||'',int:INT[p[7]]||'ativo',seg:Math.round((p[2]||0)/1000),lo:w1,hi:w2,fcLo:f1,fcHi:f2});
   });
   return {nome:raw.nome,blocos:out};
 }
@@ -7117,22 +7134,51 @@ function expandirTreino(raw,ftp){
 
   // ---- treino do TrainingPeaks (importado de arquivo .FIT) ----
   function fmtMin(seg){var m=Math.round(seg/60);return m>=60?Math.floor(m/60)+'h'+String(m%60).padStart(2,'0'):m+' min';}
+
+  // ---- biblioteca de treinos (salvos neste aparelho) ----
+  function guardarTP(nome,blocos,quando){
+    st.tps=st.tps||[];
+    var ja=st.tps.filter(function(t){return t.em===quando&&t.nome===nome;})[0];
+    if(!ja){ st.tps.unshift({id:'t'+Date.now(),nome:nome,blocos:blocos,em:quando}); st.tps=st.tps.slice(0,30); }
+    st.tp={nome:nome,blocos:blocos}; st.tpEm=quando; gravar(st); desenharTP();
+  }
+  function desenharLista(){
+    var box=document.getElementById('tourTpLista'); if(!box) return;
+    var l=st.tps||[];
+    if(!l.length){box.innerHTML='';return;}
+    box.innerHTML='<div style="font-size:13px;font-weight:600;margin-bottom:6px;">Meus treinos</div>'+l.map(function(t){
+      var ativo=st.tp&&st.tp.nome===t.nome&&st.tpEm===t.em, tot=t.blocos.reduce(function(a,b){return a+b.seg;},0);
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;border-radius:10px;background:var(--surface);'+(ativo?'border:1px solid var(--gold);':'')+'"><div style="flex:1;font-size:12px;"><b>'+t.nome+'</b><div style="color:var(--text-muted);">'+fmtMin(tot)+(ativo?' · em uso':'')+'</div></div>'+
+        (ativo?'':'<button data-usar="'+t.id+'" style="font-size:12px;background:none;border:0;color:var(--gold);">Usar</button>')+
+        '<button data-apagar="'+t.id+'" style="font-size:12px;background:none;border:0;color:var(--text-muted);">Apagar</button></div>';
+    }).join('');
+    box.querySelectorAll('[data-usar]').forEach(function(b){b.addEventListener('click',function(){
+      var t=(st.tps||[]).filter(function(x){return x.id===b.dataset.usar;})[0]; if(!t) return;
+      st.tp={nome:t.nome,blocos:t.blocos}; st.tpEm=t.em; gravar(st); desenharTP(); });});
+    box.querySelectorAll('[data-apagar]').forEach(function(b){b.addEventListener('click',function(){
+      var t=(st.tps||[]).filter(function(x){return x.id===b.dataset.apagar;})[0];
+      st.tps=(st.tps||[]).filter(function(x){return x.id!==b.dataset.apagar;});
+      if(t&&st.tp&&st.tp.nome===t.nome&&st.tpEm===t.em){ delete st.tp; }
+      gravar(st); desenharTP(); });});
+  }
   function desenharTP(){
-    var box=document.getElementById('tourTp'), rem=document.getElementById('tourTpRemover');
+    desenharLista();
+    var box=document.getElementById('tourTp');
     var tp=st.tp;
-    rem.style.display=tp?'inline':'none';
     if(!tp||!tp.blocos||!tp.blocos.length){box.innerHTML='<p style="color:var(--text-muted);">Nenhum treino importado.</p>';return;}
-    var ftp=lerNum('ftpValue',220), tot=0, soma=0, maxW=0, bloco=null;
-    tp.blocos.forEach(function(b){ var mid=(b.lo!=null?(b.lo+b.hi)/2:0); tot+=b.seg; soma+=mid*b.seg; if(b.hi>maxW)maxW=b.hi; if(b.int==='ativo'&&(!bloco||b.seg>bloco.seg)) bloco=b; });
+    var ftp=lerNum('ftpValue',220), tot=0, soma=0, maxV=0, bloco=null;
+    var porPot=tp.blocos.some(function(b){return b.lo!=null;}), un=porPot?'W':'bpm';
+    function faixa(b){ return porPot ? (b.lo!=null?[b.lo,b.hi]:null) : (b.fcLo!=null?[b.fcLo,b.fcHi]:null); }
+    tp.blocos.forEach(function(b){ var f=faixa(b), mid=f?(f[0]+f[1])/2:0; tot+=b.seg; soma+=mid*b.seg; if(f&&f[1]>maxV)maxV=f[1]; if(b.int==='ativo'&&(!bloco||b.seg>bloco.seg)) bloco=b; });
     var W=300,H=70,x=0, cor={ativo:'#c9a24a',leve:'#6b7a8c',aquecimento:'#8fa3b8',desaquecimento:'#8fa3b8'};
-    var barras=tp.blocos.map(function(b){var w=b.seg/tot*W,h=maxW?((b.lo+b.hi)/2)/maxW*(H-6):10,r='<rect x="'+x.toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+Math.max(w-0.6,0.6).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(cor[b.int]||'#888')+'"/>';x+=w;return r;}).join('');
-    var html='<div style="font-weight:600;margin-bottom:2px;">'+(tp.nome||'Treino importado')+'</div><div style="color:var(--text-muted);margin-bottom:6px;">'+fmtMin(tot)+' · potência média ≈ '+Math.round(soma/tot)+' W</div>'+
+    var barras=tp.blocos.map(function(b){var f=faixa(b),w=b.seg/tot*W,h=(f&&maxV)?((f[0]+f[1])/2)/maxV*(H-6):10,r='<rect x="'+x.toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+Math.max(w-0.6,0.6).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(cor[b.int]||'#888')+'"/>';x+=w;return r;}).join('');
+    var html='<div style="font-weight:600;margin-bottom:2px;">'+(tp.nome||'Treino importado')+'</div><div style="color:var(--text-muted);margin-bottom:6px;">'+fmtMin(tot)+' · '+(porPot?'potência':'frequência cardíaca')+' média ≈ '+Math.round(soma/tot)+' '+un+'</div>'+
       '<div style="background:var(--surface);border-radius:12px;padding:8px;"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:80px;display:block;">'+barras+'</svg></div>';
-    if(bloco){ var mid=(bloco.lo+bloco.hi)/2, pc=Math.round(mid/ftp*100);
+    if(porPot && bloco && bloco.lo!=null){ var mid=(bloco.lo+bloco.hi)/2, pc=Math.round(mid/ftp*100);
       if(pc>110||pc<85) html+='<p style="margin-top:6px;color:var(--gold);">⚠️ O bloco principal ('+fmtMin(bloco.seg)+') pede ≈ '+Math.round(mid)+' W, que é '+pc+'% do FTP do app ('+ftp+' W). As potências vêm do seu TrainingPeaks; confirme o FTP na aba Treino.</p>'; }
-    html+='<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;"><tr style="color:var(--text-muted);text-align:left;"><th>#</th><th>Bloco</th><th>Duração</th><th>Potência alvo</th></tr>';
-    var ac=0;
-    tp.blocos.forEach(function(b,i){ html+='<tr style="border-top:1px solid var(--border);"><td style="padding:4px 0;">'+(i+1)+'</td><td>'+(b.nome||b.int)+'</td><td>'+fmtMin(b.seg)+'</td><td><b>'+(b.lo!=null?b.lo+'–'+b.hi+' W':'livre')+'</b></td></tr>'; });
+    if(!porPot) html+='<p style="margin-top:6px;color:var(--text-muted);">Este treino é guiado por <b>frequência cardíaca</b> (bpm), não por potência.</p>';
+    html+='<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;"><tr style="color:var(--text-muted);text-align:left;"><th>#</th><th>Bloco</th><th>Duração</th><th>Alvo</th></tr>';
+    tp.blocos.forEach(function(b,i){ var f=faixa(b); html+='<tr style="border-top:1px solid var(--border);"><td style="padding:4px 0;">'+(i+1)+'</td><td>'+(b.nome||b.int)+'</td><td>'+fmtMin(b.seg)+'</td><td><b>'+(f?f[0]+'–'+f[1]+' '+un:'livre')+'</b></td></tr>'; });
     html+='</table><p style="color:var(--text-muted);margin-top:6px;">Use este treino na subida; antes e depois, pedale solto. Nas rotas planas, siga a faixa de giro solto.</p>';
     box.innerHTML=html;
   }
@@ -7144,28 +7190,30 @@ function expandirTreino(raw,ftp){
       try{
         var bruto=parseFitWorkout(rd.result), t=expandirTreino(bruto,lerNum('ftpValue',220));
         if(!t.blocos.length) throw new Error('Nenhum bloco de treino encontrado');
-        st.tpEm=new Date().toISOString(); st.tp={nome:t.nome||f.name.replace(/\.fit$/i,''),blocos:t.blocos}; gravar(st); desenharTP();
+        guardarTP(t.nome||f.name.replace(/\.fit$/i,''),t.blocos,new Date().toISOString());
       }catch(e){ alert('Não consegui ler este arquivo: '+e.message); }
       ev.target.value='';
     };
     rd.readAsArrayBuffer(f);
   });
-  document.getElementById('tourTpRemover').addEventListener('click',function(){ delete st.tp; gravar(st); desenharTP(); });
 
   // ---- treino digitado: "15min 154-180" / "3x(1min 250-270; 1min 130-150)" ----
   function splitTopo(t){var out=[],d=0,cur='';for(var i=0;i<t.length;i++){var c=t[i];if(c==='(')d++;if(c===')')d--;if((c===';'||c==='\n')&&d===0){if(cur.trim())out.push(cur.trim());cur='';}else cur+=c;}if(cur.trim())out.push(cur.trim());return out;}
+  var modoBpm=false;
   function lerBlocos(txt){
     var out=[];
     splitTopo(txt).forEach(function(item){
       var it=item.toLowerCase().replace(/×/g,'x').replace(/[’´`]/g,"'");
       var r=it.match(/^(\d+)\s*x\s*\(([\s\S]*)\)$/);
-      if(r){var sub=lerBlocos(r[2]);for(var k=0;k<parseInt(r[1],10);k++)sub.forEach(function(b){out.push({seg:b.seg,lo:b.lo,hi:b.hi});});return;}
-      var m=it.match(/^([\d.,]+)\s*(h|min|m|'|s|seg)?\s+(\d+)(?:\s*[-–a]\s*(\d+))?\s*w?$/);
+      if(r){var sub=lerBlocos(r[2]);for(var k=0;k<parseInt(r[1],10);k++)sub.forEach(function(b){out.push({seg:b.seg,lo:b.lo,hi:b.hi,fcLo:b.fcLo,fcHi:b.fcHi});});return;}
+      var m=it.match(/^([\d.,]+)\s*(h|min|m|'|s|seg)?\s+(\d+)(?:\s*[-–a]\s*(\d+))?\s*(w|bpm)?$/);
       if(!m) throw new Error('não entendi a linha: "'+item+'"');
       var n=parseFloat(m[1].replace(',','.')), u=m[2]||'min', seg=u==='h'?n*3600:(u==='s'||u==='seg')?n:n*60;
       var lo=parseInt(m[3],10), hi=m[4]?parseInt(m[4],10):lo;
       if(!m[4]){lo=Math.round(lo*0.97);hi=Math.round(hi*1.03);} // valor único vira faixa de ±3%
-      out.push({seg:Math.round(seg),lo:Math.min(lo,hi),hi:Math.max(lo,hi)});
+      var a=Math.min(lo,hi), b2=Math.max(lo,hi);
+      if((m[5]||(modoBpm?'bpm':'w'))==='bpm') out.push({seg:Math.round(seg),lo:null,hi:null,fcLo:a,fcHi:b2});
+      else out.push({seg:Math.round(seg),lo:a,hi:b2,fcLo:null,fcHi:null});
     });
     return out;
   }
@@ -7174,11 +7222,13 @@ function expandirTreino(raw,ftp){
   });
   document.getElementById('tourTpUsar').addEventListener('click',function(){
     try{
-      var bl=lerBlocos(document.getElementById('tourTpTexto').value);
+      var txtTP=document.getElementById('tourTpTexto').value; modoBpm=/bpm/i.test(txtTP);
+      var bl=lerBlocos(txtTP);
       if(!bl.length) throw new Error('digite ao menos um bloco');
-      var mx=Math.max.apply(null,bl.map(function(b){return (b.lo+b.hi)/2;}));
-      bl.forEach(function(b,i){ var mid=(b.lo+b.hi)/2; b.int=mid>=mx*0.85?'ativo':(i===0?'aquecimento':(i===bl.length-1?'desaquecimento':'leve')); b.nome=''; });
-      st.tpEm=new Date().toISOString(); st.tp={nome:document.getElementById('tourTpNome').value.trim()||'Treino digitado',blocos:bl}; gravar(st);
+      function vm(b){return b.lo!=null?(b.lo+b.hi)/2:(b.fcLo+b.fcHi)/2;}
+      var mx=Math.max.apply(null,bl.map(vm));
+      bl.forEach(function(b,i){ var mid=vm(b); b.int=mid>=mx*0.85?'ativo':(i===0?'aquecimento':(i===bl.length-1?'desaquecimento':'leve')); b.nome=''; });
+      guardarTP(document.getElementById('tourTpNome').value.trim()||'Treino digitado',bl,new Date().toISOString());
       document.getElementById('tourTpForm').style.display='none'; desenharTP();
     }catch(e){ alert('Confira o treino: '+e.message); }
   });
@@ -7186,7 +7236,7 @@ function expandirTreino(raw,ftp){
   // treino publicado em treino-tp.json (enviado por você): vale se for mais novo que o último importado/digitado neste aparelho
   fetch('treino-tp.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(j){
     if(!j||!j.blocos||!j.blocos.length) return;
-    if(!st.tpEm||j.atualizado>st.tpEm){ st.tp={nome:j.nome,blocos:j.blocos}; st.tpEm=j.atualizado; gravar(st); desenharTP(); }
+    if(!st.tpEm||j.atualizado>st.tpEm){ guardarTP(j.nome,j.blocos,j.atualizado); }
   }).catch(function(){});
   // ---- selos ----
   function desenharSelos(){
