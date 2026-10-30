@@ -1620,7 +1620,14 @@
             <input type="file" id="tourTpArquivo" accept=".fit" style="display:none;">
             <div style="display:flex; gap:12px; margin-bottom:8px;">
               <button id="tourTpEscolher" style="padding:8px 12px; border-radius:10px; border:0; background:var(--gold); color:#000; font-weight:600; font-size:12px;">Importar treino (.FIT)</button>
+              <button id="tourTpDigitar" style="padding:8px 12px; border-radius:10px; border:1px solid var(--gold); background:none; color:var(--gold); font-weight:600; font-size:12px;">Digitar treino</button>
               <button id="tourTpRemover" style="font-size:12px; background:none; border:0; color:var(--gold); padding:0; display:none;">Remover</button>
+            </div>
+            <div id="tourTpForm" style="display:none; margin-bottom:10px;">
+              <input type="text" id="tourTpNome" placeholder="Nome do treino (ex.: 2x20 limiar)" style="width:100%; padding:8px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border); font-size:12px; margin-bottom:6px;">
+              <textarea id="tourTpTexto" rows="7" placeholder="Um bloco por linha: duração e potência&#10;15min 154-180&#10;3x(1min 250-270; 1min 130-150)&#10;5min 154-180&#10;2x(20min 260; 5min 90)&#10;16min 150" style="width:100%; padding:8px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border); font-size:12px; font-family:var(--font-mono);"></textarea>
+              <p style="font-size:11px; color:var(--text-muted); margin:4px 0 8px;">Duração: <b>20min</b>, <b>30s</b> ou <b>1h</b>. Potência: <b>260</b> ou faixa <b>250-270</b> (em watts). Repetição: <b>2x( ... ; ... )</b>.</p>
+              <button id="tourTpUsar" style="padding:8px 12px; border-radius:10px; border:0; background:var(--gold); color:#000; font-weight:600; font-size:12px;">Usar este treino</button>
             </div>
             <div id="tourTp" style="font-size:12px; line-height:1.5;"></div>
           </div>
@@ -7137,14 +7144,50 @@ function expandirTreino(raw,ftp){
       try{
         var bruto=parseFitWorkout(rd.result), t=expandirTreino(bruto,lerNum('ftpValue',220));
         if(!t.blocos.length) throw new Error('Nenhum bloco de treino encontrado');
-        st.tp={nome:t.nome||f.name.replace(/\.fit$/i,''),blocos:t.blocos}; gravar(st); desenharTP();
+        st.tpEm=new Date().toISOString(); st.tp={nome:t.nome||f.name.replace(/\.fit$/i,''),blocos:t.blocos}; gravar(st); desenharTP();
       }catch(e){ alert('Não consegui ler este arquivo: '+e.message); }
       ev.target.value='';
     };
     rd.readAsArrayBuffer(f);
   });
   document.getElementById('tourTpRemover').addEventListener('click',function(){ delete st.tp; gravar(st); desenharTP(); });
+
+  // ---- treino digitado: "15min 154-180" / "3x(1min 250-270; 1min 130-150)" ----
+  function splitTopo(t){var out=[],d=0,cur='';for(var i=0;i<t.length;i++){var c=t[i];if(c==='(')d++;if(c===')')d--;if((c===';'||c==='\n')&&d===0){if(cur.trim())out.push(cur.trim());cur='';}else cur+=c;}if(cur.trim())out.push(cur.trim());return out;}
+  function lerBlocos(txt){
+    var out=[];
+    splitTopo(txt).forEach(function(item){
+      var it=item.toLowerCase().replace(/×/g,'x').replace(/[’´`]/g,"'");
+      var r=it.match(/^(\d+)\s*x\s*\(([\s\S]*)\)$/);
+      if(r){var sub=lerBlocos(r[2]);for(var k=0;k<parseInt(r[1],10);k++)sub.forEach(function(b){out.push({seg:b.seg,lo:b.lo,hi:b.hi});});return;}
+      var m=it.match(/^([\d.,]+)\s*(h|min|m|'|s|seg)?\s+(\d+)(?:\s*[-–a]\s*(\d+))?\s*w?$/);
+      if(!m) throw new Error('não entendi a linha: "'+item+'"');
+      var n=parseFloat(m[1].replace(',','.')), u=m[2]||'min', seg=u==='h'?n*3600:(u==='s'||u==='seg')?n:n*60;
+      var lo=parseInt(m[3],10), hi=m[4]?parseInt(m[4],10):lo;
+      if(!m[4]){lo=Math.round(lo*0.97);hi=Math.round(hi*1.03);} // valor único vira faixa de ±3%
+      out.push({seg:Math.round(seg),lo:Math.min(lo,hi),hi:Math.max(lo,hi)});
+    });
+    return out;
+  }
+  document.getElementById('tourTpDigitar').addEventListener('click',function(){
+    var f=document.getElementById('tourTpForm'); f.style.display=f.style.display==='none'?'block':'none';
+  });
+  document.getElementById('tourTpUsar').addEventListener('click',function(){
+    try{
+      var bl=lerBlocos(document.getElementById('tourTpTexto').value);
+      if(!bl.length) throw new Error('digite ao menos um bloco');
+      var mx=Math.max.apply(null,bl.map(function(b){return (b.lo+b.hi)/2;}));
+      bl.forEach(function(b,i){ var mid=(b.lo+b.hi)/2; b.int=mid>=mx*0.85?'ativo':(i===0?'aquecimento':(i===bl.length-1?'desaquecimento':'leve')); b.nome=''; });
+      st.tpEm=new Date().toISOString(); st.tp={nome:document.getElementById('tourTpNome').value.trim()||'Treino digitado',blocos:bl}; gravar(st);
+      document.getElementById('tourTpForm').style.display='none'; desenharTP();
+    }catch(e){ alert('Confira o treino: '+e.message); }
+  });
   desenharTP();
+  // treino publicado em treino-tp.json (enviado por você): vale se for mais novo que o último importado/digitado neste aparelho
+  fetch('treino-tp.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(j){
+    if(!j||!j.blocos||!j.blocos.length) return;
+    if(!st.tpEm||j.atualizado>st.tpEm){ st.tp={nome:j.nome,blocos:j.blocos}; st.tpEm=j.atualizado; gravar(st); desenharTP(); }
+  }).catch(function(){});
   // ---- selos ----
   function desenharSelos(){
     var box=document.getElementById('tourSelos'); box.innerHTML='';
