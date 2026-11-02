@@ -7277,12 +7277,16 @@ function expandirTreino(raw,ftp){
   document.getElementById('tpCalProx').addEventListener('click',function(){calMes.setMonth(calMes.getMonth()+1);calSel=null;desenharCal();carregarPedaisMes();carregarIcuMes();});
   document.querySelectorAll('.nav-btn[data-view="tp"]').forEach(function(b){b.addEventListener('click',function(){setTimeout(function(){carregarPedaisMes();carregarIcuMes();},300);});});
   // ---- biblioteca de treinos (salvos neste aparelho) ----
-  function guardarTP(nome,blocos,quando,chave){
+  function adicionarTP(nome,blocos,quando,chave){
     st.tps=st.tps||[];
     var ja=st.tps.filter(function(t){return chave?t.chave===chave:(t.em===quando&&t.nome===nome);})[0];
-    if(ja){ ja.nome=nome; ja.blocos=blocos; quando=ja.em; }
-    else { st.tps.unshift({id:'t'+Date.now(),nome:nome,blocos:blocos,em:quando,chave:chave||null}); st.tps=st.tps.slice(0,30); }
-    st.tp={nome:nome,blocos:blocos}; st.tpEm=quando; gravar(st); desenharTP();
+    if(ja){ ja.nome=nome; ja.blocos=blocos; ja.em=quando; return ja; }
+    ja={id:'t'+Date.now()+Math.floor(Math.random()*1000),nome:nome,blocos:blocos,em:quando,chave:chave||null};
+    st.tps.unshift(ja); st.tps=st.tps.slice(0,60); return ja;
+  }
+  function guardarTP(nome,blocos,quando,chave){
+    var t=adicionarTP(nome,blocos,quando,chave);
+    st.tp={nome:t.nome,blocos:t.blocos}; st.tpEm=t.em; gravar(st); desenharTP();
   }
   function desenharLista(){
     var box=document.getElementById('tourTpLista'); if(!box) return;
@@ -7378,8 +7382,18 @@ function expandirTreino(raw,ftp){
   desenharTP();
   // treino publicado em treino-tp.json (enviado por você): vale se for mais novo que o último importado/digitado neste aparelho
   fetch('treino-tp.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(j){
-    if(!j||!j.blocos||!j.blocos.length) return;
-    if(!st.tpEm||j.atualizado>st.tpEm){ guardarTP(j.nome,j.blocos,j.atualizado); }
+    if(!j) return;
+    var lista=j.treinos?j.treinos:(j.blocos?[j]:[]), mudou=false;
+    lista.forEach(function(t){
+      if(!t||!t.blocos||!t.blocos.length) return;
+      var quando=t.atualizado||j.atualizado||'2000-01-01T00:00:00Z', chave='json-'+(t.data||'')+'-'+t.nome;
+      var ex=(st.tps||[]).filter(function(x){return x.chave===chave;})[0];
+      if(ex&&ex.em>=quando) return;               // já aplicado neste aparelho (preserva edições suas)
+      var it=adicionarTP(t.nome,t.blocos,quando,chave); mudou=true;
+      if(t.data){ st.cal=st.cal||{}; st.cal[t.data]=it.id; }
+      else if(!st.tpEm||quando>st.tpEm){ st.tp={nome:it.nome,blocos:it.blocos}; st.tpEm=quando; }
+    });
+    if(mudou){ gravar(st); desenharTP(); }
   }).catch(function(){});
   // ---- selos ----
   function desenharSelos(){
