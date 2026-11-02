@@ -1590,7 +1590,7 @@
     <!-- ===================== PERFIL ===================== -->
     <section class="view" id="view-tour">
       <div class="section" style="padding-top:20px;">
-        <div class="section-head"><h2>Tour virtual</h2><span class="count">Europa</span></div>
+        <div class="section-head"><h2>Tour virtual</h2><span class="count">Mundo</span></div>
       </div>
       <div style="padding:0 16px 24px;">
         <div class="intervals-box" id="tourBox" style="margin:10px 0; padding:14px;">
@@ -1598,7 +1598,11 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" stroke-linecap="round"/></svg>
             <h4>Tour virtual</h4>
           </div>
-          <p class="intervals-desc">Escolha uma rota na Europa. Os km dos seus pedais (inclusive os da academia) fazem você avançar no mapa.</p>
+          <p class="intervals-desc">Escolha uma rota na Europa ou no Brasil. Os km dos seus pedais (inclusive os da academia) fazem você avançar no mapa.</p>
+          <div style="display:flex; gap:6px; margin-bottom:8px;">
+            <button id="tourRegEu" style="flex:1; padding:8px; border-radius:10px; border:1px solid var(--border); font-weight:600; font-size:12px;">🌍 Europa</button>
+            <button id="tourRegBr" style="flex:1; padding:8px; border-radius:10px; border:1px solid var(--border); font-weight:600; font-size:12px;">🇧🇷 Brasil</button>
+          </div>
           <select id="tourRota" style="width:100%; padding:10px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--border); margin-bottom:8px;"></select>
           <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
             <label style="font-size:12px; color:var(--text-muted);">Começar a contar em</label>
@@ -6922,18 +6926,36 @@ if ('serviceWorker' in navigator) {
     {id:'alpe', vids:['cRkeR_CcqQA','c1f2eIremrw','TEyzbfwiDd4','XlwjMjyU410','7YToQUZN5Is'], nome:'Grenoble → Alpe d\'Huez', pts:[['Grenoble',5.7245,45.1885],['Vizille',5.7714,45.0783],['Le Bourg-d\'Oisans',6.0310,45.0553],['Alpe d\'Huez',6.0700,45.0917]]},
     {id:'ventoux', vids:['-BgQ7mjTQpM','E7UPLd1bxyc','geQowb8cRc4','kXH2AgflpO0','M8J69xWs2Cw'], nome:'Avignon → Mont Ventoux', pts:[['Avignon',4.8055,43.9493],['Carpentras',5.0480,44.0554],['Bédoin',5.1786,44.1264],['Mont Ventoux',5.2786,44.1739]]},
     {id:'suica', vids:['rE6PFp1GKwM','_GnjT6lWHUA','tiZxMmFxzCY','QRm1ZLUiUYY','4cXwwsoUAj8'], nome:'Suíça (Zurique → Grindelwald)', pts:[['Zurique',8.5417,47.3769],['Lucerna',8.3093,47.0502],['Interlaken',7.8632,46.6863],['Lauterbrunnen',7.9086,46.5936],['Grindelwald',8.0413,46.6244]]},
-    {id:'sella', vids:['3sw2_N5eqNw','D3S_kDvLJ8c','IXLhiBNo85Y'], nome:'Dolomitas – Sella Ronda (circuito)', pts:[['Corvara',11.8730,46.5522],['Arabba',11.8714,46.4985],['Passo Pordoi',11.8147,46.4880],['Canazei',11.7717,46.4746],['Passo Sella',11.7667,46.5100],['Selva Val Gardena',11.7650,46.5560],['Passo Gardena',11.8010,46.5500],['Corvara',11.8730,46.5522]]}
-];
+    {id:'sella', vids:['3sw2_N5eqNw','D3S_kDvLJ8c','IXLhiBNo85Y'], nome:'Dolomitas – Sella Ronda (circuito)', pts:[['Corvara',11.8730,46.5522],['Arabba',11.8714,46.4985],['Passo Pordoi',11.8147,46.4880],['Canazei',11.7717,46.4746],['Passo Sella',11.7667,46.5100],['Selva Val Gardena',11.7650,46.5560],['Passo Gardena',11.8010,46.5500],['Corvara',11.8730,46.5522]]},
+    {id:'br-rio', regiao:'br', vids:['2XoQBX4BGRA','B_Y8ghIvK8M','Jjua-HJWvnk','JAgPPJbhzV8','u8C5CnBs5t4'], nome:'Rio: Flamengo → Prainha e Grumari', pts:[['Aterro do Flamengo',-43.1729,-22.9290],['Copacabana',-43.1850,-22.9711],['Leblon',-43.2243,-22.9866],['São Conrado',-43.2600,-22.9990],['Barra da Tijuca',-43.3650,-23.0000],['Recreio',-43.4640,-23.0300],['Prainha',-43.5058,-23.0397],['Grumari',-43.5254,-23.0486]]},
+    {id:'br-letape', regiao:'br', vids:['V2iDyz1jaj0','-7xipZx6MiE','gyO9YFKFrto','vmWhOYfohtQ'], nome:'L\'Étape Campos do Jordão (circuito aproximado)', pts:[['Campos do Jordão',-45.5906,-22.7397],['Santo Antônio do Pinhal',-45.6628,-22.8267],['São Bento do Sapucaí',-45.7324,-22.6903],['Campos do Jordão',-45.5906,-22.7397]]},
+    {id:'br-rastro', regiao:'br', vids:['K5cv34FssgE','U__BFiXEr_4','l7oiRYqVORc','Sahgw3ogoJU'], nome:'Serra do Rio do Rastro (Orleans → Bom Jardim da Serra)', pts:[['Orleans',-49.2889,-28.3578],['Lauro Müller',-49.3938,-28.3917],['Bom Jardim da Serra',-49.6370,-28.3380]]},
+    {id:'br-graciosa', regiao:'br', vids:['QIpTy3dvQa4','-R-hMZ2Hk_0','DF9qbdv7Gkw','CUP7uodLUzs','MhTXF7aDtv8'], nome:'Estrada da Graciosa (Curitiba → Morretes)', pts:[['Curitiba',-49.2733,-25.4284],['Quatro Barras',-49.0780,-25.3686],['Serra da Graciosa',-48.9990,-25.3850],['Morretes',-48.8340,-25.4769]]},
+    {id:'br-estradareal', regiao:'br', vids:['gkH9clWHqo0','aOcaDTa2cJ8','rcXm8OcI6ec'], nome:'Estrada Real (Ouro Preto → Tiradentes)', pts:[['Ouro Preto',-43.5042,-20.3856],['Congonhas',-43.8603,-20.4990],['São João del-Rei',-44.2639,-21.1361],['Tiradentes',-44.1775,-21.1103]]}
+  ];
   var K='tourVirtual';
   function ler(){ try{return JSON.parse(localStorage.getItem(K)||'{}');}catch(e){return {};} }
   function gravar(o){ try{localStorage.setItem(K,JSON.stringify(o));}catch(e){} }
   var selRota=document.getElementById('tourRota'), inIni=document.getElementById('tourInicio');
   if(!selRota) return;
-  TOUR_ROTAS.forEach(function(r){var o=document.createElement('option');o.value=r.id;o.textContent=r.nome;selRota.appendChild(o);});
   var st=ler();
   if(!st.rota) st.rota=TOUR_ROTAS[0].id;
   if(!st.inicio) st.inicio=new Date().toISOString().slice(0,10);
-  gravar(st); if(st.cat){ Array.prototype.forEach.call(selRota.options,function(o){ var r=TOUR_ROTAS.filter(function(x){return x.id===o.value;})[0]; if(r&&st.cat[r.id]) o.textContent=st.cat[r.id]+' '+r.nome; }); }
+  function regiaoDe(r){return r.regiao||'eu';}
+  var rotaSalva=TOUR_ROTAS.filter(function(r){return r.id===st.rota;})[0];
+  if(!st.regiao) st.regiao=rotaSalva?regiaoDe(rotaSalva):'eu';
+  function popularRotas(){
+    selRota.innerHTML='';
+    TOUR_ROTAS.filter(function(r){return regiaoDe(r)===st.regiao;}).forEach(function(r){var o=document.createElement('option');o.value=r.id;o.textContent=((st.cat&&st.cat[r.id])?st.cat[r.id]+' ':'')+r.nome;selRota.appendChild(o);});
+    var atual=TOUR_ROTAS.filter(function(r){return r.id===st.rota;})[0];
+    if(!atual||regiaoDe(atual)!==st.regiao){ st.rota=selRota.options[0].value; st.vi=0; }
+    selRota.value=st.rota;
+    [['tourRegEu','eu'],['tourRegBr','br']].forEach(function(x){ var el=document.getElementById(x[0]), on=st.regiao===x[1]; el.style.background=on?'var(--gold)':'var(--surface)'; el.style.color=on?'#000':'var(--text)'; });
+  }
+  popularRotas();
+  document.getElementById('tourRegEu').addEventListener('click',function(){ st.regiao='eu'; popularRotas(); gravar(st); mostrarVideo(); atualizar(); });
+  document.getElementById('tourRegBr').addEventListener('click',function(){ st.regiao='br'; popularRotas(); gravar(st); mostrarVideo(); atualizar(); });
+  gravar(st);
   selRota.value=st.rota; inIni.value=st.inicio;
 
   function hav(a,b){var R=6371,t=Math.PI/180,dl=(b[1]-a[1])*t,dn=(b[0]-a[0])*t;
