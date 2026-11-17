@@ -7165,7 +7165,7 @@ function expandirTreino(raw,ftp){
 
 
   // ---- treino do TrainingPeaks (importado de arquivo .FIT) ----
-  function fmtMin(seg){var m=Math.round(seg/60);return m>=60?Math.floor(m/60)+'h'+String(m%60).padStart(2,'0'):m+' min';}
+  function fmtMin(seg){seg=Math.round(seg);if(seg<60)return seg+' s';if(seg<3600&&seg%60)return Math.floor(seg/60)+' min '+(seg%60)+' s';var m=Math.round(seg/60);return m>=60?Math.floor(m/60)+'h'+String(m%60).padStart(2,'0'):m+' min';}
 
 
 
